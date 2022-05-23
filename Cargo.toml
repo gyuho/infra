@@ -6,6 +6,7 @@ rust-version = "1.61"
 publish = true
 description = "AWS SDK utilities"
 homepage = "https://github.com/awslabs/aws-sdk-rust/releases"
+license = "Apache-2.0"
 
 [dependencies]
 avalanche-utils = { version = "0.0.3", features = ["full"] }
