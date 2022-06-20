@@ -5,8 +5,10 @@ use std::{
     thread, time,
 };
 
-use avalanche_utils::{cmp, random, time as atime};
-use aws_sdk_manager::{self, envelope, kms};
+use aws_sdk_manager::{
+    self, envelope, kms,
+    utils::{cmp, random, time as time_utils},
+};
 use log::info;
 
 /// cargo run --example kms
@@ -27,7 +29,7 @@ fn main() {
     let shared_config = ab!(aws_sdk_manager::load_config(None)).unwrap();
     let kms_manager = kms::Manager::new(&shared_config);
 
-    let mut key_desc = atime::with_prefix("test");
+    let mut key_desc = time_utils::with_prefix("test");
     key_desc.push_str("-cmk");
 
     // error should be ignored if it does not exist

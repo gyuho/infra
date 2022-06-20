@@ -1,10 +1,12 @@
 use std::{fs, path::Path, sync::Arc};
 
-use crate::errors::{
-    Error::{Other, API},
-    Result,
+use crate::{
+    errors::{
+        Error::{Other, API},
+        Result,
+    },
+    utils::humanize,
 };
-use avalanche_utils::humanize;
 use aws_sdk_s3::{
     error::{CreateBucketError, CreateBucketErrorKind, DeleteBucketError},
     model::{

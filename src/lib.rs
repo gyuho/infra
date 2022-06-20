@@ -6,6 +6,7 @@ pub mod errors;
 pub mod kms;
 pub mod s3;
 pub mod sts;
+pub mod utils;
 
 use std::io;
 

@@ -1,7 +1,9 @@
 use std::{fs, io::Write, sync::Arc, thread, time};
 
-use avalanche_utils::{random, system_id, time as atime};
-use aws_sdk_manager::{self, s3};
+use aws_sdk_manager::{
+    self, s3,
+    utils::{random, system_id, time as time_utils},
+};
 use log::info;
 use tokio::runtime::Runtime;
 
@@ -25,8 +27,8 @@ fn main() {
     println!();
     println!();
     let bucket = format!(
-        "avalanche-ops-examples-tests-s3-{}-{}",
-        atime::timestamp(6),
+        "aws-sdk-manager-examples-tests-s3-{}-{}",
+        time_utils::timestamp(6),
         system_id::string(10)
     );
     rt.block_on(s3_manager.delete_bucket(&bucket)).unwrap(); // error should be ignored if it does not exist

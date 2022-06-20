@@ -15,8 +15,8 @@ use ring::rand::{SecureRandom, SystemRandom};
 use crate::{
     errors::{Error::Other, Result},
     kms,
+    utils::humanize,
 };
-use avalanche_utils::humanize;
 
 const DEK_AES_256_LENGTH: usize = 32;
 
