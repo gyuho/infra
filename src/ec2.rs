@@ -12,11 +12,13 @@ use hyper::{Body, Method, Request};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
-use crate::errors::{
-    Error::{Other, API},
-    Result,
+use crate::{
+    errors::{
+        Error::{Other, API},
+        Result,
+    },
+    utils::{http, rfc3339},
 };
-use avalanche_utils::{http, rfc3339};
 
 /// Implements AWS EC2 manager.
 #[derive(Debug, Clone)]

@@ -640,7 +640,7 @@ impl Config {
 
 #[test]
 fn test_config() {
-    use avalanche_utils::random;
+    use crate::utils::random;
     use std::fs;
     let _ = env_logger::builder().is_test(true).try_init();
 

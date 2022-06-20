@@ -2,8 +2,7 @@ use std::{fs, thread, time};
 
 use log::info;
 
-use avalanche_utils::time as atime;
-use aws_sdk_manager::{self, ec2};
+use aws_sdk_manager::{self, ec2, utils::time as time_utils};
 
 /// cargo run --example ec2_key_pair
 fn main() {
@@ -24,7 +23,7 @@ fn main() {
     let shared_config = ret.unwrap();
     let ec2_manager = ec2::Manager::new(&shared_config);
 
-    let mut key_name = atime::with_prefix("test");
+    let mut key_name = time_utils::with_prefix("test");
     key_name.push_str("-key");
 
     // error should be ignored if it does not exist
