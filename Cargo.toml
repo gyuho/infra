@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.61"
 publish = true
 description = "AWS SDK manager"
-homepage = "https://github.com/awslabs/aws-sdk-rust/releases"
+homepage = "https://github.com/gyuho/aws-sdk-manager"
 license = "Apache-2.0"
 
 [dependencies]
