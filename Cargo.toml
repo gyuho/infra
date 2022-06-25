@@ -9,16 +9,16 @@ homepage = "https://github.com/gyuho/aws-sdk-manager"
 license = "Apache-2.0"
 
 [dependencies]
-aws-config = "0.13.0" # https://github.com/awslabs/aws-sdk-rust/releases
-aws-sdk-cloudformation = "0.13.0" # https://github.com/awslabs/aws-sdk-rust/releases
-aws-sdk-cloudwatch = "0.13.0" # https://github.com/awslabs/aws-sdk-rust/releases
-aws-sdk-cloudwatchlogs = "0.13.0"
-aws-sdk-ec2 = "0.13.0"
-aws-sdk-kms = "0.13.0"
-aws-sdk-s3 = "0.13.0"
-aws-sdk-sts = "0.13.0"
-aws-smithy-types = "0.43.0"
-aws-types = "0.13.0"
+aws-config = "0.14.0" # https://github.com/awslabs/aws-sdk-rust/releases
+aws-sdk-cloudformation = "0.14.0" # https://github.com/awslabs/aws-sdk-rust/releases
+aws-sdk-cloudwatch = "0.14.0" # https://github.com/awslabs/aws-sdk-rust/releases
+aws-sdk-cloudwatchlogs = "0.14.0"
+aws-sdk-ec2 = "0.14.0"
+aws-sdk-kms = "0.14.0"
+aws-sdk-s3 = "0.14.0"
+aws-sdk-sts = "0.14.0"
+aws-smithy-types = "0.44.0"
+aws-types = "0.14.0"
 bs58 = "0.4.0"
 byteorder = "1.4.3"
 chrono = "0.4.19"
