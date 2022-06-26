@@ -1,7 +1,6 @@
 pub mod cloudformation;
 pub mod cloudwatch;
 pub mod ec2;
-pub mod envelope;
 pub mod errors;
 pub mod kms;
 pub mod s3;

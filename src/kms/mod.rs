@@ -1,3 +1,5 @@
+pub mod envelope;
+
 use std::{
     fs::{self, File},
     io::Write,

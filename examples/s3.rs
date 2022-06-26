@@ -52,8 +52,8 @@ fn main() {
     let contents = vec![7; 50 * 1024 * 1024];
     let mut upload_file = tempfile::NamedTempFile::new().unwrap();
     upload_file.write_all(&contents.to_vec()).unwrap();
-    let upload_path = upload_file.path().to_str().unwrap();
-    let s3_key = "sub-dir/aaa.txt";
+    let upload_path = upload_file.path().to_str().unwrap().to_string();
+    let s3_key = "sub-dir/aaa.txt".to_string();
     rt.block_on(s3::spawn_put_object(
         s3_manager.clone(),
         &upload_path,

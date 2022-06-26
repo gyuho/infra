@@ -15,7 +15,10 @@ use ring::rand::{SecureRandom, SystemRandom};
 use crate::{
     errors::{Error::Other, Result},
     kms,
-    utils::humanize,
+    utils::{
+        compress::{self, Decoder, Encoder},
+        humanize, random,
+    },
 };
 
 const DEK_AES_256_LENGTH: usize = 32;
@@ -23,24 +26,15 @@ const DEK_AES_256_LENGTH: usize = 32;
 /// Implements envelope encryption manager.
 #[derive(std::clone::Clone)]
 pub struct Envelope {
-    aws_kms_manager: Option<kms::Manager>,
-    aws_kms_key_id: Option<String>,
-    aad_tag: String,
+    pub kms_manager: kms::Manager,
+    pub kms_key_id: String,
+
+    /// Represents additional authenticated data (AAD) that attaches information
+    /// to the ciphertext that is not encrypted.
+    pub aad_tag: String,
 }
 
 impl Envelope {
-    pub fn new(
-        aws_kms_manager: Option<kms::Manager>,
-        aws_kms_key_id: Option<String>,
-        aad_tag: String,
-    ) -> Self {
-        Self {
-            aws_kms_manager,
-            aws_kms_key_id,
-            aad_tag,
-        }
-    }
-
     /// Envelope-encrypts the data using AWS KMS data-encryption key (DEK)
     /// and "AES_256_GCM", since kms:Encrypt can only encrypt 4 KiB).
     /// The encrypted data are aligned as below:
@@ -51,17 +45,9 @@ impl Envelope {
             humanize::bytes(d.len() as f64)
         );
 
-        if self.aws_kms_manager.is_none() || self.aws_kms_key_id.is_none() {
-            return Err(Other {
-                message: String::from("Envelope.aws_kms_manager and aws_kms_key_id not found"),
-                is_retryable: false,
-            });
-        }
-        let kms_manager = self.aws_kms_manager.clone().unwrap();
-        let key_id = self.aws_kms_key_id.clone().unwrap();
-
-        let dek = kms_manager
-            .generate_data_key(&key_id, Some(DataKeySpec::Aes256))
+        let dek = self
+            .kms_manager
+            .generate_data_key(&self.kms_key_id, Some(DataKeySpec::Aes256))
             .await?;
         if dek.plaintext.len() != DEK_AES_256_LENGTH {
             return Err(Other {
@@ -191,15 +177,6 @@ impl Envelope {
             humanize::bytes(d.len() as f64)
         );
 
-        if self.aws_kms_manager.is_none() || self.aws_kms_key_id.is_none() {
-            return Err(Other {
-                message: String::from("Envelope.aws_kms_manager and aws_kms_key_id not found"),
-                is_retryable: false,
-            });
-        }
-        let kms_manager = self.aws_kms_manager.clone().unwrap();
-        let key_id = self.aws_kms_key_id.clone().unwrap();
-
         // bytes are packed in the order of
         // - Nonce bytes "length"
         // - DEK.ciphertext "length"
@@ -267,9 +244,10 @@ impl Envelope {
             }
         };
         // use the default "SYMMETRIC_DEFAULT"
-        let dek_plain = kms_manager
+        let dek_plain = self
+            .kms_manager
             .decrypt(
-                &key_id,
+                &self.kms_key_id,
                 Some(EncryptionAlgorithmSpec::SymmetricDefault),
                 dek_ciphertext,
             )
@@ -409,22 +387,71 @@ impl Envelope {
 
         Ok(())
     }
+
+    /// Compresses the source file ("src_file") and envelope-encrypts to "dst_file".
+    /// The compression uses "zstd".
+    /// The encryption uses AES 256.
+    pub async fn compress_seal(&self, src_file: Arc<String>, dst_file: Arc<String>) -> Result<()> {
+        info!(
+            "compress-seal: compressing the file '{}'",
+            src_file.to_string()
+        );
+        let compressed_path = random::tmp_path(10, None).unwrap();
+        compress::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3)).map_err(
+            |e| Other {
+                message: format!("failed compression {}", e),
+                is_retryable: false,
+            },
+        )?;
+
+        info!(
+            "compress-seal: sealing the compressed file '{}'",
+            compressed_path
+        );
+        self.seal_aes_256_file(Arc::new(compressed_path), dst_file.clone())
+            .await
+    }
+
+    /// Reverse of "compress_seal".
+    /// The decompression uses "zstd".
+    /// The decryption uses AES 256.
+    pub async fn unseal_decompress(
+        &self,
+        src_file: Arc<String>,
+        dst_file: Arc<String>,
+    ) -> Result<()> {
+        info!(
+            "unseal-decompress: unsealing the encrypted file '{}'",
+            src_file.as_ref()
+        );
+        let unsealed_path = random::tmp_path(10, None).unwrap();
+        self.unseal_aes_256_file(src_file.clone(), Arc::new(unsealed_path.clone()))
+            .await?;
+
+        info!(
+            "unseal-decompress: decompressing the file '{}'",
+            src_file.as_ref()
+        );
+        compress::unpack_file(&unsealed_path, dst_file.as_ref(), Decoder::Zstd).map_err(|e| Other {
+            message: format!("failed decompression {}", e),
+            is_retryable: false,
+        })
+    }
 }
 
 fn zero_vec(n: usize) -> Vec<u8> {
     (0..n).map(|_| 0).collect()
 }
 
-pub async fn spawn_seal_aes_256_file(
-    envel: Envelope,
-    src_file: &str,
-    dst_file: &str,
-) -> Result<()> {
-    let envel_arc = Arc::new(envel);
-    let src_file_arc = Arc::new(src_file.to_string());
-    let dst_file_arc = Arc::new(dst_file.to_string());
+pub async fn spawn_seal_aes_256_file<S>(envelope: Envelope, src_file: S, dst_file: S) -> Result<()>
+where
+    S: AsRef<str>,
+{
+    let envelope_arc = Arc::new(envelope);
+    let src_file_arc = Arc::new(src_file.as_ref().to_string());
+    let dst_file_arc = Arc::new(dst_file.as_ref().to_string());
     tokio::spawn(async move {
-        envel_arc
+        envelope_arc
             .seal_aes_256_file(src_file_arc, dst_file_arc)
             .await
     })
@@ -432,17 +459,48 @@ pub async fn spawn_seal_aes_256_file(
     .expect("failed spawn await")
 }
 
-pub async fn spawn_unseal_aes_256_file(
-    envel: Envelope,
-    src_file: &str,
-    dst_file: &str,
-) -> Result<()> {
-    let envel_arc = Arc::new(envel);
-    let src_file_arc = Arc::new(src_file.to_string());
-    let dst_file_arc = Arc::new(dst_file.to_string());
+pub async fn spawn_unseal_aes_256_file<S>(
+    envelope: Envelope,
+    src_file: S,
+    dst_file: S,
+) -> Result<()>
+where
+    S: AsRef<str>,
+{
+    let envelope_arc = Arc::new(envelope);
+    let src_file_arc = Arc::new(src_file.as_ref().to_string());
+    let dst_file_arc = Arc::new(dst_file.as_ref().to_string());
     tokio::spawn(async move {
-        envel_arc
+        envelope_arc
             .unseal_aes_256_file(src_file_arc, dst_file_arc)
+            .await
+    })
+    .await
+    .expect("failed spawn await")
+}
+
+pub async fn spawn_compress_seal<S>(envelope: Envelope, src_file: S, dst_file: S) -> Result<()>
+where
+    S: AsRef<str>,
+{
+    let envelope_arc = Arc::new(envelope);
+    let src_file_arc = Arc::new(src_file.as_ref().to_string());
+    let dst_file_arc = Arc::new(dst_file.as_ref().to_string());
+    tokio::spawn(async move { envelope_arc.compress_seal(src_file_arc, dst_file_arc).await })
+        .await
+        .expect("failed spawn await")
+}
+
+pub async fn spawn_unseal_decompress<S>(envelope: Envelope, src_file: S, dst_file: S) -> Result<()>
+where
+    S: AsRef<str>,
+{
+    let envelope_arc = Arc::new(envelope);
+    let src_file_arc = Arc::new(src_file.as_ref().to_string());
+    let dst_file_arc = Arc::new(dst_file.as_ref().to_string());
+    tokio::spawn(async move {
+        envelope_arc
+            .unseal_decompress(src_file_arc, dst_file_arc)
             .await
     })
     .await

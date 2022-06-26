@@ -6,7 +6,8 @@ use std::{
 };
 
 use aws_sdk_manager::{
-    self, envelope, kms,
+    self,
+    kms::{self, envelope::Envelope},
     utils::{cmp, random, time as time_utils},
 };
 use log::info;
@@ -80,11 +81,11 @@ fn main() {
         plaintext.as_bytes()
     ));
 
-    let envelope = envelope::Envelope::new(
-        Some(kms_manager.clone()),
-        Some(cmk.id.clone()),
-        "test-aad-tag".to_string(),
-    );
+    let envelope = Envelope {
+        kms_manager: kms_manager.clone(),
+        kms_key_id: cmk.id.clone(),
+        aad_tag: "test-aad-tag".to_string(),
+    };
     let sealed_aes_256_file_path = random::tmp_path(10, Some(".encrypted")).unwrap();
     let unsealed_aes_256_file_path = random::tmp_path(10, None).unwrap();
     ab!(envelope.seal_aes_256_file(
