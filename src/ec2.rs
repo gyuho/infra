@@ -1,8 +1,17 @@
-use std::{fs::File, io::prelude::*, path::Path, sync::Arc, time::Duration};
+use std::{
+    fs::File,
+    io::prelude::*,
+    path::Path,
+    sync::Arc,
+    thread,
+    time::{Duration, Instant},
+};
 
 use aws_sdk_ec2::{
     error::DeleteKeyPairError,
-    model::{Filter, Instance, InstanceState, InstanceStateName, Tag},
+    model::{
+        Filter, Instance, InstanceState, InstanceStateName, Tag, Volume, VolumeAttachmentState,
+    },
     types::SdkError,
     Client,
 };
@@ -93,7 +102,6 @@ impl Manager {
         match ret {
             Ok(_) => {}
             Err(e) => {
-                info!("hey! {}", e);
                 if !is_error_delete_key_pair_does_not_exist(&e) {
                     return Err(API {
                         message: format!("failed delete_key_pair {:?}", e),
@@ -105,6 +113,122 @@ impl Manager {
         };
 
         Ok(())
+    }
+
+    /// Fetches the EBS volume attachment status.
+    pub async fn describe_volume(&self, instance_id: &str, device_path: &str) -> Result<Volume> {
+        info!(
+            "describing EBS volume for '{}' on '{}'",
+            instance_id, device_path
+        );
+        let ret = self
+            .cli
+            .describe_volumes()
+            .set_filters(Some(vec![
+                Filter::builder()
+                    .set_name(Some(String::from("attachment.instance-id")))
+                    .set_values(Some(vec![String::from(instance_id)]))
+                    .build(),
+                Filter::builder()
+                    .set_name(Some(String::from("attachment.device")))
+                    .set_values(Some(vec![String::from(device_path)]))
+                    .build(),
+            ]))
+            .send()
+            .await;
+        match ret {
+            Ok(res) => {
+                if res.volumes.is_none() {
+                    return Err(API {
+                        message: "no volume found (response.volumes.is_none)".to_string(),
+                        is_retryable: false,
+                    });
+                }
+                let volumes = res.volumes().unwrap();
+                if volumes.is_empty() {
+                    return Err(API {
+                        message: "no volume found".to_string(),
+                        is_retryable: false,
+                    });
+                }
+                if volumes.len() != 1 {
+                    return Err(API {
+                        message: format!("unexpected volume devices found {}", volumes.len()),
+                        is_retryable: false,
+                    });
+                }
+                let volume = volumes[0].clone();
+                return Ok(volume);
+            }
+            Err(e) => {
+                return Err(API {
+                    message: format!("failed describe volume {:?}", e),
+                    is_retryable: is_error_retryable(&e),
+                });
+            }
+        }
+    }
+
+    /// Polls EBS volume attachment state.
+    pub async fn poll_volume_attachment_state(
+        &self,
+        instance_id: &str,
+        device_path: &str,
+        desired_attachment_state: VolumeAttachmentState,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<Volume> {
+        info!(
+            "polling volume attachment state '{}' '{}' with desired state {:?} for timeout {:?} and interval {:?}",
+            instance_id,device_path, desired_attachment_state, timeout, interval,
+        );
+
+        let start = Instant::now();
+        let mut cnt: u128 = 0;
+        loop {
+            let elapsed = start.elapsed();
+            if elapsed.gt(&timeout) {
+                break;
+            }
+
+            let itv = {
+                if cnt == 0 {
+                    // first poll with no wait
+                    Duration::from_secs(1)
+                } else {
+                    interval
+                }
+            };
+            thread::sleep(itv);
+
+            let volume = self.describe_volume(instance_id, device_path).await?;
+            if volume.attachments().is_none() {
+                warn!("no attachment found");
+                continue;
+            }
+            let attachments = volume.attachments().unwrap();
+            if attachments.is_empty() {
+                warn!("no attachment found");
+                continue;
+            }
+            if attachments.len() != 1 {
+                warn!("unexpected attachment found {}", attachments.len());
+                continue;
+            }
+            let current_state = attachments[0].state().unwrap();
+            info!("poll (current {:?}, elapsed {:?})", current_state, elapsed);
+
+            if current_state.eq(&desired_attachment_state) {
+                return Ok(volume);
+            }
+
+            cnt += 1;
+        }
+
+        return Err(Other {
+            message: format!("failed to poll volume state for '{}' in time", instance_id),
+            is_retryable: true,
+        });
     }
 
     /// Fetches all tags for the specified instance.
