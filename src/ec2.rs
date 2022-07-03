@@ -7,6 +7,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::{
+    errors::{
+        Error::{Other, API},
+        Result,
+    },
+    utils::{http, rfc3339},
+};
 use aws_sdk_ec2::{
     error::DeleteKeyPairError,
     model::{
@@ -20,14 +27,6 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use hyper::{Body, Method, Request};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    errors::{
-        Error::{Other, API},
-        Result,
-    },
-    utils::{http, rfc3339},
-};
 
 /// Implements AWS EC2 manager.
 #[derive(Debug, Clone)]
@@ -115,72 +114,137 @@ impl Manager {
         Ok(())
     }
 
-    /// Fetches the EBS volume attachment status.
-    pub async fn describe_volume(&self, instance_id: &str, device_path: &str) -> Result<Volume> {
+    /// Describes all attached volumes by instance Id and device.
+    /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
+    /// The region used for API call is inherited from the EC2 client SDK.
+    ///
+    /// e.g.,
+    /// aws ec2 describe-volumes \
+    /// --region ${AWS::Region} \
+    /// --filters \
+    ///   Name=attachment.instance-id,Values=$INSTANCE_ID \
+    ///   Name=attachment.device,Values=/dev/xvdb \
+    /// --query Volumes[].Attachments[].State \
+    /// --output text
+    ///
+    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
+    /// ref. https://github.com/ava-labs/avalanche-ops/blob/fcbac87a219a8d3d6d3c38a1663fe1dafe78e04e/bin/avalancheup-aws/cfn-templates/asg_amd64_ubuntu.yaml#L397-L409
+    ///
+    pub async fn describe_attached_volumes(
+        &self,
+        instance_id: Option<String>,
+        device_path: Option<String>,
+    ) -> Result<Vec<Volume>> {
+        let inst_id = if let Some(inst_id) = instance_id {
+            inst_id
+        } else {
+            fetch_instance_id().await?
+        };
         info!(
-            "describing EBS volume for '{}' on '{}'",
-            instance_id, device_path
+            "describing volumes via instance Id {} and device {:?}",
+            inst_id, device_path
         );
-        let ret = self
-            .cli
-            .describe_volumes()
-            .set_filters(Some(vec![
-                Filter::builder()
-                    .set_name(Some(String::from("attachment.instance-id")))
-                    .set_values(Some(vec![String::from(instance_id)]))
-                    .build(),
+
+        let mut filters = vec![Filter::builder()
+            .set_name(Some(String::from("attachment.instance-id")))
+            .set_values(Some(vec![inst_id.clone()]))
+            .build()];
+        if let Some(device) = device_path {
+            filters.push(
                 Filter::builder()
                     .set_name(Some(String::from("attachment.device")))
-                    .set_values(Some(vec![String::from(device_path)]))
+                    .set_values(Some(vec![device]))
                     .build(),
-            ]))
+            )
+        }
+
+        let resp = match self
+            .cli
+            .describe_volumes()
+            .set_filters(Some(filters))
             .send()
-            .await;
-        match ret {
-            Ok(res) => {
-                if res.volumes.is_none() {
-                    return Err(API {
-                        message: "no volume found (response.volumes.is_none)".to_string(),
-                        is_retryable: false,
-                    });
-                }
-                let volumes = res.volumes().unwrap();
-                if volumes.is_empty() {
-                    return Err(API {
-                        message: "no volume found".to_string(),
-                        is_retryable: false,
-                    });
-                }
-                if volumes.len() != 1 {
-                    return Err(API {
-                        message: format!("unexpected volume devices found {}", volumes.len()),
-                        is_retryable: false,
-                    });
-                }
-                let volume = volumes[0].clone();
-                return Ok(volume);
-            }
+            .await
+        {
+            Ok(r) => r,
             Err(e) => {
                 return Err(API {
-                    message: format!("failed describe volume {:?}", e),
+                    message: format!("failed describe_volumes {:?}", e),
                     is_retryable: is_error_retryable(&e),
                 });
             }
+        };
+
+        let volumes = if let Some(vols) = resp.volumes {
+            vols
+        } else {
+            Vec::new()
+        };
+        info!(
+            "described {} volumes for instance {}",
+            volumes.len(),
+            inst_id
+        );
+
+        Ok(volumes)
+    }
+
+    /// Fetches the EBS volume by its attachment state.
+    /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
+    pub async fn get_volume(
+        &self,
+        instance_id: Option<String>,
+        device_path: &str,
+    ) -> Result<Volume> {
+        let inst_id = if let Some(inst_id) = instance_id {
+            inst_id
+        } else {
+            fetch_instance_id().await?
+        };
+
+        info!(
+            "fetchingt EBS volume for '{}' on '{}'",
+            inst_id, device_path
+        );
+
+        let volumes = self
+            .describe_attached_volumes(Some(inst_id), Some(device_path.to_string()))
+            .await?;
+        if volumes.is_empty() {
+            return Err(API {
+                message: "no volume found".to_string(),
+                is_retryable: false,
+            });
         }
+        if volumes.len() != 1 {
+            return Err(API {
+                message: format!("unexpected volume devices found {}", volumes.len()),
+                is_retryable: false,
+            });
+        }
+        let volume = volumes[0].clone();
+
+        return Ok(volume);
     }
 
     /// Polls EBS volume attachment state.
+    /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
     pub async fn poll_volume_attachment_state(
         &self,
-        instance_id: &str,
+        instance_id: Option<String>,
         device_path: &str,
         desired_attachment_state: VolumeAttachmentState,
         timeout: Duration,
         interval: Duration,
     ) -> Result<Volume> {
+        let inst_id = if let Some(inst_id) = instance_id {
+            inst_id
+        } else {
+            fetch_instance_id().await?
+        };
+
         info!(
             "polling volume attachment state '{}' '{}' with desired state {:?} for timeout {:?} and interval {:?}",
-            instance_id,device_path, desired_attachment_state, timeout, interval,
+            inst_id, device_path, desired_attachment_state, timeout, interval,
         );
 
         let start = Instant::now();
@@ -201,7 +265,7 @@ impl Manager {
             };
             thread::sleep(itv);
 
-            let volume = self.describe_volume(instance_id, device_path).await?;
+            let volume = self.get_volume(Some(inst_id.clone()), device_path).await?;
             if volume.attachments().is_none() {
                 warn!("no attachment found");
                 continue;
@@ -226,7 +290,7 @@ impl Manager {
         }
 
         return Err(Other {
-            message: format!("failed to poll volume state for '{}' in time", instance_id),
+            message: format!("failed to poll volume state for '{}' in time", inst_id),
             is_retryable: true,
         });
     }

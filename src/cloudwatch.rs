@@ -8,6 +8,7 @@ use std::{
     thread, time,
 };
 
+use crate::errors::{Error::API, Result};
 use aws_sdk_cloudwatch::{
     model::MetricDatum, types::SdkError as MetricsSdkError, Client as MetricsClient,
 };
@@ -21,8 +22,6 @@ use aws_sdk_cloudwatchlogs::{
 use aws_types::SdkConfig as AwsSdkConfig;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-
-use crate::errors::{Error::API, Result};
 
 /// Implements AWS CloudWatch manager.
 #[derive(Debug, Clone)]
