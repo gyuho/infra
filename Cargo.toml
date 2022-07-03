@@ -1,8 +1,8 @@
 [package]
 name = "aws-sdk-manager"
-version = "0.0.6"
+version = "0.0.6" # https://crates.io/crates/aws-sdk-manager/versions
 edition = "2021"
-rust-version = "1.61"
+rust-version = "1.62"
 publish = true
 description = "AWS SDK manager"
 homepage = "https://github.com/gyuho/aws-sdk-manager"

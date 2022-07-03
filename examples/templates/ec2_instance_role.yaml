@@ -60,7 +60,7 @@ Resources:
         - arn:aws:iam::aws:policy/CloudWatchFullAccess
       Path: /
       Policies:
-        - PolicyName: avalanche-ops-instance-role-policy
+        - PolicyName: aws-sdk-manager-instance-role-policy
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -192,7 +192,7 @@ Resources:
                   - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${Id}:log-stream:*"
         - Fn::If:
             - HasS3BucketDbBackupName
-            - PolicyName: avalanche-ops-instance-role-policy-for-db-backup
+            - PolicyName: aws-sdk-manager-instance-role-policy-for-db-backup
               PolicyDocument:
                 Version: "2012-10-17"
                 Statement:
