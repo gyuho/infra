@@ -1,6 +1,6 @@
 [package]
 name = "aws-sdk-manager"
-version = "0.0.6" # https://crates.io/crates/aws-sdk-manager/versions
+version = "0.0.7" # https://crates.io/crates/aws-sdk-manager/versions
 edition = "2021"
 rust-version = "1.62"
 publish = true
