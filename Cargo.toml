@@ -1,6 +1,6 @@
 [package]
 name = "aws-sdk-manager"
-version = "0.0.8" # https://crates.io/crates/aws-sdk-manager/versions
+version = "0.0.9" # https://crates.io/crates/aws-sdk-manager/versions
 edition = "2021"
 rust-version = "1.62"
 publish = true
@@ -22,12 +22,14 @@ aws-types = "0.15.0"
 bs58 = "0.4.0"
 byteorder = "1.4.3"
 chrono = "0.4.19"
-compress-manager = "0.0.1" # https://crates.io/crates/compress-manager/versions
+compress-manager = "0.0.2" # https://crates.io/crates/compress-manager/versions
+human-readable = "0.0.1"
 hyper = { version = "0.14.19", features = ["full"] }
 hyper-tls = "0.5.0"
 lazy_static = "1.4.0"
 log = "0.4.17"
 rand = "0.8.5"
+random-manager = "0.0.1" # https://crates.io/crates/random-manager/versions
 ring = "0.16.20"
 ripemd = "0.1.1"
 serde = { version = "1.0.137", features = ["derive"] }

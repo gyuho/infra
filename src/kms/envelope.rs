@@ -7,7 +7,6 @@ use std::{
 use crate::{
     errors::{Error::Other, Result},
     kms,
-    utils::{humanize, random},
 };
 use aws_sdk_kms::model::{DataKeySpec, EncryptionAlgorithmSpec};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -39,7 +38,7 @@ impl Envelope {
     pub async fn seal_aes_256(&self, d: &[u8]) -> Result<Vec<u8>> {
         info!(
             "AES_256 envelope-encrypting data (size before encryption {})",
-            humanize::bytes(d.len() as f64)
+            human_readable::bytes(d.len() as f64)
         );
 
         let dek = self
@@ -160,7 +159,7 @@ impl Envelope {
 
         info!(
             "AES_256 envelope-encrypted data (encrypted size {})",
-            humanize::bytes(encrypted.len() as f64)
+            human_readable::bytes(encrypted.len() as f64)
         );
         Ok(encrypted)
     }
@@ -171,7 +170,7 @@ impl Envelope {
     pub async fn unseal_aes_256(&self, d: &[u8]) -> Result<Vec<u8>> {
         info!(
             "AES_256 envelope-decrypting data (size before decryption {})",
-            humanize::bytes(d.len() as f64)
+            human_readable::bytes(d.len() as f64)
         );
 
         // bytes are packed in the order of
@@ -284,7 +283,7 @@ impl Envelope {
 
         info!(
             "AES_256 envelope-decrypted data (decrypted size {})",
-            humanize::bytes(decrypted.len() as f64)
+            human_readable::bytes(decrypted.len() as f64)
         );
         Ok(decrypted)
     }
@@ -393,7 +392,7 @@ impl Envelope {
             "compress-seal: compressing the file '{}'",
             src_file.to_string()
         );
-        let compressed_path = random::tmp_path(10, None).unwrap();
+        let compressed_path = random_manager::tmp_path(10, None).unwrap();
         compress_manager::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3))
             .map_err(|e| Other {
                 message: format!("failed compression {}", e),
@@ -420,7 +419,7 @@ impl Envelope {
             "unseal-decompress: unsealing the encrypted file '{}'",
             src_file.as_ref()
         );
-        let unsealed_path = random::tmp_path(10, None).unwrap();
+        let unsealed_path = random_manager::tmp_path(10, None).unwrap();
         self.unseal_aes_256_file(src_file.clone(), Arc::new(unsealed_path.clone()))
             .await?;
 

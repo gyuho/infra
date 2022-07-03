@@ -8,7 +8,7 @@ use std::{
 use aws_sdk_manager::{
     self,
     kms::{self, envelope::Envelope},
-    utils::{cmp, random, time as time_utils},
+    utils::{cmp, time as time_utils},
 };
 use log::info;
 
@@ -56,8 +56,8 @@ fn main() {
     assert!(ret.is_ok());
     let plaintext_file_path = plaintext_file.path().to_str().unwrap();
 
-    let encrypted_file_path = random::tmp_path(10, Some(".encrypted")).unwrap();
-    let decrypted_file_path = random::tmp_path(10, Some(".encrypted")).unwrap();
+    let encrypted_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
+    let decrypted_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
     ab!(kms_manager.encrypt_file(&cmk.id, None, plaintext_file_path, &encrypted_file_path))
         .unwrap();
     ab!(kms_manager.decrypt_file(&cmk.id, None, &encrypted_file_path, &decrypted_file_path))
@@ -86,8 +86,8 @@ fn main() {
         kms_key_id: cmk.id.clone(),
         aad_tag: "test-aad-tag".to_string(),
     };
-    let sealed_aes_256_file_path = random::tmp_path(10, Some(".encrypted")).unwrap();
-    let unsealed_aes_256_file_path = random::tmp_path(10, None).unwrap();
+    let sealed_aes_256_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
+    let unsealed_aes_256_file_path = random_manager::tmp_path(10, None).unwrap();
     ab!(envelope.seal_aes_256_file(
         Arc::new(plaintext_file_path.to_string()),
         Arc::new(sealed_aes_256_file_path.clone())

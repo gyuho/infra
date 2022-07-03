@@ -2,7 +2,7 @@ use std::{fs, io::Write, sync::Arc, thread, time};
 
 use aws_sdk_manager::{
     self, s3,
-    utils::{random, system_id, time as time_utils},
+    utils::{system_id, time as time_utils},
 };
 use log::info;
 use tokio::runtime::Runtime;
@@ -66,7 +66,7 @@ fn main() {
     println!();
     println!();
     thread::sleep(time::Duration::from_secs(2));
-    let download_path = random::tmp_path(10, None).unwrap();
+    let download_path = random_manager::tmp_path(10, None).unwrap();
     rt.block_on(s3::spawn_get_object(
         s3_manager.clone(),
         &bucket,

@@ -6,7 +6,6 @@ use crate::{
         Result,
     },
     kms::envelope::Envelope,
-    utils::{humanize, random},
 };
 use aws_sdk_s3::{
     error::{CreateBucketError, CreateBucketErrorKind, DeleteBucketError},
@@ -331,7 +330,7 @@ impl Manager {
         info!(
             "starting put_object '{}' (size {}) to 's3://{}/{}'",
             file_path,
-            humanize::bytes(size),
+            human_readable::bytes(size),
             s3_bucket,
             s3_key
         );
@@ -397,7 +396,7 @@ impl Manager {
             s3_bucket,
             s3_key,
             head_output.content_type().unwrap(),
-            humanize::bytes(head_output.content_length() as f64),
+            human_readable::bytes(head_output.content_length() as f64),
         );
         let mut output = self
             .cli
@@ -447,7 +446,7 @@ impl Manager {
             "compress-seal-put-object: compress and seal '{}'",
             file_path.as_str()
         );
-        let compressed_sealed_path = random::tmp_path(10, None).unwrap();
+        let compressed_sealed_path = random_manager::tmp_path(10, None).unwrap();
         envelope
             .compress_seal(file_path.clone(), Arc::new(compressed_sealed_path.clone()))
             .await?;
@@ -477,7 +476,7 @@ impl Manager {
             s3_bucket.as_str(),
             s3_key.as_str()
         );
-        let downloaded_path = random::tmp_path(10, None).unwrap();
+        let downloaded_path = random_manager::tmp_path(10, None).unwrap();
         self.get_object(
             s3_bucket.clone(),
             s3_key.clone(),

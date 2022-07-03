@@ -1,6 +1,6 @@
 use std::{thread, time};
 
-use aws_sdk_manager::{self, cloudwatch, utils::random};
+use aws_sdk_manager::cloudwatch;
 use log::info;
 
 /// cargo run --example cloudwatch
@@ -20,7 +20,7 @@ fn main() {
 
     let shared_config = ab!(aws_sdk_manager::load_config(None)).unwrap();
     let cw_manager = cloudwatch::Manager::new(&shared_config);
-    let log_group_name = random::string(15);
+    let log_group_name = random_manager::string(15);
 
     // error should be ignored if it does not exist
     let ret = ab!(cw_manager.delete_log_group("invalid_id"));

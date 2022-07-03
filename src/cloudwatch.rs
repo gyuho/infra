@@ -639,7 +639,6 @@ impl Config {
 
 #[test]
 fn test_config() {
-    use crate::utils::random;
     use std::fs;
     let _ = env_logger::builder().is_test(true).try_init();
 
@@ -649,7 +648,7 @@ fn test_config() {
     let s = ret.unwrap();
     info!("config: {}", s);
 
-    let p = random::tmp_path(10, Some(".json")).unwrap();
+    let p = random_manager::tmp_path(10, Some(".json")).unwrap();
     let ret = config.sync(&p);
     assert!(ret.is_ok());
     fs::remove_file(p).unwrap();

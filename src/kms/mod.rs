@@ -19,12 +19,9 @@ use aws_sdk_kms::{
 use aws_types::SdkConfig as AwsSdkConfig;
 use log::{info, warn};
 
-use crate::{
-    errors::{
-        Error::{Other, API},
-        Result,
-    },
-    utils::humanize,
+use crate::errors::{
+    Error::{Other, API},
+    Result,
 };
 
 /// Represents the data encryption key.
@@ -157,7 +154,7 @@ impl Manager {
         let key_spec = spec.unwrap_or(EncryptionAlgorithmSpec::SymmetricDefault);
         info!(
             "encrypting data (plaintext size {})",
-            humanize::bytes(plaintext.len() as f64),
+            human_readable::bytes(plaintext.len() as f64),
         );
 
         let ret = self
@@ -191,7 +188,7 @@ impl Manager {
 
         info!(
             "encrypted data (ciphertext size {})",
-            humanize::bytes(ciphertext.len() as f64),
+            human_readable::bytes(ciphertext.len() as f64),
         );
         Ok(ciphertext)
     }
@@ -209,7 +206,7 @@ impl Manager {
         let key_spec = spec.unwrap_or(EncryptionAlgorithmSpec::SymmetricDefault);
         info!(
             "decrypting data (ciphertext size {})",
-            humanize::bytes(ciphertext.len() as f64),
+            human_readable::bytes(ciphertext.len() as f64),
         );
 
         let ret = self
@@ -243,7 +240,7 @@ impl Manager {
 
         info!(
             "decrypted data (plaintext size {})",
-            humanize::bytes(plaintext.len() as f64),
+            human_readable::bytes(plaintext.len() as f64),
         );
         Ok(plaintext)
     }

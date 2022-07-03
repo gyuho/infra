@@ -9,7 +9,7 @@ use aws_sdk_manager::{
     self,
     kms::{self, envelope::Envelope},
     s3,
-    utils::{cmp, random},
+    utils::cmp,
 };
 use log::info;
 
@@ -45,7 +45,7 @@ fn main() {
     let s3_manager = s3::Manager::new(&shared_config);
     let s3_bucket = format!(
         "aws-sdk-manager-examples-tests-s3-encrypt-{}",
-        random::string(10).to_lowercase()
+        random_manager::string(10).to_lowercase()
     );
     let s3_key = "sub-dir/aaa.zstd.encrypted".to_string();
     ab!(s3_manager.create_bucket(&s3_bucket)).unwrap();
@@ -57,7 +57,7 @@ fn main() {
     let mut file = tempfile::NamedTempFile::new().unwrap();
     file.write_all(&contents.to_vec()).unwrap();
     let src_file_path = file.path().to_str().unwrap().to_string();
-    let dst_file_path = random::tmp_path(10, None).unwrap();
+    let dst_file_path = random_manager::tmp_path(10, None).unwrap();
 
     println!();
     println!();

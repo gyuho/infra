@@ -1,11 +1,9 @@
 use chrono::prelude::*;
 
-use crate::utils::random;
-
 /// Generates a random ID with the prefix followed by a
 /// timestamp and random characters.
 pub fn with_prefix(pfx: &str) -> String {
-    format!("{}-{}-{}", pfx, timestamp(6), random::string(6))
+    format!("{}-{}-{}", pfx, timestamp(6), random_manager::string(6))
 }
 
 /// RUST_LOG=debug cargo test --all-features --package avalanche-utils --lib -- time::test_with_prefix --exact --show-output
