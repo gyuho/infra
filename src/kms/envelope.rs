@@ -7,13 +7,11 @@ use std::{
 use crate::{
     errors::{Error::Other, Result},
     kms,
-    utils::{
-        compress::{self, Decoder, Encoder},
-        humanize, random,
-    },
+    utils::{humanize, random},
 };
 use aws_sdk_kms::model::{DataKeySpec, EncryptionAlgorithmSpec};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use compress_manager::{self, Decoder, Encoder};
 use log::info;
 /// "NONCE_LEN" is the per-record nonce (iv_length), 12-byte
 /// ref. https://www.rfc-editor.org/rfc/rfc8446#appendix-E.2
@@ -396,12 +394,11 @@ impl Envelope {
             src_file.to_string()
         );
         let compressed_path = random::tmp_path(10, None).unwrap();
-        compress::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3)).map_err(
-            |e| Other {
+        compress_manager::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3))
+            .map_err(|e| Other {
                 message: format!("failed compression {}", e),
                 is_retryable: false,
-            },
-        )?;
+            })?;
 
         info!(
             "compress-seal: sealing the compressed file '{}'",
@@ -431,10 +428,12 @@ impl Envelope {
             "unseal-decompress: decompressing the file '{}'",
             src_file.as_ref()
         );
-        compress::unpack_file(&unsealed_path, dst_file.as_ref(), Decoder::Zstd).map_err(|e| Other {
-            message: format!("failed decompression {}", e),
-            is_retryable: false,
-        })
+        compress_manager::unpack_file(&unsealed_path, dst_file.as_ref(), Decoder::Zstd).map_err(
+            |e| Other {
+                message: format!("failed decompression {}", e),
+                is_retryable: false,
+            },
+        )
     }
 }
 

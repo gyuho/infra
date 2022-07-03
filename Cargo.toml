@@ -1,6 +1,6 @@
 [package]
 name = "aws-sdk-manager"
-version = "0.0.7" # https://crates.io/crates/aws-sdk-manager/versions
+version = "0.0.8" # https://crates.io/crates/aws-sdk-manager/versions
 edition = "2021"
 rust-version = "1.62"
 publish = true
@@ -22,6 +22,7 @@ aws-types = "0.15.0"
 bs58 = "0.4.0"
 byteorder = "1.4.3"
 chrono = "0.4.19"
+compress-manager = "0.0.1" # https://crates.io/crates/compress-manager/versions
 hyper = { version = "0.14.19", features = ["full"] }
 hyper-tls = "0.5.0"
 lazy_static = "1.4.0"
@@ -36,15 +37,6 @@ tokio = { version = "1.19.2", features = ["full"] } # https://github.com/tokio-r
 tokio-stream = "0.1.9"
 url = "2.2.2"
 whoami = "1.2.1"
-
-# for "compress"
-flate2 = { version = "1.0.24", optional = false }
-fs_extra = { version = "1.2.0", optional = false }
-path-clean = { version = "0.1.0", optional = false }
-tar = { version = "0.4.38", optional = false }
-walkdir = { version = "2.3.2", optional = false }
-zip = { version = "0.6.2", optional = false }
-zstd = { version = "0.10", optional = false }
 
 [dev-dependencies]
 env_logger = "0.9.0"
