@@ -12,7 +12,7 @@ use crate::{
         Error::{Other, API},
         Result,
     },
-    utils::{http, rfc3339},
+    utils::rfc3339,
 };
 use aws_sdk_ec2::{
     error::DeleteKeyPairError,
@@ -546,7 +546,7 @@ async fn fetch_metadata(path: &str) -> Result<String> {
         }
     };
 
-    let ret = http::read_bytes(req, Duration::from_secs(5), false, true).await;
+    let ret = http_manager::read_bytes(req, Duration::from_secs(5), false, true).await;
     let rs = match ret {
         Ok(bytes) => {
             let s = match String::from_utf8(bytes.to_vec()) {
@@ -597,7 +597,7 @@ async fn fetch_token() -> Result<String> {
         }
     };
 
-    let ret = http::read_bytes(req, Duration::from_secs(5), false, true).await;
+    let ret = http_manager::read_bytes(req, Duration::from_secs(5), false, true).await;
     let token = match ret {
         Ok(bytes) => {
             let s = match String::from_utf8(bytes.to_vec()) {

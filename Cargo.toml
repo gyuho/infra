@@ -23,21 +23,20 @@ bs58 = "0.4.0"
 byteorder = "1.4.3"
 chrono = "0.4.19"
 compress-manager = "0.0.2" # https://crates.io/crates/compress-manager/versions
+http-manager = "0.0.1"
 human-readable = "0.0.1"
 hyper = { version = "0.14.19", features = ["full"] }
-hyper-tls = "0.5.0"
 lazy_static = "1.4.0"
 log = "0.4.17"
 rand = "0.8.5"
 random-manager = "0.0.1" # https://crates.io/crates/random-manager/versions
 ring = "0.16.20"
 ripemd = "0.1.1"
-serde = { version = "1.0.137", features = ["derive"] }
+serde = { version = "1.0.138", features = ["derive"] }
 serde_json = "1.0.81"
 thiserror = "1.0.31"
 tokio = { version = "1.19.2", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
 tokio-stream = "0.1.9"
-url = "2.2.2"
 whoami = "1.2.1"
 
 [dev-dependencies]
