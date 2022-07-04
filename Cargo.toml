@@ -4,7 +4,7 @@ version = "0.0.1" # https://crates.io/crates/aws-manager/versions
 edition = "2021"
 rust-version = "1.62"
 publish = true
-description = "AWS SDK manager"
+description = "AWS manager"
 homepage = "https://github.com/gyuho/aws-manager"
 license = "Apache-2.0"
 
