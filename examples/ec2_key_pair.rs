@@ -2,7 +2,7 @@ use std::{fs, thread, time};
 
 use log::info;
 
-use aws_sdk_manager::{self, ec2, utils::time as time_utils};
+use aws_manager::{self, ec2, utils::time as time_utils};
 
 /// cargo run --example ec2_key_pair
 fn main() {
@@ -19,7 +19,7 @@ fn main() {
 
     info!("creating AWS EC2 key-pair resources!");
 
-    let ret = ab!(aws_sdk_manager::load_config(None));
+    let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
     let ec2_manager = ec2::Manager::new(&shared_config);
 

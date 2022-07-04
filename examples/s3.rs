@@ -1,6 +1,6 @@
 use std::{fs, io::Write, sync::Arc, thread, time};
 
-use aws_sdk_manager::{
+use aws_manager::{
     self, s3,
     utils::{system_id, time as time_utils},
 };
@@ -20,14 +20,14 @@ fn main() {
     println!();
     println!();
     info!("creating AWS S3 resources!");
-    let shared_config = rt.block_on(aws_sdk_manager::load_config(None)).unwrap();
+    let shared_config = rt.block_on(aws_manager::load_config(None)).unwrap();
     let s3_manager = s3::Manager::new(&shared_config);
 
     println!();
     println!();
     println!();
     let bucket = format!(
-        "aws-sdk-manager-examples-tests-s3-{}-{}",
+        "aws-manager-examples-tests-s3-{}-{}",
         time_utils::timestamp(6),
         system_id::string(10)
     );

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
+use aws_manager::{self, ec2};
 use aws_sdk_ec2::model::VolumeAttachmentState;
-use aws_sdk_manager::{self, ec2};
 
 /// cargo run --example ec2_ebs_describe_volumes
 fn main() {
@@ -16,7 +16,7 @@ fn main() {
         };
     }
 
-    let ret = ab!(aws_sdk_manager::load_config(None));
+    let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
     let ec2_manager = ec2::Manager::new(&shared_config);
 

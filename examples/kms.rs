@@ -5,7 +5,7 @@ use std::{
     thread, time,
 };
 
-use aws_sdk_manager::{
+use aws_manager::{
     self,
     kms::{self, envelope::Envelope},
     utils::{cmp, time as time_utils},
@@ -27,7 +27,7 @@ fn main() {
 
     info!("creating AWS KMS resources!");
 
-    let shared_config = ab!(aws_sdk_manager::load_config(None)).unwrap();
+    let shared_config = ab!(aws_manager::load_config(None)).unwrap();
     let kms_manager = kms::Manager::new(&shared_config);
 
     let mut key_desc = time_utils::with_prefix("test");

@@ -1,6 +1,6 @@
 use std::{thread, time};
 
-use aws_sdk_manager::cloudwatch;
+use aws_manager::cloudwatch;
 use log::info;
 
 /// cargo run --example cloudwatch
@@ -18,7 +18,7 @@ fn main() {
 
     info!("creating AWS CloudWatch resources!");
 
-    let shared_config = ab!(aws_sdk_manager::load_config(None)).unwrap();
+    let shared_config = ab!(aws_manager::load_config(None)).unwrap();
     let cw_manager = cloudwatch::Manager::new(&shared_config);
     let log_group_name = random_manager::string(15);
 

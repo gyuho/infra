@@ -5,7 +5,7 @@ use std::{
     thread, time,
 };
 
-use aws_sdk_manager::{
+use aws_manager::{
     self,
     kms::{self, envelope::Envelope},
     s3,
@@ -27,7 +27,7 @@ fn main() {
     }
 
     info!("creating AWS resources!");
-    let shared_config = ab!(aws_sdk_manager::load_config(None)).unwrap();
+    let shared_config = ab!(aws_manager::load_config(None)).unwrap();
 
     println!();
     println!();
@@ -44,7 +44,7 @@ fn main() {
     println!();
     let s3_manager = s3::Manager::new(&shared_config);
     let s3_bucket = format!(
-        "aws-sdk-manager-examples-tests-s3-encrypt-{}",
+        "aws-manager-examples-tests-s3-encrypt-{}",
         random_manager::string(10).to_lowercase()
     );
     let s3_key = "sub-dir/aaa.zstd.encrypted".to_string();

@@ -1,6 +1,6 @@
 use log::info;
 
-use aws_sdk_manager::{self, sts};
+use aws_manager::{self, sts};
 
 /// cargo run --example sts
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
 
     info!("connecting to AWS STS!");
 
-    let ret = ab!(aws_sdk_manager::load_config(None));
+    let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
     let sts_manager = sts::Manager::new(&shared_config);
 
@@ -25,7 +25,7 @@ fn main() {
     let identity1 = ret.unwrap();
     info!("identity1: {:?}", identity1);
 
-    let ret = ab!(aws_sdk_manager::load_config(None));
+    let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
     let manager = sts::Manager::new(&shared_config);
     let ret = ab!(manager.get_identity());

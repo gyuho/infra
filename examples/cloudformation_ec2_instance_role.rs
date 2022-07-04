@@ -3,8 +3,8 @@ use std::{
     time::{self, Duration},
 };
 
+use aws_manager::{self, cloudformation, utils::time as time_utils};
 use aws_sdk_cloudformation::model::{Capability, OnFailure, Parameter, StackStatus, Tag};
-use aws_sdk_manager::{self, cloudformation, utils::time as time_utils};
 use log::info;
 use rust_embed::RustEmbed;
 
@@ -33,7 +33,7 @@ fn main() {
     let template_body = ret.unwrap();
     info!("{:?}", template_body);
 
-    let ret = ab!(aws_sdk_manager::load_config(None));
+    let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
     let cloudformation_manager = cloudformation::Manager::new(&shared_config);
 
