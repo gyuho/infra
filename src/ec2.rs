@@ -279,10 +279,13 @@ impl Manager {
                 warn!("unexpected attachment found {}", attachments.len());
                 continue;
             }
-            let current_state = attachments[0].state().unwrap();
-            info!("poll (current {:?}, elapsed {:?})", current_state, elapsed);
+            let current_attachment_state = attachments[0].state().unwrap();
+            info!(
+                "poll (current volume attachment state {:?}, elapsed {:?})",
+                current_attachment_state, elapsed
+            );
 
-            if current_state.eq(&desired_attachment_state) {
+            if current_attachment_state.eq(&desired_attachment_state) {
                 return Ok(volume);
             }
 

@@ -173,11 +173,14 @@ impl Manager {
 
             let stack = stacks.get(0).unwrap();
             let current_id = stack.stack_id().unwrap();
-            let current_status = stack.stack_status().unwrap();
-            info!("poll (current {:?}, elapsed {:?})", current_status, elapsed);
+            let current_stack_status = stack.stack_status().unwrap();
+            info!(
+                "poll (current stack status {:?}, elapsed {:?})",
+                current_stack_status, elapsed
+            );
 
             if desired_status.ne(&StackStatus::DeleteComplete)
-                && current_status.eq(&StackStatus::DeleteComplete)
+                && current_stack_status.eq(&StackStatus::DeleteComplete)
             {
                 return Err(Other {
                     message: String::from("stack create/update failed thus deleted"),
@@ -186,7 +189,7 @@ impl Manager {
             }
 
             if desired_status.eq(&StackStatus::CreateComplete)
-                && current_status.eq(&StackStatus::CreateFailed)
+                && current_stack_status.eq(&StackStatus::CreateFailed)
             {
                 return Err(Other {
                     message: String::from("stack create failed"),
@@ -195,7 +198,7 @@ impl Manager {
             }
 
             if desired_status.eq(&StackStatus::DeleteComplete)
-                && current_status.eq(&StackStatus::DeleteFailed)
+                && current_stack_status.eq(&StackStatus::DeleteFailed)
             {
                 return Err(Other {
                     message: String::from("stack delete failed"),
@@ -203,14 +206,14 @@ impl Manager {
                 });
             }
 
-            if current_status.eq(&desired_status) {
+            if current_stack_status.eq(&desired_status) {
                 let outputs = stack.outputs();
                 let outputs = outputs.unwrap();
                 let outputs = Vec::from(outputs);
                 let current_stack = Stack::new(
                     stack_name,
                     current_id,
-                    current_status.clone(),
+                    current_stack_status.clone(),
                     Some(outputs),
                 );
                 return Ok(current_stack);
