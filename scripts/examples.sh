@@ -10,8 +10,10 @@ fi
 cargo run --example cloudformation_ec2_instance_role
 cargo run --example cloudformation_vpc
 cargo run --example cloudwatch
+cargo run --example ec2_ebs_describe_volumes
 cargo run --example ec2_key_pair
 cargo run --example kms
+cargo run --example s3_encrypt
 cargo run --example s3
 cargo run --example sts
 
