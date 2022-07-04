@@ -1,3 +1,5 @@
+pub mod disk;
+
 use std::{
     fs::File,
     io::prelude::*,
