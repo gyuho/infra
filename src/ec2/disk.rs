@@ -25,7 +25,7 @@ pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(
             return Err(e);
         }
 
-        log::warn!("ignoring the 'is mounted' error '{:?}'", e);
+        log::warn!("ignoring the 'is mounted' error '{}'", e.to_string());
         Ok((String::new(), e.to_string()))
     } else {
         res
@@ -59,7 +59,7 @@ pub fn mount_filesystem(
             return Err(e);
         }
 
-        log::warn!("ignoring the 'already mounted' error '{:?}'", e);
+        log::warn!("ignoring the 'already mounted' error '{}'", e.to_string());
         Ok((String::new(), e.to_string()))
     } else {
         res
