@@ -205,10 +205,11 @@ impl Manager {
         Ok(volumes)
     }
 
-    /// Fetches the EBS volume by its attachment state.
+    /// Finds the local EBS volume by its attachment state.
     /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
     /// For instance, the "device_name" can be either "/dev/xvdb" or "xvdb" (for the secondary volume).
-    pub async fn find_volume(
+    /// Only meant to be called in the EC2 instance itself.
+    pub async fn find_local_volume(
         &self,
         instance_id: Option<String>,
         device_name: &str,
@@ -247,11 +248,12 @@ impl Manager {
         return Ok(volume);
     }
 
-    /// Polls EBS volume attachment state.
+    /// Polls the local EBS volume attachment state.
     /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
+    /// Only meant to be called in the EC2 instance itself.
     ///
     /// For instance, the "device_name" can be either "/dev/xvdb" or "xvdb" (for the secondary volume).
-    pub async fn poll_volume_attachment_state(
+    pub async fn poll_local_volume_attachment_state(
         &self,
         instance_id: Option<String>,
         device_name: &str,
@@ -295,7 +297,7 @@ impl Manager {
             thread::sleep(itv);
 
             let volume = self
-                .find_volume(Some(inst_id.clone()), &device_path)
+                .find_local_volume(Some(inst_id.clone()), &device_path)
                 .await?;
             if volume.attachments().is_none() {
                 warn!("no attachment found");
