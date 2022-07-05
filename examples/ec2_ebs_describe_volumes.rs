@@ -20,7 +20,7 @@ fn main() {
     let shared_config = ret.unwrap();
     let ec2_manager = ec2::Manager::new(&shared_config);
 
-    let vol = ab!(ec2_manager.get_volume(None, "/dev/xvdb")).unwrap();
+    let vol = ab!(ec2_manager.find_volume(None, "/dev/xvdb")).unwrap();
     log::info!("found volume {:?}", vol);
 
     let vol = ab!(ec2_manager.poll_volume_attachment_state(

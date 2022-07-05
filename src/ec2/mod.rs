@@ -121,6 +121,8 @@ impl Manager {
     /// from the local EC2 instance's metadata service. If the "volume_id" is not none,
     /// it ignores the "instance_id" and "device".
     ///
+    /// For instance, the "device_path" can be "/dev/xvdb" (for the secondary volume).
+    ///
     /// The region used for API call is inherited from the EC2 client SDK.
     ///
     /// e.g.,
@@ -139,7 +141,7 @@ impl Manager {
         &self,
         volume_id: Option<String>,
         instance_id: Option<String>,
-        device: Option<String>,
+        device_path: Option<String>,
     ) -> Result<Vec<Volume>> {
         let mut filters: Vec<Filter> = vec![];
 
@@ -166,12 +168,12 @@ impl Manager {
                     .build(),
             );
 
-            if let Some(device) = device {
-                info!("filtering volumes via device {}", device);
+            if let Some(dpath) = device_path {
+                info!("filtering volumes via device {}", dpath);
                 filters.push(
                     Filter::builder()
                         .set_name(Some(String::from("attachment.device")))
-                        .set_values(Some(vec![device]))
+                        .set_values(Some(vec![dpath]))
                         .build(),
                 );
             }
@@ -205,7 +207,8 @@ impl Manager {
 
     /// Fetches the EBS volume by its attachment state.
     /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
-    pub async fn get_volume(
+    /// For instance, the "device_name" can be either "/dev/xvdb" or "xvdb" (for the secondary volume).
+    pub async fn find_volume(
         &self,
         instance_id: Option<String>,
         device_name: &str,
@@ -246,6 +249,8 @@ impl Manager {
 
     /// Polls EBS volume attachment state.
     /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
+    ///
+    /// For instance, the "device_name" can be either "/dev/xvdb" or "xvdb" (for the secondary volume).
     pub async fn poll_volume_attachment_state(
         &self,
         instance_id: Option<String>,
@@ -289,7 +294,9 @@ impl Manager {
             };
             thread::sleep(itv);
 
-            let volume = self.get_volume(Some(inst_id.clone()), &device_path).await?;
+            let volume = self
+                .find_volume(Some(inst_id.clone()), &device_path)
+                .await?;
             if volume.attachments().is_none() {
                 warn!("no attachment found");
                 continue;
