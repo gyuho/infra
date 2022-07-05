@@ -7,20 +7,20 @@ use std::{
 /// e.g., sudo mkfs -t ext4 /dev/nvme1n1
 /// ref. See https://github.com/cholcombe973/block-utils/blob/master/src/lib.rs for other commands.
 pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(String, String)> {
-    let device = if device_name.starts_with("/dev/") {
+    let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
         format!("/dev/{}", device_name).to_string()
     };
 
-    let cmd = format!("sudo mkfs -t {} {}", filesystem_name, device);
+    let cmd = format!("sudo mkfs -t {} {}", filesystem_name, device_path);
     let res = command_manager::run(&cmd);
     if res.is_err() {
         // e.g., mke2fs 1.45.5 (07-Jan-2020) /dev/nvme1n1 is mounted; will not make a filesystem here!
         let e = res.err().unwrap();
         if !e
             .to_string()
-            .contains(format!("{} is mounted", device).as_str())
+            .contains(format!("{} is mounted", device_path).as_str())
         {
             return Err(e);
         }
@@ -41,20 +41,23 @@ pub fn mount_filesystem(
     device_name: &str,
     dir_name: &str,
 ) -> io::Result<(String, String)> {
-    let device = if device_name.starts_with("/dev/") {
+    let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
         format!("/dev/{}", device_name).to_string()
     };
 
-    let cmd = format!("sudo mount {} {} -t {}", device, dir_name, filesystem_name);
+    let cmd = format!(
+        "sudo mount {} {} -t {}",
+        device_path, dir_name, filesystem_name
+    );
     let res = command_manager::run(&cmd);
     if res.is_err() {
         // e.g., mount: /data: /dev/nvme1n1 already mounted on /data
         let e = res.err().unwrap();
         if !e
             .to_string()
-            .contains(format!("{} already mounted", device).as_str())
+            .contains(format!("{} already mounted", device_path).as_str())
         {
             return Err(e);
         }
@@ -80,7 +83,7 @@ pub fn update_fstab(
     device_name: &str,
     dir_name: &str,
 ) -> io::Result<(String, String)> {
-    let device = if device_name.starts_with("/dev/") {
+    let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
         format!("/dev/{}", device_name).to_string()
@@ -88,7 +91,7 @@ pub fn update_fstab(
 
     let line = format!(
         "{}       {}   {}    defaults,nofail 0       2",
-        device, dir_name, filesystem_name
+        device_path, dir_name, filesystem_name
     );
     let mut contents = fs::read_to_string(FSTAB_PATH)?;
     if contents.contains(&line) {

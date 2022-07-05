@@ -117,7 +117,10 @@ impl Manager {
     }
 
     /// Describes all attached volumes by instance Id and device.
-    /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
+    /// If the "volume_id" is none and "instance_id" is none, it fetches the "instance_id"
+    /// from the local EC2 instance's metadata service. If the "volume_id" is not none,
+    /// it ignores the "instance_id" and "device".
+    ///
     /// The region used for API call is inherited from the EC2 client SDK.
     ///
     /// e.g.,
@@ -132,32 +135,46 @@ impl Manager {
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
     /// ref. https://github.com/ava-labs/avalanche-ops/blob/fcbac87a219a8d3d6d3c38a1663fe1dafe78e04e/bin/avalancheup-aws/cfn-templates/asg_amd64_ubuntu.yaml#L397-L409
     ///
-    pub async fn describe_attached_volumes(
+    pub async fn describe_volumes(
         &self,
+        volume_id: Option<String>,
         instance_id: Option<String>,
-        device_path: Option<String>,
+        device: Option<String>,
     ) -> Result<Vec<Volume>> {
-        let inst_id = if let Some(inst_id) = instance_id {
-            inst_id
-        } else {
-            fetch_instance_id().await?
-        };
-        info!(
-            "describing volumes via instance Id {} and device {:?}",
-            inst_id, device_path
-        );
+        let mut filters: Vec<Filter> = vec![];
 
-        let mut filters = vec![Filter::builder()
-            .set_name(Some(String::from("attachment.instance-id")))
-            .set_values(Some(vec![inst_id.clone()]))
-            .build()];
-        if let Some(device) = device_path {
+        if let Some(vol_id) = volume_id {
+            info!("filtering volumes via volume Id {}", vol_id);
             filters.push(
                 Filter::builder()
-                    .set_name(Some(String::from("attachment.device")))
-                    .set_values(Some(vec![device]))
+                    .set_name(Some(String::from("volume-id")))
+                    .set_values(Some(vec![vol_id]))
                     .build(),
-            )
+            );
+        } else {
+            let inst_id = if let Some(inst_id) = instance_id {
+                inst_id
+            } else {
+                fetch_instance_id().await?
+            };
+
+            info!("filtering volumes via instance Id {}", inst_id);
+            filters.push(
+                Filter::builder()
+                    .set_name(Some(String::from("attachment.instance-id")))
+                    .set_values(Some(vec![inst_id.clone()]))
+                    .build(),
+            );
+
+            if let Some(device) = device {
+                info!("filtering volumes via device {}", device);
+                filters.push(
+                    Filter::builder()
+                        .set_name(Some(String::from("attachment.device")))
+                        .set_values(Some(vec![device]))
+                        .build(),
+                );
+            }
         }
 
         let resp = match self
@@ -181,12 +198,8 @@ impl Manager {
         } else {
             Vec::new()
         };
-        info!(
-            "described {} volumes for instance {}",
-            volumes.len(),
-            inst_id
-        );
 
+        info!("described {} volumes", volumes.len());
         Ok(volumes)
     }
 
@@ -195,7 +208,7 @@ impl Manager {
     pub async fn get_volume(
         &self,
         instance_id: Option<String>,
-        device_path: &str,
+        device_name: &str,
     ) -> Result<Volume> {
         let inst_id = if let Some(inst_id) = instance_id {
             inst_id
@@ -203,13 +216,16 @@ impl Manager {
             fetch_instance_id().await?
         };
 
-        info!(
-            "fetchingt EBS volume for '{}' on '{}'",
-            inst_id, device_path
-        );
+        let device_path = if device_name.starts_with("/dev/") {
+            device_name.to_string()
+        } else {
+            format!("/dev/{}", device_name).to_string()
+        };
+
+        info!("fetching EBS volume for '{}' on '{}'", inst_id, device_path);
 
         let volumes = self
-            .describe_attached_volumes(Some(inst_id), Some(device_path.to_string()))
+            .describe_volumes(None, Some(inst_id), Some(device_path.to_string()))
             .await?;
         if volumes.is_empty() {
             return Err(API {
@@ -233,7 +249,7 @@ impl Manager {
     pub async fn poll_volume_attachment_state(
         &self,
         instance_id: Option<String>,
-        device_path: &str,
+        device_name: &str,
         desired_attachment_state: VolumeAttachmentState,
         timeout: Duration,
         interval: Duration,
@@ -242,6 +258,12 @@ impl Manager {
             inst_id
         } else {
             fetch_instance_id().await?
+        };
+
+        let device_path = if device_name.starts_with("/dev/") {
+            device_name.to_string()
+        } else {
+            format!("/dev/{}", device_name).to_string()
         };
 
         info!(
@@ -267,7 +289,7 @@ impl Manager {
             };
             thread::sleep(itv);
 
-            let volume = self.get_volume(Some(inst_id.clone()), device_path).await?;
+            let volume = self.get_volume(Some(inst_id.clone()), &device_path).await?;
             if volume.attachments().is_none() {
                 warn!("no attachment found");
                 continue;
