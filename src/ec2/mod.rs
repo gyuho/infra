@@ -116,16 +116,13 @@ impl Manager {
         Ok(())
     }
 
-    /// Describes all attached volumes by instance Id and device.
-    /// If the "volume_id" is none and "instance_id" is none, it fetches the "instance_id"
-    /// from the local EC2 instance's metadata service. If the "volume_id" is not none,
-    /// it ignores the "instance_id" and "device".
-    ///
-    /// For instance, the "device_path" can be "/dev/xvdb" (for the secondary volume).
-    ///
+    /// Describes the attached volume by the volume Id and EBS device name.
+    /// The "local_ec2_instance_id" is only set to bypass extra EC2 metadata
+    /// service API calls.
     /// The region used for API call is inherited from the EC2 client SDK.
     ///
     /// e.g.,
+    ///
     /// aws ec2 describe-volumes \
     /// --region ${AWS::Region} \
     /// --filters \
@@ -137,47 +134,49 @@ impl Manager {
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
     /// ref. https://github.com/ava-labs/avalanche-ops/blob/fcbac87a219a8d3d6d3c38a1663fe1dafe78e04e/bin/avalancheup-aws/cfn-templates/asg_amd64_ubuntu.yaml#L397-L409
     ///
-    pub async fn describe_volumes(
+    pub async fn describe_local_volumes(
         &self,
-        volume_id: Option<String>,
-        instance_id: Option<String>,
-        device_path: Option<String>,
+        ebs_volume_id: Option<String>,
+        ebs_device_name: String,
+        local_ec2_instance_id: Option<String>,
     ) -> Result<Vec<Volume>> {
         let mut filters: Vec<Filter> = vec![];
 
-        if let Some(vol_id) = volume_id {
-            info!("filtering volumes via volume Id {}", vol_id);
+        if let Some(v) = ebs_volume_id {
+            info!("filtering volumes via volume Id {}", v);
             filters.push(
                 Filter::builder()
                     .set_name(Some(String::from("volume-id")))
-                    .set_values(Some(vec![vol_id]))
+                    .set_values(Some(vec![v]))
                     .build(),
             );
-        } else {
-            let inst_id = if let Some(inst_id) = instance_id {
-                inst_id
-            } else {
-                fetch_instance_id().await?
-            };
-
-            info!("filtering volumes via instance Id {}", inst_id);
-            filters.push(
-                Filter::builder()
-                    .set_name(Some(String::from("attachment.instance-id")))
-                    .set_values(Some(vec![inst_id.clone()]))
-                    .build(),
-            );
-
-            if let Some(dpath) = device_path {
-                info!("filtering volumes via device {}", dpath);
-                filters.push(
-                    Filter::builder()
-                        .set_name(Some(String::from("attachment.device")))
-                        .set_values(Some(vec![dpath]))
-                        .build(),
-                );
-            }
         }
+
+        let device = if ebs_device_name.starts_with("/dev/") {
+            ebs_device_name
+        } else {
+            format!("/dev/{}", ebs_device_name.clone()).to_string()
+        };
+        info!("filtering volumes via EBS device name {}", device);
+        filters.push(
+            Filter::builder()
+                .set_name(Some(String::from("attachment.device")))
+                .set_values(Some(vec![device]))
+                .build(),
+        );
+
+        let ec2_instance_id = if let Some(v) = local_ec2_instance_id {
+            v
+        } else {
+            fetch_instance_id().await?
+        };
+        info!("filtering volumes via instance Id {}", ec2_instance_id);
+        filters.push(
+            Filter::builder()
+                .set_name(Some(String::from("attachment.instance-id")))
+                .set_values(Some(vec![ec2_instance_id]))
+                .build(),
+        );
 
         let resp = match self
             .cli
@@ -201,83 +200,21 @@ impl Manager {
             Vec::new()
         };
 
-        info!("described {} volumes", volumes.len());
+        info!("found {} volumes", volumes.len());
         Ok(volumes)
     }
 
-    /// Finds the local EBS volume by its attachment state.
-    /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
+    /// Polls the EBS volume attachment state.
     /// For instance, the "device_name" can be either "/dev/xvdb" or "xvdb" (for the secondary volume).
-    /// Only meant to be called in the EC2 instance itself.
-    pub async fn find_local_volume(
+    pub async fn poll_local_volume_by_attachment_state(
         &self,
-        instance_id: Option<String>,
-        device_name: &str,
-    ) -> Result<Volume> {
-        let inst_id = if let Some(inst_id) = instance_id {
-            inst_id
-        } else {
-            fetch_instance_id().await?
-        };
-
-        let device_path = if device_name.starts_with("/dev/") {
-            device_name.to_string()
-        } else {
-            format!("/dev/{}", device_name).to_string()
-        };
-
-        info!("fetching EBS volume for '{}' on '{}'", inst_id, device_path);
-
-        let volumes = self
-            .describe_volumes(None, Some(inst_id), Some(device_path.to_string()))
-            .await?;
-        if volumes.is_empty() {
-            return Err(API {
-                message: "no volume found".to_string(),
-                is_retryable: false,
-            });
-        }
-        if volumes.len() != 1 {
-            return Err(API {
-                message: format!("unexpected volume devices found {}", volumes.len()),
-                is_retryable: false,
-            });
-        }
-        let volume = volumes[0].clone();
-
-        return Ok(volume);
-    }
-
-    /// Polls the local EBS volume attachment state.
-    /// If "instance_id" is empty, it fetches from the local EC2 instance's metadata service.
-    /// Only meant to be called in the EC2 instance itself.
-    ///
-    /// For instance, the "device_name" can be either "/dev/xvdb" or "xvdb" (for the secondary volume).
-    pub async fn poll_local_volume_attachment_state(
-        &self,
-        instance_id: Option<String>,
-        device_name: &str,
+        ebs_volume_id: Option<String>,
+        ebs_device_name: String,
         desired_attachment_state: VolumeAttachmentState,
         timeout: Duration,
         interval: Duration,
     ) -> Result<Volume> {
-        let inst_id = if let Some(inst_id) = instance_id {
-            inst_id
-        } else {
-            fetch_instance_id().await?
-        };
-
-        let device_path = if device_name.starts_with("/dev/") {
-            device_name.to_string()
-        } else {
-            format!("/dev/{}", device_name).to_string()
-        };
-
-        info!(
-            "polling volume attachment state '{}' '{}' with desired state {:?} for timeout {:?} and interval {:?}",
-            inst_id, device_path, desired_attachment_state, timeout, interval,
-        );
-
+        let local_ec2_instance_id = fetch_instance_id().await?;
         let start = Instant::now();
         let mut cnt: u128 = 0;
         loop {
@@ -296,9 +233,22 @@ impl Manager {
             };
             thread::sleep(itv);
 
-            let volume = self
-                .find_local_volume(Some(inst_id.clone()), &device_path)
+            let volumes = self
+                .describe_local_volumes(
+                    ebs_volume_id.clone(),
+                    ebs_device_name.clone(),
+                    Some(local_ec2_instance_id.clone()),
+                )
                 .await?;
+            if volumes.is_empty() {
+                warn!("no volume found");
+                continue;
+            }
+            if volumes.len() != 1 {
+                warn!("unexpected {} volumes found", volumes.len());
+                continue;
+            }
+            let volume = volumes[0].clone();
             if volume.attachments().is_none() {
                 warn!("no attachment found");
                 continue;
@@ -326,7 +276,10 @@ impl Manager {
         }
 
         return Err(Other {
-            message: format!("failed to poll volume state for '{}' in time", inst_id),
+            message: format!(
+                "failed to poll volume state for '{}' in time",
+                local_ec2_instance_id
+            ),
             is_retryable: true,
         });
     }

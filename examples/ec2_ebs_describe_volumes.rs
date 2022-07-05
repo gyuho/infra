@@ -20,12 +20,13 @@ fn main() {
     let shared_config = ret.unwrap();
     let ec2_manager = ec2::Manager::new(&shared_config);
 
-    let vol = ab!(ec2_manager.find_local_volume(None, "/dev/xvdb")).unwrap();
+    let vol =
+        ab!(ec2_manager.describe_local_volumes(None, String::from("/dev/xvdb"), None)).unwrap();
     log::info!("found volume {:?}", vol);
 
-    let vol = ab!(ec2_manager.poll_local_volume_attachment_state(
+    let vol = ab!(ec2_manager.poll_local_volume_by_attachment_state(
         None,
-        "/dev/xvdb",
+        String::from("/dev/xvdb"),
         VolumeAttachmentState::Attached,
         Duration::from_secs(180),
         Duration::from_secs(10)
