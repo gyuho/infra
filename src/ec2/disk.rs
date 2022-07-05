@@ -4,7 +4,10 @@ use std::{
 };
 
 /// Makes a new file system on a specified device.
-/// e.g., sudo mkfs -t ext4 /dev/nvme1n1
+///
+/// e.g.,
+/// sudo mkfs -t ext4 /dev/nvme1n1
+///
 /// ref. See https://github.com/cholcombe973/block-utils/blob/master/src/lib.rs for other commands.
 /// ref. https://stackoverflow.com/questions/45167717/mounting-a-nvme-disk-on-aws-ec2
 pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(String, String)> {
@@ -35,7 +38,10 @@ pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(
 
 /// Mounts the file system to the specified directory.
 /// And updates "/etc/fstab" to auto remount in case of instance reboot.
-/// e.g., sudo mount /dev/nvme1n1 /data -t ext4
+///
+/// e.g.,
+/// sudo mount /dev/nvme1n1 /data -t ext4
+///
 /// ref. See https://github.com/cholcombe973/block-utils/blob/master/src/lib.rs for other commands.
 /// ref. https://stackoverflow.com/questions/45167717/mounting-a-nvme-disk-on-aws-ec2
 pub fn mount_filesystem(
@@ -79,7 +85,7 @@ const FSTAB_PATH: &str = "/etc/fstab";
 /// e.g.,
 /// sudo echo '/dev/nvme1n1       /data   ext4    defaults,nofail 0       2' >> /etc/fstab
 /// sudo mount --all
-/// 
+///
 /// ref. See https://github.com/cholcombe973/block-utils/blob/master/src/lib.rs for other commands.
 /// ref. https://stackoverflow.com/questions/45167717/mounting-a-nvme-disk-on-aws-ec2
 pub fn update_fstab(
