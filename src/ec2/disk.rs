@@ -69,6 +69,8 @@ pub fn mount_filesystem(
 const FSTAB_PATH: &str = "/etc/fstab";
 
 /// Updates "/etc/fstab" to auto remount in case of instance reboot.
+/// The output is the contents of the "fstab" file.
+///
 /// e.g.,
 /// sudo echo '/dev/nvme1n1       /data   ext4    defaults,nofail 0       2' >> /etc/fstab
 /// sudo mount --all
