@@ -1,9 +1,9 @@
 use tokio::time::{sleep, Duration};
 
 use aws_manager::{self, ec2};
-use aws_sdk_ec2::model::{ResourceType, Tag, TagSpecification, VolumeState, VolumeType};
+use aws_sdk_ec2::model::{Filter, ResourceType, Tag, TagSpecification, VolumeState, VolumeType};
 
-/// cargo run --example ec2_ebs_describe_volumes
+/// cargo run --example ec2_ebs_create_volume
 #[tokio::main]
 async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
@@ -11,20 +11,42 @@ async fn main() {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    macro_rules! ab {
-        ($e:expr) => {
-            tokio_test::block_on($e)
-        };
-    }
+    let shared_config = aws_manager::load_config(None).await.unwrap();
+    let region = shared_config.region().unwrap();
+    log::info!("region {:?}", region);
 
-    let ret = ab!(aws_manager::load_config(None));
-    let shared_config = ret.unwrap();
     let ec2_manager = ec2::Manager::new(&shared_config);
 
     let cli = ec2_manager.client();
 
+    // ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html
+    let resp = cli
+        .describe_availability_zones()
+        .filters(
+            Filter::builder()
+                .set_name(Some(String::from("region-name")))
+                .set_values(Some(vec![region.as_ref().to_string()]))
+                .build(),
+        )
+        .send()
+        .await
+        .unwrap();
+    let az = {
+        if let Some(v) = resp.availability_zones() {
+            for z in v {
+                log::info!("found AZ {:?}", z.zone_name());
+            }
+            v[0].zone_name().unwrap().to_string()
+        } else {
+            String::from("us-west-2a")
+        }
+    };
+    log::info!("using az {}", az);
+
+    // ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateVolume.html
     let resp = cli
         .create_volume()
+        .availability_zone(az)
         .volume_type(VolumeType::Gp3)
         .size(400)
         .iops(3000)
@@ -35,7 +57,13 @@ async fn main() {
                 .resource_type(ResourceType::Volume)
                 .tags(
                     Tag::builder()
-                        .key(random_manager::string(10))
+                        .key(String::from("Name"))
+                        .value(format!("test-{}", random_manager::string(10)))
+                        .build(),
+                )
+                .tags(
+                    Tag::builder()
+                        .key(String::from("ClusterId"))
                         .value(random_manager::string(10))
                         .build(),
                 )
@@ -47,7 +75,7 @@ async fn main() {
     let volume_id = resp.volume_id().unwrap();
     log::info!("created {}", volume_id);
 
-    sleep(Duration::from_secs(60)).await;
+    sleep(Duration::from_secs(20)).await;
 
     let volume = ec2_manager
         .poll_volume_state(
@@ -58,9 +86,9 @@ async fn main() {
         )
         .await
         .unwrap();
-    log::info!("polled volume {:?}", volume);
+    log::info!("polled volume after create: {:?}", volume.unwrap());
 
-    sleep(Duration::from_secs(60)).await;
+    sleep(Duration::from_secs(20)).await;
 
     let resp = cli
         .delete_volume()
@@ -81,7 +109,7 @@ async fn main() {
         )
         .await
         .unwrap();
-    log::info!("polled volume {:?}", volume);
+    log::info!("polled volume after delete: {:?}", volume);
 }
 
 /*

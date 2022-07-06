@@ -151,7 +151,7 @@ impl Manager {
         desired_state: VolumeState,
         timeout: Duration,
         interval: Duration,
-    ) -> Result<Volume> {
+    ) -> Result<Option<Volume>> {
         let start = Instant::now();
         let mut cnt: u128 = 0;
         loop {
@@ -177,6 +177,11 @@ impl Manager {
                     .build()]))
                 .await?;
             if volumes.is_empty() {
+                if desired_state.eq(&VolumeState::Deleted) {
+                    info!("volume already deleted");
+                    return Ok(None);
+                }
+
                 warn!("no volume found");
                 continue;
             }
@@ -199,7 +204,7 @@ impl Manager {
             );
 
             if current_state.eq(&desired_state) {
-                return Ok(volume);
+                return Ok(Some(volume));
             }
 
             cnt += 1;
