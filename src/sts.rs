@@ -22,6 +22,10 @@ impl Manager {
         }
     }
 
+    pub fn client(&self) -> Client {
+        self.cli.clone()
+    }
+
     /// Queries the AWS caller identity from the default AWS configuration.
     pub async fn get_identity(&self) -> Result<Identity> {
         info!("fetching caller identity");

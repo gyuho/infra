@@ -1,13 +1,6 @@
 pub mod disk;
 
-use std::{
-    fs::File,
-    io::prelude::*,
-    path::Path,
-    sync::Arc,
-    thread,
-    time::{Duration, Instant},
-};
+use std::{fs::File, io::prelude::*, path::Path, sync::Arc};
 
 use crate::{
     errors::{
@@ -20,6 +13,7 @@ use aws_sdk_ec2::{
     error::DeleteKeyPairError,
     model::{
         Filter, Instance, InstanceState, InstanceStateName, Tag, Volume, VolumeAttachmentState,
+        VolumeState,
     },
     types::SdkError,
     Client,
@@ -29,6 +23,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use hyper::{Body, Method, Request};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use tokio::time::{sleep, Duration, Instant};
 
 /// Implements AWS EC2 manager.
 #[derive(Debug, Clone)]
@@ -46,6 +41,10 @@ impl Manager {
             shared_config: cloned,
             cli,
         }
+    }
+
+    pub fn client(&self) -> Client {
+        self.cli.clone()
     }
 
     /// Creates an AWS EC2 key-pair and saves the private key to disk.
@@ -116,6 +115,105 @@ impl Manager {
         Ok(())
     }
 
+    /// Describes the EBS volumes by filters.
+    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
+    pub async fn describe_volumes(&self, filters: Option<Vec<Filter>>) -> Result<Vec<Volume>> {
+        let resp = match self
+            .cli
+            .describe_volumes()
+            .set_filters(filters)
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(API {
+                    message: format!("failed describe_volumes {:?}", e),
+                    is_retryable: is_error_retryable(&e),
+                });
+            }
+        };
+
+        let volumes = if let Some(vols) = resp.volumes {
+            vols
+        } else {
+            Vec::new()
+        };
+
+        info!("found {} volumes", volumes.len());
+        Ok(volumes)
+    }
+
+    /// Polls the EBS volume by its state.
+    pub async fn poll_volume_state(
+        &self,
+        ebs_volume_id: String,
+        desired_state: VolumeState,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<Volume> {
+        let start = Instant::now();
+        let mut cnt: u128 = 0;
+        loop {
+            let elapsed = start.elapsed();
+            if elapsed.gt(&timeout) {
+                break;
+            }
+
+            let itv = {
+                if cnt == 0 {
+                    // first poll with no wait
+                    Duration::from_secs(1)
+                } else {
+                    interval
+                }
+            };
+            sleep(itv).await;
+
+            let volumes = self
+                .describe_volumes(Some(vec![Filter::builder()
+                    .set_name(Some(String::from("volume-id")))
+                    .set_values(Some(vec![ebs_volume_id.clone()]))
+                    .build()]))
+                .await?;
+            if volumes.is_empty() {
+                warn!("no volume found");
+                continue;
+            }
+            if volumes.len() != 1 {
+                warn!("unexpected {} volumes found", volumes.len());
+                continue;
+            }
+            let volume = volumes[0].clone();
+
+            let current_state = {
+                if let Some(v) = volume.state() {
+                    v.clone()
+                } else {
+                    VolumeState::Unknown(String::from("not found"))
+                }
+            };
+            info!(
+                "poll (current volume state {:?}, elapsed {:?})",
+                current_state, elapsed
+            );
+
+            if current_state.eq(&desired_state) {
+                return Ok(volume);
+            }
+
+            cnt += 1;
+        }
+
+        return Err(Other {
+            message: format!(
+                "failed to poll volume state for '{}' in time",
+                ebs_volume_id
+            ),
+            is_retryable: true,
+        });
+    }
+
     /// Describes the attached volume by the volume Id and EBS device name.
     /// The "local_ec2_instance_id" is only set to bypass extra EC2 metadata
     /// service API calls.
@@ -178,30 +276,7 @@ impl Manager {
                 .build(),
         );
 
-        let resp = match self
-            .cli
-            .describe_volumes()
-            .set_filters(Some(filters))
-            .send()
-            .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                return Err(API {
-                    message: format!("failed describe_volumes {:?}", e),
-                    is_retryable: is_error_retryable(&e),
-                });
-            }
-        };
-
-        let volumes = if let Some(vols) = resp.volumes {
-            vols
-        } else {
-            Vec::new()
-        };
-
-        info!("found {} volumes", volumes.len());
-        Ok(volumes)
+        self.describe_volumes(Some(filters)).await
     }
 
     /// Polls the EBS volume attachment state.
@@ -231,7 +306,7 @@ impl Manager {
                     interval
                 }
             };
-            thread::sleep(itv);
+            sleep(itv).await;
 
             let volumes = self
                 .describe_local_volumes(
@@ -277,7 +352,7 @@ impl Manager {
 
         return Err(Other {
             message: format!(
-                "failed to poll volume state for '{}' in time",
+                "failed to poll volume attachment state for '{}' in time",
                 local_ec2_instance_id
             ),
             is_retryable: true,

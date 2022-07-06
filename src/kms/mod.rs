@@ -59,6 +59,10 @@ impl Manager {
         }
     }
 
+    pub fn client(&self) -> Client {
+        self.cli.clone()
+    }
+
     /// Creates an AWS KMS CMK.
     pub async fn create_key(&self, key_desc: &str) -> Result<Key> {
         info!("creating KMS CMK '{}'", key_desc);

@@ -44,6 +44,14 @@ impl Manager {
         }
     }
 
+    pub fn metrics_client(&self) -> MetricsClient {
+        self.metrics_cli.clone()
+    }
+
+    pub fn logs_client(&self) -> LogsClient {
+        self.logs_cli.clone()
+    }
+
     /// Posts CloudWatch metrics.
     ///
     /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricData.html

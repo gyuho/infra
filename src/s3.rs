@@ -40,6 +40,10 @@ impl Manager {
         }
     }
 
+    pub fn client(&self) -> Client {
+        self.cli.clone()
+    }
+
     /// Creates a S3 bucket.
     pub async fn create_bucket(&self, s3_bucket: &str) -> Result<()> {
         let reg = self.shared_config.region().unwrap();

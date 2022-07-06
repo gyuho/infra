@@ -1,8 +1,3 @@
-use std::{
-    thread,
-    time::{Duration, Instant},
-};
-
 use crate::errors::{
     Error::{Other, API},
     Result,
@@ -15,6 +10,7 @@ use aws_sdk_cloudformation::{
 };
 use aws_types::SdkConfig as AwsSdkConfig;
 use log::{info, warn};
+use tokio::time::{sleep, Duration, Instant};
 
 /// Implements AWS CloudFormation manager.
 #[derive(Debug, Clone)]
@@ -32,6 +28,10 @@ impl Manager {
             shared_config: cloned,
             cli,
         }
+    }
+
+    pub fn client(&self) -> Client {
+        self.cli.clone()
     }
 
     /// Creates a CloudFormation stack.
@@ -138,7 +138,7 @@ impl Manager {
                     interval
                 }
             };
-            thread::sleep(itv);
+            sleep(itv).await;
 
             let ret = self
                 .cli
