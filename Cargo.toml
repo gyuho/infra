@@ -25,7 +25,7 @@ command-manager = "0.0.1"
 compress-manager = "0.0.2" # https://crates.io/crates/compress-manager/versions
 http-manager = "0.0.1"
 human-readable = "0.0.1"
-hyper = { version = "0.14.19", features = ["full"] }
+hyper = { version = "0.14.20", features = ["full"] }
 lazy_static = "1.4.0"
 log = "0.4.17"
 rand = "0.8.5"

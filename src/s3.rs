@@ -5,7 +5,7 @@ use crate::{
         Error::{Other, API},
         Result,
     },
-    kms::envelope::Envelope,
+    kms::envelope,
 };
 use aws_sdk_s3::{
     error::{CreateBucketError, CreateBucketErrorKind, DeleteBucketError},
@@ -441,7 +441,7 @@ impl Manager {
     /// Compresses the file, encrypts, and uploads to S3.
     pub async fn compress_seal_put_object(
         &self,
-        envelope: Arc<Envelope>,
+        envelope_manager: Arc<envelope::Manager>,
         file_path: Arc<String>,
         s3_bucket: Arc<String>,
         s3_key: Arc<String>,
@@ -451,7 +451,7 @@ impl Manager {
             file_path.as_str()
         );
         let compressed_sealed_path = random_manager::tmp_path(10, None).unwrap();
-        envelope
+        envelope_manager
             .compress_seal(file_path.clone(), Arc::new(compressed_sealed_path.clone()))
             .await?;
 
@@ -470,7 +470,7 @@ impl Manager {
     /// Reverse of "compress_seal_put_object".
     pub async fn get_object_unseal_decompress(
         &self,
-        envelope: Arc<Envelope>,
+        envelope_manager: Arc<envelope::Manager>,
         s3_bucket: Arc<String>,
         s3_key: Arc<String>,
         file_path: Arc<String>,
@@ -492,7 +492,7 @@ impl Manager {
             "get-object-unseal-decompress: unseal and decompress '{}'",
             downloaded_path
         );
-        envelope
+        envelope_manager
             .unseal_decompress(Arc::new(downloaded_path), file_path.clone())
             .await
     }
@@ -648,7 +648,7 @@ where
 
 pub async fn spawn_compress_seal_put_object<S>(
     s3_manager: Manager,
-    envelope: Envelope,
+    envelope_manager: envelope::Manager,
     file_path: S,
     s3_bucket: S,
     s3_key: S,
@@ -657,13 +657,18 @@ where
     S: AsRef<str>,
 {
     let s3_manager_arc = Arc::new(s3_manager);
-    let envelope_arc = Arc::new(envelope);
+    let envelope_manager_arc = Arc::new(envelope_manager);
     let file_path_arc = Arc::new(file_path.as_ref().to_string());
     let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
     let s3_key_arc = Arc::new(s3_key.as_ref().to_string());
     tokio::spawn(async move {
         s3_manager_arc
-            .compress_seal_put_object(envelope_arc, file_path_arc, s3_bucket_arc, s3_key_arc)
+            .compress_seal_put_object(
+                envelope_manager_arc,
+                file_path_arc,
+                s3_bucket_arc,
+                s3_key_arc,
+            )
             .await
     })
     .await
@@ -672,7 +677,7 @@ where
 
 pub async fn spawn_get_object_unseal_decompress<S>(
     s3_manager: Manager,
-    envelope: Envelope,
+    envelope_manager: envelope::Manager,
     s3_bucket: S,
     s3_key: S,
     file_path: S,
@@ -681,13 +686,18 @@ where
     S: AsRef<str>,
 {
     let s3_manager_arc = Arc::new(s3_manager);
-    let envelope_arc = Arc::new(envelope);
+    let envelope_manager_arc = Arc::new(envelope_manager);
     let file_path_arc = Arc::new(file_path.as_ref().to_string());
     let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
     let s3_key_arc = Arc::new(s3_key.as_ref().to_string());
     tokio::spawn(async move {
         s3_manager_arc
-            .get_object_unseal_decompress(envelope_arc, s3_bucket_arc, s3_key_arc, file_path_arc)
+            .get_object_unseal_decompress(
+                envelope_manager_arc,
+                s3_bucket_arc,
+                s3_key_arc,
+                file_path_arc,
+            )
             .await
     })
     .await

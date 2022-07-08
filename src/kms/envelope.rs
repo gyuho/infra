@@ -21,7 +21,7 @@ const DEK_AES_256_LENGTH: usize = 32;
 
 /// Implements envelope encryption manager.
 #[derive(std::clone::Clone)]
-pub struct Envelope {
+pub struct Manager {
     pub kms_manager: kms::Manager,
     pub kms_key_id: String,
 
@@ -30,7 +30,7 @@ pub struct Envelope {
     pub aad_tag: String,
 }
 
-impl Envelope {
+impl Manager {
     /// Envelope-encrypts the data using AWS KMS data-encryption key (DEK)
     /// and "AES_256_GCM", since kms:Encrypt can only encrypt 4 KiB).
     /// The encrypted data are aligned as below:
@@ -440,7 +440,7 @@ fn zero_vec(n: usize) -> Vec<u8> {
     (0..n).map(|_| 0).collect()
 }
 
-pub async fn spawn_seal_aes_256_file<S>(envelope: Envelope, src_file: S, dst_file: S) -> Result<()>
+pub async fn spawn_seal_aes_256_file<S>(envelope: Manager, src_file: S, dst_file: S) -> Result<()>
 where
     S: AsRef<str>,
 {
@@ -456,11 +456,7 @@ where
     .expect("failed spawn await")
 }
 
-pub async fn spawn_unseal_aes_256_file<S>(
-    envelope: Envelope,
-    src_file: S,
-    dst_file: S,
-) -> Result<()>
+pub async fn spawn_unseal_aes_256_file<S>(envelope: Manager, src_file: S, dst_file: S) -> Result<()>
 where
     S: AsRef<str>,
 {
@@ -476,7 +472,7 @@ where
     .expect("failed spawn await")
 }
 
-pub async fn spawn_compress_seal<S>(envelope: Envelope, src_file: S, dst_file: S) -> Result<()>
+pub async fn spawn_compress_seal<S>(envelope: Manager, src_file: S, dst_file: S) -> Result<()>
 where
     S: AsRef<str>,
 {
@@ -488,7 +484,7 @@ where
         .expect("failed spawn await")
 }
 
-pub async fn spawn_unseal_decompress<S>(envelope: Envelope, src_file: S, dst_file: S) -> Result<()>
+pub async fn spawn_unseal_decompress<S>(envelope: Manager, src_file: S, dst_file: S) -> Result<()>
 where
     S: AsRef<str>,
 {

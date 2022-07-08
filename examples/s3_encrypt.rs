@@ -7,7 +7,7 @@ use std::{
 
 use aws_manager::{
     self,
-    kms::{self, envelope::Envelope},
+    kms::{self, envelope::Manager},
     s3,
     utils::cmp,
 };
@@ -34,7 +34,7 @@ fn main() {
     println!();
     let kms_manager = kms::Manager::new(&shared_config);
     let cmk = ab!(kms_manager.create_key("test key description")).unwrap();
-    let envelope = Envelope {
+    let envelope_manager = Manager {
         kms_manager: kms_manager.clone(),
         kms_key_id: cmk.id.clone(),
         aad_tag: "test-aad-tag".to_string(),
@@ -65,7 +65,7 @@ fn main() {
     thread::sleep(time::Duration::from_secs(3));
     ab!(s3::spawn_compress_seal_put_object(
         s3_manager.clone(),
-        envelope.clone(),
+        envelope_manager.clone(),
         &src_file_path,
         &s3_bucket,
         &s3_key,
@@ -78,7 +78,7 @@ fn main() {
     thread::sleep(time::Duration::from_secs(3));
     ab!(s3::spawn_get_object_unseal_decompress(
         s3_manager.clone(),
-        envelope.clone(),
+        envelope_manager.clone(),
         &s3_bucket,
         &s3_key,
         &dst_file_path,

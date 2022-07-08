@@ -7,7 +7,7 @@ use std::{
 
 use aws_manager::{
     self,
-    kms::{self, envelope::Envelope},
+    kms::{self, envelope::Manager},
     utils::{cmp, time as time_utils},
 };
 use log::info;
@@ -81,7 +81,7 @@ fn main() {
         plaintext.as_bytes()
     ));
 
-    let envelope = Envelope {
+    let envelope = Manager {
         kms_manager: kms_manager.clone(),
         kms_key_id: cmk.id.clone(),
         aad_tag: "test-aad-tag".to_string(),
