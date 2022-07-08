@@ -442,29 +442,38 @@ impl Manager {
     pub async fn compress_seal_put_object(
         &self,
         envelope_manager: Arc<envelope::Manager>,
-        file_path: Arc<String>,
+        source_file_path: Arc<String>,
         s3_bucket: Arc<String>,
         s3_key: Arc<String>,
     ) -> Result<()> {
         info!(
             "compress-seal-put-object: compress and seal '{}'",
-            file_path.as_str()
+            source_file_path.as_str()
         );
-        let compressed_sealed_path = random_manager::tmp_path(10, None).unwrap();
+
+        let tmp_compressed_sealed_path = random_manager::tmp_path(10, None).unwrap();
         envelope_manager
-            .compress_seal(file_path.clone(), Arc::new(compressed_sealed_path.clone()))
+            .compress_seal(
+                source_file_path.clone(),
+                Arc::new(tmp_compressed_sealed_path.clone()),
+            )
             .await?;
 
         info!(
             "compress-seal-put-object: upload object '{}'",
-            compressed_sealed_path
+            tmp_compressed_sealed_path
         );
         self.put_object(
-            Arc::new(compressed_sealed_path),
+            Arc::new(tmp_compressed_sealed_path.clone()),
             s3_bucket.clone(),
             s3_key.clone(),
         )
-        .await
+        .await?;
+
+        fs::remove_file(tmp_compressed_sealed_path).map_err(|e| API {
+            message: format!("failed remove_file tmp_compressed_sealed_path: {}", e),
+            is_retryable: false,
+        })
     }
 
     /// Reverse of "compress_seal_put_object".
@@ -473,28 +482,37 @@ impl Manager {
         envelope_manager: Arc<envelope::Manager>,
         s3_bucket: Arc<String>,
         s3_key: Arc<String>,
-        file_path: Arc<String>,
+        download_file_path: Arc<String>,
     ) -> Result<()> {
         info!(
             "get-object-unseal-decompress: downloading object {}/{}",
             s3_bucket.as_str(),
             s3_key.as_str()
         );
-        let downloaded_path = random_manager::tmp_path(10, None).unwrap();
+
+        let tmp_downloaded_path = random_manager::tmp_path(10, None).unwrap();
         self.get_object(
             s3_bucket.clone(),
             s3_key.clone(),
-            Arc::new(downloaded_path.clone()),
+            Arc::new(tmp_downloaded_path.clone()),
         )
         .await?;
 
         info!(
             "get-object-unseal-decompress: unseal and decompress '{}'",
-            downloaded_path
+            tmp_downloaded_path
         );
         envelope_manager
-            .unseal_decompress(Arc::new(downloaded_path), file_path.clone())
-            .await
+            .unseal_decompress(
+                Arc::new(tmp_downloaded_path.clone()),
+                download_file_path.clone(),
+            )
+            .await?;
+
+        fs::remove_file(tmp_downloaded_path).map_err(|e| API {
+            message: format!("failed remove_file tmp_downloaded_path: {}", e),
+            is_retryable: false,
+        })
     }
 }
 
