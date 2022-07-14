@@ -222,10 +222,10 @@ impl Manager {
             cnt += 1;
         }
 
-        return Err(Other {
+        Err(Other {
             message: format!("failed to poll stack {} in time", stack_name),
             is_retryable: true,
-        });
+        })
     }
 }
 

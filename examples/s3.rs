@@ -1,6 +1,6 @@
 use std::{fs, io::Write, sync::Arc, thread, time};
 
-use aws_manager::{self, s3, utils::time as time_utils};
+use aws_manager::{self, s3};
 use log::info;
 use tokio::runtime::Runtime;
 
@@ -25,7 +25,7 @@ fn main() {
     println!();
     let bucket = format!(
         "aws-manager-examples-tests-s3-{}-{}",
-        time_utils::timestamp(6),
+        id_manager::time::timestamp(6),
         random_manager::string(10)
     );
     rt.block_on(s3_manager.delete_bucket(&bucket)).unwrap(); // error should be ignored if it does not exist

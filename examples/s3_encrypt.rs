@@ -9,7 +9,6 @@ use aws_manager::{
     self,
     kms::{self, envelope::Manager},
     s3,
-    utils::cmp,
 };
 use log::info;
 
@@ -34,11 +33,11 @@ fn main() {
     println!();
     let kms_manager = kms::Manager::new(&shared_config);
     let cmk = ab!(kms_manager.create_key("test key description")).unwrap();
-    let envelope_manager = Manager {
-        kms_manager: kms_manager.clone(),
-        kms_key_id: cmk.id.clone(),
-        aad_tag: "test-aad-tag".to_string(),
-    };
+    let envelope_manager = Manager::new(
+        kms_manager.clone(),
+        cmk.id.clone(),
+        "test-aad-tag".to_string(), // AAD tag
+    );
 
     println!();
     println!();
@@ -103,5 +102,8 @@ fn main() {
     let mut dst_file = File::open(dst_file_path).unwrap();
     let mut dst_file_contents = Vec::new();
     dst_file.read_to_end(&mut dst_file_contents).unwrap();
-    assert!(cmp::eq_vectors(&src_file_contents, &dst_file_contents));
+    assert!(cmp_manager::eq_vectors(
+        &src_file_contents,
+        &dst_file_contents
+    ));
 }

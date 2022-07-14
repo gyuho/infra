@@ -8,7 +8,6 @@ use std::{
 use aws_manager::{
     self,
     kms::{self, envelope::Manager},
-    utils::{cmp, time as time_utils},
 };
 use log::info;
 
@@ -30,7 +29,7 @@ fn main() {
     let shared_config = ab!(aws_manager::load_config(None)).unwrap();
     let kms_manager = kms::Manager::new(&shared_config);
 
-    let mut key_desc = time_utils::with_prefix("test");
+    let mut key_desc = id_manager::time::with_prefix("test");
     key_desc.push_str("-cmk");
 
     // error should be ignored if it does not exist
@@ -76,24 +75,24 @@ fn main() {
     info!("encrypted_file_contents: {:?}", encrypted_file_contents);
     info!("decrypted_file_contents: {:?}", decrypted_file_contents);
     assert_eq!(&decrypted_file_contents, plaintext.as_bytes());
-    assert!(cmp::eq_vectors(
+    assert!(cmp_manager::eq_vectors(
         &decrypted_file_contents,
         plaintext.as_bytes()
     ));
 
-    let envelope = Manager {
-        kms_manager: kms_manager.clone(),
-        kms_key_id: cmk.id.clone(),
-        aad_tag: "test-aad-tag".to_string(),
-    };
+    let envelope_manager = Manager::new(
+        kms_manager.clone(),
+        cmk.id.clone(),
+        "test-aad-tag".to_string(), // AAD tag
+    );
     let sealed_aes_256_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
     let unsealed_aes_256_file_path = random_manager::tmp_path(10, None).unwrap();
-    ab!(envelope.seal_aes_256_file(
+    ab!(envelope_manager.seal_aes_256_file(
         Arc::new(plaintext_file_path.to_string()),
         Arc::new(sealed_aes_256_file_path.clone())
     ))
     .unwrap();
-    ab!(envelope.unseal_aes_256_file(
+    ab!(envelope_manager.unseal_aes_256_file(
         Arc::new(sealed_aes_256_file_path.clone()),
         Arc::new(unsealed_aes_256_file_path.clone())
     ))
@@ -117,7 +116,7 @@ fn main() {
         unsealed_aes_256_file_contents
     );
     assert_eq!(&unsealed_aes_256_file_contents, plaintext.as_bytes());
-    assert!(cmp::eq_vectors(
+    assert!(cmp_manager::eq_vectors(
         &unsealed_aes_256_file_contents,
         plaintext.as_bytes()
     ));
@@ -125,13 +124,14 @@ fn main() {
     thread::sleep(time::Duration::from_secs(2));
 
     // envelope encryption with "AES_256" (32-byte)
-    let plaintext_sealed = ab!(envelope.seal_aes_256(plaintext.as_bytes())).unwrap();
+    let plaintext_sealed = ab!(envelope_manager.seal_aes_256(plaintext.as_bytes())).unwrap();
     thread::sleep(time::Duration::from_secs(1));
-    let plaintext_sealed_unsealed = ab!(envelope.unseal_aes_256(&plaintext_sealed)).unwrap();
+    let plaintext_sealed_unsealed =
+        ab!(envelope_manager.unseal_aes_256(&plaintext_sealed)).unwrap();
     info!("plaintext_sealed: {:?}", plaintext_sealed);
     info!("plaintext_sealed_unsealed: {:?}", plaintext_sealed_unsealed);
     assert_eq!(&plaintext_sealed_unsealed, plaintext.as_bytes());
-    assert!(cmp::eq_vectors(
+    assert!(cmp_manager::eq_vectors(
         &plaintext_sealed_unsealed,
         plaintext.as_bytes()
     ));

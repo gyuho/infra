@@ -583,12 +583,10 @@ impl Config {
     pub fn encode_json(&self) -> io::Result<String> {
         match serde_json::to_string(&self) {
             Ok(s) => Ok(s),
-            Err(e) => {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    format!("failed to serialize Config to YAML {}", e),
-                ));
-            }
+            Err(e) => Err(Error::new(
+                ErrorKind::Other,
+                format!("failed to serialize Config to YAML {}", e),
+            )),
         }
     }
 
@@ -627,14 +625,13 @@ impl Config {
         }
 
         let f = File::open(&file_path).map_err(|e| {
-            return Error::new(
+            Error::new(
                 ErrorKind::Other,
                 format!("failed to open {} ({})", file_path, e),
-            );
+            )
         })?;
-        serde_json::from_reader(f).map_err(|e| {
-            return Error::new(ErrorKind::InvalidInput, format!("invalid JSON: {}", e));
-        })
+        serde_json::from_reader(f)
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, format!("invalid JSON: {}", e)))
     }
 
     /// Validates the configuration.

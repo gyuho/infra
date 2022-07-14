@@ -20,17 +20,26 @@ use ring::rand::{SecureRandom, SystemRandom};
 const DEK_AES_256_LENGTH: usize = 32;
 
 /// Implements envelope encryption manager.
-#[derive(std::clone::Clone)]
+#[derive(Clone)]
 pub struct Manager {
     pub kms_manager: kms::Manager,
     pub kms_key_id: String,
 
     /// Represents additional authenticated data (AAD) that attaches information
     /// to the ciphertext that is not encrypted.
-    pub aad_tag: String,
+    aad_tag: String,
 }
 
 impl Manager {
+    /// Creates a new envelope encryption manager.
+    pub fn new(kms_manager: kms::Manager, kms_key_id: String, aad_tag: String) -> Self {
+        Self {
+            kms_manager,
+            kms_key_id,
+            aad_tag,
+        }
+    }
+
     /// Envelope-encrypts the data using AWS KMS data-encryption key (DEK)
     /// and "AES_256_GCM", since kms:Encrypt can only encrypt 4 KiB).
     /// The encrypted data are aligned as below:
@@ -388,10 +397,7 @@ impl Manager {
     /// The compression uses "zstd".
     /// The encryption uses AES 256.
     pub async fn compress_seal(&self, src_file: Arc<String>, dst_file: Arc<String>) -> Result<()> {
-        info!(
-            "compress-seal: compressing the file '{}'",
-            src_file.to_string()
-        );
+        info!("compress-seal: compressing the file '{}'", src_file);
         let compressed_path = random_manager::tmp_path(10, None).unwrap();
         compress_manager::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3))
             .map_err(|e| Other {

@@ -14,8 +14,13 @@ pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(
     let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
-        format!("/dev/{}", device_name).to_string()
+        format!("/dev/{}", device_name)
     };
+
+    log::info!(
+        "making file system with 'mkfs' command on the device path '{}'",
+        device_path
+    );
 
     let cmd = format!("sudo mkfs -t {} {}", filesystem_name, device_path);
     let res = command_manager::run(&cmd);
@@ -52,8 +57,13 @@ pub fn mount_filesystem(
     let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
-        format!("/dev/{}", device_name).to_string()
+        format!("/dev/{}", device_name)
     };
+
+    log::info!(
+        "mounting the file system with 'mount' command on the device path '{}'",
+        device_path
+    );
 
     let cmd = format!(
         "sudo mount {} {} -t {}",
@@ -96,8 +106,13 @@ pub fn update_fstab(
     let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
-        format!("/dev/{}", device_name).to_string()
+        format!("/dev/{}", device_name)
     };
+
+    log::info!(
+        "updating the fstab file on the device path '{}'",
+        device_path
+    );
 
     let line = format!(
         "{}       {}   {}    defaults,nofail 0       2",

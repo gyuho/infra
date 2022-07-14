@@ -3,7 +3,7 @@ use std::{
     time::{self, Duration},
 };
 
-use aws_manager::{self, cloudformation, utils::time as time_utils};
+use aws_manager::{self, cloudformation};
 use aws_sdk_cloudformation::model::{OnFailure, Parameter, StackStatus, Tag};
 use log::info;
 use rust_embed::RustEmbed;
@@ -37,7 +37,7 @@ fn main() {
     let shared_config = ret.unwrap();
     let cloudformation_manager = cloudformation::Manager::new(&shared_config);
 
-    let stack_name = time_utils::with_prefix("test");
+    let stack_name = id_manager::time::with_prefix("test");
 
     // error should be ignored if it does not exist
     let ret = ab!(cloudformation_manager.delete_stack(&stack_name));
@@ -55,7 +55,7 @@ fn main() {
         Some(Vec::from([
             Parameter::builder()
                 .parameter_key("Id")
-                .parameter_value(time_utils::with_prefix("id"))
+                .parameter_value(id_manager::time::with_prefix("id"))
                 .build(),
             Parameter::builder()
                 .parameter_key("VpcCidr")

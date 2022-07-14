@@ -2,12 +2,9 @@ pub mod disk;
 
 use std::{fs::File, io::prelude::*, path::Path, sync::Arc};
 
-use crate::{
-    errors::{
-        Error::{Other, API},
-        Result,
-    },
-    utils::rfc3339,
+use crate::errors::{
+    Error::{Other, API},
+    Result,
 };
 use aws_sdk_ec2::{
     error::DeleteKeyPairError,
@@ -70,7 +67,10 @@ impl Manager {
             }
         };
 
-        info!("saving EC2 key-pair '{}' to '{}'", key_name, key_path);
+        info!(
+            "persisting the created EC2 key-pair '{}' in '{}'",
+            key_name, key_path
+        );
         let key_material = resp.key_material().unwrap();
 
         let mut f = match File::create(&path) {
@@ -210,13 +210,13 @@ impl Manager {
             cnt += 1;
         }
 
-        return Err(Other {
+        Err(Other {
             message: format!(
                 "failed to poll volume state for '{}' in time",
                 ebs_volume_id
             ),
             is_retryable: true,
-        });
+        })
     }
 
     /// Describes the attached volume by the volume Id and EBS device name.
@@ -355,13 +355,13 @@ impl Manager {
             cnt += 1;
         }
 
-        return Err(Other {
+        Err(Other {
             message: format!(
                 "failed to poll volume attachment state for '{}' in time",
                 local_ec2_instance_id
             ),
             is_retryable: true,
-        });
+        })
     }
 
     /// Fetches all tags for the specified instance.
@@ -484,7 +484,7 @@ pub struct Droplet {
     pub instance_id: String,
     /// Represents the data format in RFC3339.
     /// ref. https://serde.rs/custom-date-format.html
-    #[serde(with = "rfc3339::serde_format")]
+    #[serde(with = "rfc_manager::serde_format::rfc_3339")]
     pub launched_at_utc: DateTime<Utc>,
     pub instance_state_code: i32,
     pub instance_state_name: String,
@@ -617,21 +617,18 @@ async fn fetch_metadata(path: &str) -> Result<String> {
 
     let ret = http_manager::read_bytes(req, Duration::from_secs(5), false, true).await;
     let rs = match ret {
-        Ok(bytes) => {
-            let s = match String::from_utf8(bytes.to_vec()) {
-                Ok(text) => text,
-                Err(e) => {
-                    return Err(API {
-                        message: format!(
-                            "GET meta-data/{} returned unexpected bytes {:?} ({})",
-                            path, bytes, e
-                        ),
-                        is_retryable: false,
-                    });
-                }
-            };
-            s
-        }
+        Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
+            Ok(text) => text,
+            Err(e) => {
+                return Err(API {
+                    message: format!(
+                        "GET meta-data/{} returned unexpected bytes {:?} ({})",
+                        path, bytes, e
+                    ),
+                    is_retryable: false,
+                });
+            }
+        },
         Err(e) => {
             return Err(API {
                 message: format!("failed GET meta-data/{} {:?}", path, e),
@@ -668,21 +665,18 @@ async fn fetch_token() -> Result<String> {
 
     let ret = http_manager::read_bytes(req, Duration::from_secs(5), false, true).await;
     let token = match ret {
-        Ok(bytes) => {
-            let s = match String::from_utf8(bytes.to_vec()) {
-                Ok(text) => text,
-                Err(e) => {
-                    return Err(API {
-                        message: format!(
-                            "PUT api/token returned unexpected bytes {:?} ({})",
-                            bytes, e
-                        ),
-                        is_retryable: false,
-                    });
-                }
-            };
-            s
-        }
+        Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
+            Ok(text) => text,
+            Err(e) => {
+                return Err(API {
+                    message: format!(
+                        "PUT api/token returned unexpected bytes {:?} ({})",
+                        bytes, e
+                    ),
+                    is_retryable: false,
+                });
+            }
+        },
         Err(e) => {
             return Err(API {
                 message: format!("failed PUT api/token {:?}", e),

@@ -319,7 +319,7 @@ impl Manager {
         s3_bucket: Arc<String>,
         s3_key: Arc<String>,
     ) -> Result<()> {
-        if !Path::new(&file_path.to_string()).exists() {
+        if !Path::new(file_path.as_str()).exists() {
             return Err(Other {
                 message: format!("file path {} does not exist", file_path),
                 is_retryable: false,
