@@ -32,6 +32,10 @@ pub async fn fetch_availability_zone() -> Result<String> {
 }
 
 /// Fetches the spot instance action.
+///
+/// If Amazon EC2 is not stopping or terminating the instance, or if you terminated the instance yourself,
+/// spot/instance-action is not present in the instance metadata thus returning an HTTP 404 error.
+///
 /// ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-categories.html
 /// ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/prepare-for-interruptions.html
 pub async fn fetch_spot_instance_action() -> Result<InstanceAction> {
