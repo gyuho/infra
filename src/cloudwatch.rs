@@ -20,7 +20,6 @@ use aws_sdk_cloudwatchlogs::{
     Client as LogsClient,
 };
 use aws_types::SdkConfig as AwsSdkConfig;
-use log::{info, warn};
 use serde::{Deserialize, Serialize};
 
 /// Implements AWS CloudWatch manager.
@@ -66,7 +65,7 @@ impl Manager {
         data: Arc<Vec<MetricDatum>>,
     ) -> Result<()> {
         let n = data.len();
-        info!("posting CloudWatch {} metrics in '{}'", n, namespace);
+        log::info!("posting CloudWatch {} metrics in '{}'", n, namespace);
         if n <= 20 {
             let ret = self
                 .metrics_cli
@@ -77,7 +76,7 @@ impl Manager {
                 .await;
             match ret {
                 Ok(_) => {
-                    info!("successfully post metrics");
+                    log::info!("successfully post metrics");
                 }
                 Err(e) => {
                     return Err(API {
@@ -87,7 +86,7 @@ impl Manager {
                 }
             };
         } else {
-            warn!("put_metric_data limit is 20, got {}; batching by 20...", n);
+            log::warn!("put_metric_data limit is 20, got {}; batching by 20...", n);
             for batch in data.chunks(20) {
                 let batch_n = batch.len();
                 let ret = self
@@ -99,7 +98,7 @@ impl Manager {
                     .await;
                 match ret {
                     Ok(_) => {
-                        info!("successfully post {} metrics in batch", batch_n);
+                        log::info!("successfully post {} metrics in batch", batch_n);
                     }
                     Err(e) => {
                         return Err(API {
@@ -118,7 +117,7 @@ impl Manager {
     /// Creates a CloudWatch log group.
     /// ref. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
     pub async fn create_log_group(&self, log_group_name: &str) -> Result<()> {
-        info!("creating CloudWatch log group '{}'", log_group_name);
+        log::info!("creating CloudWatch log group '{}'", log_group_name);
         let ret = self
             .logs_cli
             .create_log_group()
@@ -134,12 +133,12 @@ impl Manager {
                         is_retryable: is_logs_error_retryable(&e),
                     });
                 }
-                warn!("log_group already exists ({})", e);
+                log::warn!("log_group already exists ({})", e);
                 true
             }
         };
         if !already_created {
-            info!("created CloudWatch log group");
+            log::info!("created CloudWatch log group");
         }
         Ok(())
     }
@@ -147,7 +146,7 @@ impl Manager {
     /// Deletes a CloudWatch log group.
     /// ref. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
     pub async fn delete_log_group(&self, log_group_name: &str) -> Result<()> {
-        info!("deleting CloudWatch log group '{}'", log_group_name);
+        log::info!("deleting CloudWatch log group '{}'", log_group_name);
         let ret = self
             .logs_cli
             .delete_log_group()
@@ -159,9 +158,10 @@ impl Manager {
             Err(e) => {
                 let mut ignore_err: bool = false;
                 if is_logs_error_delete_log_group_does_not_exist(&e) {
-                    warn!(
+                    log::warn!(
                         "delete_log_group failed; '{}' does not exist ({}",
-                        log_group_name, e
+                        log_group_name,
+                        e
                     );
                     ignore_err = true
                 }
@@ -175,7 +175,7 @@ impl Manager {
             }
         };
         if deleted {
-            info!("deleted CloudWatch log group");
+            log::info!("deleted CloudWatch log group");
         };
         Ok(())
     }
@@ -593,7 +593,7 @@ impl Config {
     /// Saves the current configuration to disk
     /// and overwrites the file.
     pub fn sync(&self, file_path: &str) -> io::Result<()> {
-        info!("syncing CloudWatch config to '{}'", file_path);
+        log::info!("syncing CloudWatch config to '{}'", file_path);
         let path = Path::new(file_path);
         let parent_dir = path.parent().unwrap();
         fs::create_dir_all(parent_dir)?;
@@ -615,7 +615,7 @@ impl Config {
     }
 
     pub fn load(file_path: &str) -> io::Result<Self> {
-        info!("loading config from {}", file_path);
+        log::info!("loading config from {}", file_path);
 
         if !Path::new(file_path).exists() {
             return Err(Error::new(
@@ -636,7 +636,7 @@ impl Config {
 
     /// Validates the configuration.
     pub fn validate(&self) -> io::Result<()> {
-        info!("validating the CloudWatch configuration");
+        log::info!("validating the CloudWatch configuration");
 
         Ok(())
     }
@@ -651,7 +651,7 @@ fn test_config() {
     let ret = config.encode_json();
     assert!(ret.is_ok());
     let s = ret.unwrap();
-    info!("config: {}", s);
+    log::info!("config: {}", s);
 
     let p = random_manager::tmp_path(10, Some(".json")).unwrap();
     let ret = config.sync(&p);

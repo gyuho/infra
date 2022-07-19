@@ -18,7 +18,6 @@ use aws_sdk_s3::{
     Client,
 };
 use aws_types::SdkConfig as AwsSdkConfig;
-use log::{debug, info, warn};
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio_stream::StreamExt;
 
@@ -52,7 +51,7 @@ impl Manager {
             .location_constraint(constraint)
             .build();
 
-        info!(
+        log::info!(
             "creating S3 bucket '{}' in region {}",
             s3_bucket,
             reg.to_string()
@@ -74,16 +73,19 @@ impl Manager {
                         is_retryable: is_error_retryable(&e),
                     });
                 }
-                warn!("bucket already exists ({})", e);
+                log::warn!(
+                    "bucket already exists so returning early (original error '{}')",
+                    e
+                );
                 true
             }
         };
         if already_created {
             return Ok(());
         }
-        info!("created S3 bucket '{}'", s3_bucket);
+        log::info!("created S3 bucket '{}'", s3_bucket);
 
-        info!("setting S3 bucket public_access_block configuration to private");
+        log::info!("setting S3 bucket public_access_block configuration to private");
         let public_access_block_cfg = PublicAccessBlockConfiguration::builder()
             .block_public_acls(true)
             .block_public_policy(true)
@@ -128,7 +130,7 @@ impl Manager {
     /// Deletes a S3 bucket.
     pub async fn delete_bucket(&self, s3_bucket: &str) -> Result<()> {
         let reg = self.shared_config.region().unwrap();
-        info!(
+        log::info!(
             "deleting S3 bucket '{}' in region {}",
             s3_bucket,
             reg.to_string()
@@ -143,10 +145,10 @@ impl Manager {
                         is_retryable: is_error_retryable(&e),
                     });
                 }
-                warn!("bucket already deleted or does not exist ({})", e);
+                log::warn!("bucket already deleted or does not exist ({})", e);
             }
         };
-        info!("deleted S3 bucket '{}'", s3_bucket);
+        log::info!("deleted S3 bucket '{}'", s3_bucket);
 
         Ok(())
     }
@@ -164,7 +166,7 @@ impl Manager {
         prefix: Option<Arc<String>>,
     ) -> Result<()> {
         let reg = self.shared_config.region().unwrap();
-        info!(
+        log::info!(
             "deleting objects S3 bucket '{}' in region {} (prefix {:?})",
             s3_bucket,
             reg.to_string(),
@@ -198,9 +200,9 @@ impl Manager {
                     });
                 }
             };
-            info!("deleted {} objets in S3 bucket '{}'", n, s3_bucket);
+            log::info!("deleted {} objets in S3 bucket '{}'", n, s3_bucket);
         } else {
-            info!("nothing to delete; skipping...");
+            log::info!("nothing to delete; skipping...");
         }
 
         Ok(())
@@ -233,7 +235,7 @@ impl Manager {
             }
         };
 
-        info!("listing bucket {} with prefix '{:?}'", s3_bucket, pfx);
+        log::info!("listing bucket {} with prefix '{:?}'", s3_bucket, pfx);
         let mut objects: Vec<Object> = Vec::new();
         let mut token = String::new();
         loop {
@@ -268,7 +270,7 @@ impl Manager {
                         is_retryable: false,
                     });
                 }
-                debug!("listing [{}]", k);
+                log::debug!("listing [{}]", k);
                 objects.push(obj.to_owned());
             }
 
@@ -282,7 +284,7 @@ impl Manager {
         }
 
         if objects.len() > 1 {
-            info!(
+            log::info!(
                 "sorting {} objects in bucket {} with prefix {:?}",
                 objects.len(),
                 s3_bucket,
@@ -331,7 +333,7 @@ impl Manager {
             is_retryable: false,
         })?;
         let size = meta.len() as f64;
-        info!(
+        log::info!(
             "starting put_object '{}' (size {}) to 's3://{}/{}'",
             file_path,
             human_readable::bytes(size),
@@ -395,7 +397,7 @@ impl Manager {
                 is_retryable: is_error_retryable(&e),
             })?;
 
-        info!(
+        log::info!(
             "starting get_object 's3://{}/{}' (content type '{}', size {})",
             s3_bucket,
             s3_key,
@@ -420,7 +422,7 @@ impl Manager {
             is_retryable: false,
         })?;
 
-        info!("writing byte stream to file {}", file_path);
+        log::info!("writing byte stream to file {}", file_path);
         while let Some(d) = output.body.try_next().await.map_err(|e| Other {
             message: format!("failed ByteStream::try_next {}", e),
             is_retryable: false,
@@ -446,7 +448,7 @@ impl Manager {
         s3_bucket: Arc<String>,
         s3_key: Arc<String>,
     ) -> Result<()> {
-        info!(
+        log::info!(
             "compress-seal-put-object: compress and seal '{}'",
             source_file_path.as_str()
         );
@@ -459,7 +461,7 @@ impl Manager {
             )
             .await?;
 
-        info!(
+        log::info!(
             "compress-seal-put-object: upload object '{}'",
             tmp_compressed_sealed_path
         );
@@ -484,7 +486,7 @@ impl Manager {
         s3_key: Arc<String>,
         download_file_path: Arc<String>,
     ) -> Result<()> {
-        info!(
+        log::info!(
             "get-object-unseal-decompress: downloading object {}/{}",
             s3_bucket.as_str(),
             s3_key.as_str()
@@ -498,7 +500,7 @@ impl Manager {
         )
         .await?;
 
-        info!(
+        log::info!(
             "get-object-unseal-decompress: unseal and decompress '{}'",
             tmp_downloaded_path
         );

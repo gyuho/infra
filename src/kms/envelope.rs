@@ -11,7 +11,6 @@ use crate::{
 use aws_sdk_kms::model::{DataKeySpec, EncryptionAlgorithmSpec};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use compress_manager::{self, Decoder, Encoder};
-use log::info;
 /// "NONCE_LEN" is the per-record nonce (iv_length), 12-byte
 /// ref. https://www.rfc-editor.org/rfc/rfc8446#appendix-E.2
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM, NONCE_LEN};
@@ -40,12 +39,15 @@ impl Manager {
         }
     }
 
-    /// Envelope-encrypts the data using AWS KMS data-encryption key (DEK)
-    /// and "AES_256_GCM", since kms:Encrypt can only encrypt 4 KiB).
+    /// Envelope-encrypts the data using AWS KMS data-encryption key (DEK) and "AES_256_GCM"
+    /// because kms:Encrypt can only encrypt 4 KiB.
+    ///
     /// The encrypted data are aligned as below:
     /// [ Nonce bytes "length" ][ DEK.ciphertext "length" ][ Nonce bytes ][ DEK.ciphertext ][ data ciphertext ]
+    ///
+    /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html
     pub async fn seal_aes_256(&self, d: &[u8]) -> Result<Vec<u8>> {
-        info!(
+        log::info!(
             "AES_256 envelope-encrypting data (size before encryption {})",
             human_readable::bytes(d.len() as f64)
         );
@@ -166,7 +168,7 @@ impl Manager {
             }
         }
 
-        info!(
+        log::info!(
             "AES_256 envelope-encrypted data (encrypted size {})",
             human_readable::bytes(encrypted.len() as f64)
         );
@@ -174,10 +176,14 @@ impl Manager {
     }
 
     /// Envelope-decrypts using KMS DEK and "AES_256_GCM".
+    ///
     /// Assume the input (ciphertext) data are packed in the order of:
     /// [ Nonce bytes "length" ][ DEK.ciphertext "length" ][ Nonce bytes ][ DEK.ciphertext ][ data ciphertext ]
+    ///
+    /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html
+    /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_GenerateDataKey.html
     pub async fn unseal_aes_256(&self, d: &[u8]) -> Result<Vec<u8>> {
-        info!(
+        log::info!(
             "AES_256 envelope-decrypting data (size before decryption {})",
             human_readable::bytes(d.len() as f64)
         );
@@ -290,7 +296,7 @@ impl Manager {
                 }
             };
 
-        info!(
+        log::info!(
             "AES_256 envelope-decrypted data (decrypted size {})",
             human_readable::bytes(decrypted.len() as f64)
         );
@@ -307,7 +313,7 @@ impl Manager {
         src_file: Arc<String>,
         dst_file: Arc<String>,
     ) -> Result<()> {
-        info!("envelope-encrypting file {} to {}", src_file, dst_file);
+        log::info!("envelope-encrypting file {} to {}", src_file, dst_file);
         let d = match fs::read(src_file.to_string()) {
             Ok(d) => d,
             Err(e) => {
@@ -353,7 +359,7 @@ impl Manager {
         src_file: Arc<String>,
         dst_file: Arc<String>,
     ) -> Result<()> {
-        info!("envelope-decrypting file {} to {}", src_file, dst_file);
+        log::info!("envelope-decrypting file {} to {}", src_file, dst_file);
         let d = match fs::read(src_file.to_string()) {
             Ok(d) => d,
             Err(e) => {
@@ -397,7 +403,7 @@ impl Manager {
     /// The compression uses "zstd".
     /// The encryption uses AES 256.
     pub async fn compress_seal(&self, src_file: Arc<String>, dst_file: Arc<String>) -> Result<()> {
-        info!("compress-seal: compressing the file '{}'", src_file);
+        log::info!("compress-seal: compressing the file '{}'", src_file);
         let compressed_path = random_manager::tmp_path(10, None).unwrap();
         compress_manager::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3))
             .map_err(|e| Other {
@@ -405,7 +411,7 @@ impl Manager {
                 is_retryable: false,
             })?;
 
-        info!(
+        log::info!(
             "compress-seal: sealing the compressed file '{}'",
             compressed_path
         );
@@ -421,7 +427,7 @@ impl Manager {
         src_file: Arc<String>,
         dst_file: Arc<String>,
     ) -> Result<()> {
-        info!(
+        log::info!(
             "unseal-decompress: unsealing the encrypted file '{}'",
             src_file.as_ref()
         );
@@ -429,7 +435,7 @@ impl Manager {
         self.unseal_aes_256_file(src_file.clone(), Arc::new(unsealed_path.clone()))
             .await?;
 
-        info!(
+        log::info!(
             "unseal-decompress: decompressing the file '{}'",
             src_file.as_ref()
         );

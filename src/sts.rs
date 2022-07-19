@@ -1,7 +1,6 @@
 use crate::errors::{Error::API, Result};
 use aws_sdk_sts::{types::SdkError, Client};
 use aws_types::SdkConfig as AwsSdkConfig;
-use log::info;
 use serde::{Deserialize, Serialize};
 
 /// Implements AWS STS manager.
@@ -28,7 +27,7 @@ impl Manager {
 
     /// Queries the AWS caller identity from the default AWS configuration.
     pub async fn get_identity(&self) -> Result<Identity> {
-        info!("fetching caller identity");
+        log::info!("fetching STS caller identity");
         let ret = self.cli.get_caller_identity().send().await;
         let resp = match ret {
             Ok(v) => v,

@@ -1,4 +1,5 @@
 pub mod disk;
+pub mod metadata;
 
 use std::{fs::File, io::prelude::*, path::Path, sync::Arc};
 
@@ -17,8 +18,6 @@ use aws_sdk_ec2::{
 };
 use aws_types::SdkConfig as AwsSdkConfig;
 use chrono::{DateTime, NaiveDateTime, Utc};
-use hyper::{Body, Method, Request};
-use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration, Instant};
 
@@ -55,7 +54,7 @@ impl Manager {
             });
         }
 
-        info!("creating EC2 key-pair '{}'", key_name);
+        log::info!("creating EC2 key-pair '{}'", key_name);
         let ret = self.cli.create_key_pair().key_name(key_name).send().await;
         let resp = match ret {
             Ok(v) => v,
@@ -67,9 +66,10 @@ impl Manager {
             }
         };
 
-        info!(
+        log::info!(
             "persisting the created EC2 key-pair '{}' in '{}'",
-            key_name, key_path
+            key_name,
+            key_path
         );
         let key_material = resp.key_material().unwrap();
 
@@ -97,7 +97,7 @@ impl Manager {
 
     /// Deletes the AWS EC2 key-pair.
     pub async fn delete_key_pair(&self, key_name: &str) -> Result<()> {
-        info!("deleting EC2 key-pair '{}'", key_name);
+        log::info!("deleting EC2 key-pair '{}'", key_name);
         let ret = self.cli.delete_key_pair().key_name(key_name).send().await;
         match ret {
             Ok(_) => {}
@@ -108,7 +108,7 @@ impl Manager {
                         is_retryable: is_error_retryable(&e),
                     });
                 }
-                warn!("key already deleted ({})", e);
+                log::warn!("key already deleted ({})", e);
             }
         };
 
@@ -140,7 +140,7 @@ impl Manager {
             Vec::new()
         };
 
-        info!("found {} volumes", volumes.len());
+        log::info!("found {} volumes", volumes.len());
         Ok(volumes)
     }
 
@@ -178,15 +178,15 @@ impl Manager {
                 .await?;
             if volumes.is_empty() {
                 if desired_state.eq(&VolumeState::Deleted) {
-                    info!("volume already deleted");
+                    log::info!("volume already deleted");
                     return Ok(None);
                 }
 
-                warn!("no volume found");
+                log::warn!("no volume found");
                 continue;
             }
             if volumes.len() != 1 {
-                warn!("unexpected {} volumes found", volumes.len());
+                log::warn!("unexpected {} volumes found", volumes.len());
                 continue;
             }
             let volume = volumes[0].clone();
@@ -198,9 +198,10 @@ impl Manager {
                     VolumeState::Unknown(String::from("not found"))
                 }
             };
-            info!(
+            log::info!(
                 "poll (current volume state {:?}, elapsed {:?})",
-                current_state, elapsed
+                current_state,
+                elapsed
             );
 
             if current_state.eq(&desired_state) {
@@ -246,7 +247,7 @@ impl Manager {
         let mut filters: Vec<Filter> = vec![];
 
         if let Some(v) = ebs_volume_id {
-            info!("filtering volumes via volume Id {}", v);
+            log::info!("filtering volumes via volume Id {}", v);
             filters.push(
                 Filter::builder()
                     .set_name(Some(String::from("volume-id")))
@@ -260,7 +261,7 @@ impl Manager {
         } else {
             format!("/dev/{}", ebs_device_name.clone()).to_string()
         };
-        info!("filtering volumes via EBS device name {}", device);
+        log::info!("filtering volumes via EBS device name {}", device);
         filters.push(
             Filter::builder()
                 .set_name(Some(String::from("attachment.device")))
@@ -271,9 +272,9 @@ impl Manager {
         let ec2_instance_id = if let Some(v) = local_ec2_instance_id {
             v
         } else {
-            fetch_instance_id().await?
+            metadata::fetch_instance_id().await?
         };
-        info!("filtering volumes via instance Id {}", ec2_instance_id);
+        log::info!("filtering volumes via instance Id {}", ec2_instance_id);
         filters.push(
             Filter::builder()
                 .set_name(Some(String::from("attachment.instance-id")))
@@ -294,7 +295,7 @@ impl Manager {
         timeout: Duration,
         interval: Duration,
     ) -> Result<Volume> {
-        let local_ec2_instance_id = fetch_instance_id().await?;
+        let local_ec2_instance_id = metadata::fetch_instance_id().await?;
         let start = Instant::now();
         let mut cnt: u128 = 0;
         loop {
@@ -321,31 +322,32 @@ impl Manager {
                 )
                 .await?;
             if volumes.is_empty() {
-                warn!("no volume found");
+                log::warn!("no volume found");
                 continue;
             }
             if volumes.len() != 1 {
-                warn!("unexpected {} volumes found", volumes.len());
+                log::warn!("unexpected {} volumes found", volumes.len());
                 continue;
             }
             let volume = volumes[0].clone();
             if volume.attachments().is_none() {
-                warn!("no attachment found");
+                log::warn!("no attachment found");
                 continue;
             }
             let attachments = volume.attachments().unwrap();
             if attachments.is_empty() {
-                warn!("no attachment found");
+                log::warn!("no attachment found");
                 continue;
             }
             if attachments.len() != 1 {
-                warn!("unexpected attachment found {}", attachments.len());
+                log::warn!("unexpected attachment found {}", attachments.len());
                 continue;
             }
             let current_attachment_state = attachments[0].state().unwrap();
-            info!(
+            log::info!(
                 "poll (current volume attachment state {:?}, elapsed {:?})",
-                current_attachment_state, elapsed
+                current_attachment_state,
+                elapsed
             );
 
             if current_attachment_state.eq(&desired_attachment_state) {
@@ -370,7 +372,7 @@ impl Manager {
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
     pub async fn fetch_tags(&self, instance_id: Arc<String>) -> Result<Vec<Tag>> {
-        info!("fetching tags for '{}'", instance_id);
+        log::info!("fetching tags for '{}'", instance_id);
         let ret = self
             .cli
             .describe_instances()
@@ -428,7 +430,7 @@ impl Manager {
                 });
             }
         };
-        info!("fetched {} tags for '{}'", tags.len(), instance_id);
+        log::info!("fetched {} tags for '{}'", tags.len(), instance_id);
 
         Ok(tags)
     }
@@ -458,7 +460,7 @@ impl Manager {
         let reservations = match resp.reservations {
             Some(rvs) => rvs,
             None => {
-                warn!("empty reservation from describe_instances response");
+                log::warn!("empty reservation from describe_instances response");
                 return Ok(vec![]);
             }
         };
@@ -468,7 +470,7 @@ impl Manager {
             let instances = rsv.instances().unwrap();
             for instance in instances {
                 let instance_id = instance.instance_id().unwrap();
-                info!("instance {}", instance_id);
+                log::info!("instance {}", instance_id);
                 droplets.push(Droplet::new(instance));
             }
         }
@@ -561,128 +563,4 @@ fn is_error_delete_key_pair_does_not_exist(e: &SdkError<DeleteKeyPairError>) -> 
         }
         _ => false,
     }
-}
-
-/// Fetches the instance ID on the host EC2 machine.
-pub async fn fetch_instance_id() -> Result<String> {
-    fetch_metadata("instance-id").await
-}
-
-/// Fetches the public hostname of the host EC2 machine.
-pub async fn fetch_public_hostname() -> Result<String> {
-    fetch_metadata("public-hostname").await
-}
-
-/// Fetches the public IPv4 address of the host EC2 machine.
-pub async fn fetch_public_ipv4() -> Result<String> {
-    fetch_metadata("public-ipv4").await
-}
-
-/// Fetches the availability of the host EC2 machine.
-pub async fn fetch_availability_zone() -> Result<String> {
-    fetch_metadata("placement/availability-zone").await
-}
-
-/// Fetches the region of the host EC2 machine.
-/// TODO: fix this...
-pub async fn fetch_region() -> Result<String> {
-    let mut az = fetch_availability_zone().await?;
-    az.truncate(az.len() - 1);
-    Ok(az)
-}
-
-/// Fetches instance metadata service v2 with the "path".
-/// ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
-/// ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
-/// e.g., curl -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/public-ipv4
-async fn fetch_metadata(path: &str) -> Result<String> {
-    info!("fetching meta-data/{}", path);
-
-    let uri = format!("http://169.254.169.254/latest/meta-data/{}", path);
-    let token = fetch_token().await?;
-    let req = match Request::builder()
-        .method(Method::GET)
-        .uri(uri)
-        .header("X-aws-ec2-metadata-token", token)
-        .body(Body::empty())
-    {
-        Ok(r) => r,
-        Err(e) => {
-            return Err(API {
-                message: format!("failed to build GET meta-data/{} {:?}", path, e),
-                is_retryable: false,
-            });
-        }
-    };
-
-    let ret = http_manager::read_bytes(req, Duration::from_secs(5), false, true).await;
-    let rs = match ret {
-        Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
-            Ok(text) => text,
-            Err(e) => {
-                return Err(API {
-                    message: format!(
-                        "GET meta-data/{} returned unexpected bytes {:?} ({})",
-                        path, bytes, e
-                    ),
-                    is_retryable: false,
-                });
-            }
-        },
-        Err(e) => {
-            return Err(API {
-                message: format!("failed GET meta-data/{} {:?}", path, e),
-                is_retryable: false,
-            })
-        }
-    };
-    Ok(rs)
-}
-
-/// Serves session token for instance metadata service v2.
-/// ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
-/// e.g., curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"
-const IMDS_V2_SESSION_TOKEN_URI: &str = "http://169.254.169.254/latest/api/token";
-
-/// Fetches the IMDS v2 token.
-async fn fetch_token() -> Result<String> {
-    info!("fetching IMDS v2 token");
-
-    let req = match Request::builder()
-        .method(Method::PUT)
-        .uri(IMDS_V2_SESSION_TOKEN_URI)
-        .header("X-aws-ec2-metadata-token-ttl-seconds", "21600")
-        .body(Body::empty())
-    {
-        Ok(r) => r,
-        Err(e) => {
-            return Err(API {
-                message: format!("failed to build PUT api/token {:?}", e),
-                is_retryable: false,
-            });
-        }
-    };
-
-    let ret = http_manager::read_bytes(req, Duration::from_secs(5), false, true).await;
-    let token = match ret {
-        Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
-            Ok(text) => text,
-            Err(e) => {
-                return Err(API {
-                    message: format!(
-                        "PUT api/token returned unexpected bytes {:?} ({})",
-                        bytes, e
-                    ),
-                    is_retryable: false,
-                });
-            }
-        },
-        Err(e) => {
-            return Err(API {
-                message: format!("failed PUT api/token {:?}", e),
-                is_retryable: false,
-            })
-        }
-    };
-    Ok(token)
 }

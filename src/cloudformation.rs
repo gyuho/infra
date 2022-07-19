@@ -9,7 +9,6 @@ use aws_sdk_cloudformation::{
     Client,
 };
 use aws_types::SdkConfig as AwsSdkConfig;
-use log::{info, warn};
 use tokio::time::{sleep, Duration, Instant};
 
 /// Implements AWS CloudFormation manager.
@@ -45,7 +44,7 @@ impl Manager {
         tags: Option<Vec<Tag>>,
         parameters: Option<Vec<Parameter>>,
     ) -> Result<Stack> {
-        info!("creating stack '{}'", stack_name);
+        log::info!("creating stack '{}'", stack_name);
         let ret = self
             .cli
             .create_stack()
@@ -68,7 +67,7 @@ impl Manager {
         };
 
         let stack_id = resp.stack_id().unwrap();
-        info!("created stack '{}' with '{}'", stack_name, stack_id);
+        log::info!("created stack '{}' with '{}'", stack_name, stack_id);
         Ok(Stack::new(
             stack_name,
             stack_id,
@@ -80,7 +79,7 @@ impl Manager {
     /// Deletes a CloudFormation stack.
     /// The separate caller is expected to poll the status asynchronously.
     pub async fn delete_stack(&self, stack_name: &str) -> Result<Stack> {
-        info!("deleting stack '{}'", stack_name);
+        log::info!("deleting stack '{}'", stack_name);
         let ret = self.cli.delete_stack().stack_name(stack_name).send().await;
         match ret {
             Ok(_) => {}
@@ -91,7 +90,7 @@ impl Manager {
                         is_retryable: is_error_retryable(&e),
                     });
                 }
-                warn!("stack already deleted ({})", e);
+                log::warn!("stack already deleted so returning DeleteComplete status (original error '{}')", e);
                 return Ok(Stack::new(
                     stack_name,
                     "",
@@ -117,9 +116,12 @@ impl Manager {
         timeout: Duration,
         interval: Duration,
     ) -> Result<Stack> {
-        info!(
+        log::info!(
             "polling stack '{}' with desired status {:?} for timeout {:?} and interval {:?}",
-            stack_name, desired_status, timeout, interval,
+            stack_name,
+            desired_status,
+            timeout,
+            interval,
         );
 
         let start = Instant::now();
@@ -153,7 +155,7 @@ impl Manager {
                     if is_error_describe_stacks_does_not_exist(&e)
                         && desired_status.eq(&StackStatus::DeleteComplete)
                     {
-                        info!("stack already deleted as desired");
+                        log::info!("stack already deleted as desired");
                         return Ok(Stack::new(stack_name, "", desired_status, None));
                     }
                     return Err(API {
@@ -174,9 +176,10 @@ impl Manager {
             let stack = stacks.get(0).unwrap();
             let current_id = stack.stack_id().unwrap();
             let current_stack_status = stack.stack_status().unwrap();
-            info!(
+            log::info!(
                 "poll (current stack status {:?}, elapsed {:?})",
-                current_stack_status, elapsed
+                current_stack_status,
+                elapsed
             );
 
             if desired_status.ne(&StackStatus::DeleteComplete)
