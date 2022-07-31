@@ -26,6 +26,7 @@ pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(
     let res = command_manager::run(&cmd);
     if res.is_err() {
         // e.g., mke2fs 1.45.5 (07-Jan-2020) /dev/nvme1n1 is mounted; will not make a filesystem here!
+        // TODO: handle "mount: /data: wrong fs type, bad option, bad superblock on /dev/nvme1n1, missing codepage or helper program, or other error."
         let e = res.err().unwrap();
         if !e
             .to_string()
