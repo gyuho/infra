@@ -1,6 +1,7 @@
 use std::{
     fs::{self, File},
     io::{self, Write},
+    thread, time,
 };
 
 /// Makes a new file system on a specified device.
@@ -11,6 +12,26 @@ use std::{
 /// ref. See https://github.com/cholcombe973/block-utils/blob/master/src/lib.rs for other commands.
 /// ref. https://stackoverflow.com/questions/45167717/mounting-a-nvme-disk-on-aws-ec2
 pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(String, String)> {
+    match run_make_filesystem(filesystem_name, device_name) {
+        Ok(v) => {
+            log::debug!("first time success 'make_filesystem'");
+            return Ok(v);
+        }
+        Err(e) => {
+            log::warn!(
+                "first time failure 'make_filesystem' {}; retrying after 5-second...",
+                e
+            );
+            thread::sleep(time::Duration::from_secs(5));
+            return run_make_filesystem(filesystem_name, device_name);
+        }
+    }
+}
+
+pub fn run_make_filesystem(
+    filesystem_name: &str,
+    device_name: &str,
+) -> io::Result<(String, String)> {
     let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
