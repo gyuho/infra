@@ -4,10 +4,13 @@ use std::{
     thread, time,
 };
 
-/// Makes a new file system on a specified device.
+/// Makes a new file system on the specified device.
 ///
 /// e.g.,
 /// sudo mkfs -t ext4 /dev/nvme1n1
+///
+/// Usually, "nvme0n1" is the boot volume.
+/// "nvme1n1" is the additional mounted volume.
 ///
 /// ref. See https://github.com/cholcombe973/block-utils/blob/master/src/lib.rs for other commands.
 /// ref. https://stackoverflow.com/questions/45167717/mounting-a-nvme-disk-on-aws-ec2
