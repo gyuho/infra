@@ -9,7 +9,7 @@ homepage = "https://github.com/gyuho/aws-manager"
 license = "Apache-2.0"
 
 [dependencies]
-aws-config = "0.46.0" # https://github.com/awslabs/aws-sdk-rust/releases
+aws-config = "0.47.0" # https://github.com/awslabs/aws-sdk-rust/releases
 aws-sdk-cloudformation = "0.16.0"
 aws-sdk-cloudwatch = "0.16.0"
 aws-sdk-cloudwatchlogs = "0.16.0"
