@@ -1,6 +1,6 @@
 [package]
 name = "aws-manager"
-version = "0.0.14" # https://crates.io/crates/aws-manager/versions
+version = "0.0.15" # https://crates.io/crates/aws-manager/versions
 edition = "2021"
 rust-version = "1.63"
 publish = true
@@ -31,8 +31,8 @@ log = "0.4.17"
 random-manager = "0.0.1" # https://crates.io/crates/random-manager/versions
 rfc-manager = "0.0.1"
 ring = "0.16.20"
-serde = { version = "1.0.143", features = ["derive"] } # https://github.com/serde-rs/serde/releases
-serde_json = "1.0.83"
+serde = { version = "1.0.144", features = ["derive"] } # https://github.com/serde-rs/serde/releases
+serde_json = "1.0.85"
 thiserror = "1.0.32"
 tokio = { version = "1.20.1", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
 tokio-stream = "0.1.9"

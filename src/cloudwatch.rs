@@ -22,6 +22,10 @@ use aws_sdk_cloudwatchlogs::{
 use aws_types::SdkConfig as AwsSdkConfig;
 use serde::{Deserialize, Serialize};
 
+/// TODO: bump up to 1,000
+/// ref. https://aws.amazon.com/about-aws/whats-new/2022/08/amazon-cloudwatch-metrics-increases-throughput/
+const BATCH_SIZE: usize = 900;
+
 /// Implements AWS CloudWatch manager.
 #[derive(Debug, Clone)]
 pub struct Manager {
@@ -56,6 +60,9 @@ impl Manager {
     /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricData.html
     /// ref. https://docs.rs/aws-sdk-cloudwatch/latest/aws_sdk_cloudwatch/struct.Client.html#method.put_metric_data
     ///
+    /// Can batch up to 1,000 data point.
+    /// ref. https://aws.amazon.com/about-aws/whats-new/2022/08/amazon-cloudwatch-metrics-increases-throughput/
+    ///
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
@@ -66,7 +73,7 @@ impl Manager {
     ) -> Result<()> {
         let n = data.len();
         log::info!("posting CloudWatch {} metrics in '{}'", n, namespace);
-        if n <= 20 {
+        if n <= BATCH_SIZE {
             let ret = self
                 .metrics_cli
                 .put_metric_data()
@@ -86,8 +93,13 @@ impl Manager {
                 }
             };
         } else {
-            log::warn!("put_metric_data limit is 20, got {}; batching by 20...", n);
-            for batch in data.chunks(20) {
+            log::warn!(
+                "put_metric_data limit is {}, got {}; batching by {}...",
+                BATCH_SIZE,
+                n,
+                BATCH_SIZE
+            );
+            for batch in data.chunks(BATCH_SIZE) {
                 let batch_n = batch.len();
                 let ret = self
                     .metrics_cli
