@@ -140,7 +140,7 @@ impl Manager {
             Vec::new()
         };
 
-        log::info!("found {} volumes", volumes.len());
+        log::info!("described {} volumes", volumes.len());
         Ok(volumes)
     }
 

@@ -17,7 +17,6 @@ use aws_sdk_kms::{
     Client,
 };
 use aws_types::SdkConfig as AwsSdkConfig;
-use log::{info, warn};
 
 use crate::errors::{
     Error::{Other, API},
@@ -65,7 +64,7 @@ impl Manager {
 
     /// Creates an AWS KMS CMK.
     pub async fn create_key(&self, key_desc: &str) -> Result<Key> {
-        info!("creating KMS CMK '{}'", key_desc);
+        log::info!("creating KMS CMK '{}'", key_desc);
         let ret = self
             .cli
             .create_key()
@@ -84,7 +83,7 @@ impl Manager {
             Err(e) => {
                 return Err(API {
                     message: format!("failed create_key {:?}", e),
-                    is_retryable: is_error_retryable_create_key(&e),
+                    is_retryable: is_error_retryable(&e) || is_error_retryable_create_key(&e),
                 });
             }
         };
@@ -101,13 +100,17 @@ impl Manager {
         let key_id = meta.key_id().unwrap_or("");
         let key_arn = meta.arn().unwrap_or("");
 
-        info!("created KMS CMK id '{}' and arn '{}'", key_id, key_arn);
+        log::info!(
+            "successfully created KMS CMK id '{}' and arn '{}'",
+            key_id,
+            key_arn
+        );
         Ok(Key::new(key_id, key_arn))
     }
 
     /// Schedules to delete a KMS CMK.
     pub async fn schedule_to_delete(&self, key_id: &str) -> Result<()> {
-        info!("deleting KMS CMK '{}'", key_id);
+        log::info!("deleting KMS CMK '{}'", key_id);
         let ret = self
             .cli
             .schedule_key_deletion()
@@ -121,11 +124,11 @@ impl Manager {
             Err(e) => {
                 let mut ignore_err: bool = false;
                 if is_error_schedule_key_deletion_does_not_exist(&e) {
-                    warn!("KMS CMK '{}' does not exist", key_id);
+                    log::warn!("KMS CMK '{}' does not exist", key_id);
                     ignore_err = true
                 }
                 if is_error_schedule_key_deletion_already_scheduled(&e) {
-                    warn!("KMS CMK '{}' already scheduled for deletion", key_id);
+                    log::warn!("KMS CMK '{}' already scheduled for deletion", key_id);
                     ignore_err = true
                 }
                 if !ignore_err {
@@ -138,7 +141,7 @@ impl Manager {
             }
         };
         if deleted {
-            info!("scheduled to delete KMS CMK '{}'", key_id);
+            log::info!("successfully scheduled to delete KMS CMK '{}'", key_id);
         };
 
         Ok(())
@@ -156,7 +159,7 @@ impl Manager {
     ) -> Result<Vec<u8>> {
         // default to "SYMMETRIC_DEFAULT"
         let key_spec = spec.unwrap_or(EncryptionAlgorithmSpec::SymmetricDefault);
-        info!(
+        log::info!(
             "encrypting data (plaintext size {})",
             human_readable::bytes(plaintext.len() as f64),
         );
@@ -174,7 +177,7 @@ impl Manager {
             Err(e) => {
                 return Err(API {
                     message: format!("failed encrypt {:?}", e),
-                    is_retryable: is_error_retryable_encrypt(&e),
+                    is_retryable: is_error_retryable(&e) || is_error_retryable_encrypt(&e),
                 });
             }
         };
@@ -190,8 +193,8 @@ impl Manager {
         };
         let ciphertext = ciphertext.clone().into_inner();
 
-        info!(
-            "encrypted data (ciphertext size {})",
+        log::info!(
+            "successfully encrypted data (ciphertext size {})",
             human_readable::bytes(ciphertext.len() as f64),
         );
         Ok(ciphertext)
@@ -208,7 +211,7 @@ impl Manager {
     ) -> Result<Vec<u8>> {
         // default to "SYMMETRIC_DEFAULT"
         let key_spec = spec.unwrap_or(EncryptionAlgorithmSpec::SymmetricDefault);
-        info!(
+        log::info!(
             "decrypting data (ciphertext size {})",
             human_readable::bytes(ciphertext.len() as f64),
         );
@@ -226,7 +229,7 @@ impl Manager {
             Err(e) => {
                 return Err(API {
                     message: format!("failed decrypt {:?}", e),
-                    is_retryable: is_error_retryable_decrypt(&e),
+                    is_retryable: is_error_retryable(&e) || is_error_retryable_decrypt(&e),
                 });
             }
         };
@@ -242,8 +245,8 @@ impl Manager {
         };
         let plaintext = plaintext.clone().into_inner();
 
-        info!(
-            "decrypted data (plaintext size {})",
+        log::info!(
+            "successfully decrypted data (plaintext size {})",
             human_readable::bytes(plaintext.len() as f64),
         );
         Ok(plaintext)
@@ -257,7 +260,7 @@ impl Manager {
         src_file: &str,
         dst_file: &str,
     ) -> Result<()> {
-        info!("encrypting file {} to {}", src_file, dst_file);
+        log::info!("encrypting file {} to {}", src_file, dst_file);
         let d = match fs::read(src_file) {
             Ok(d) => d,
             Err(e) => {
@@ -305,7 +308,7 @@ impl Manager {
         src_file: &str,
         dst_file: &str,
     ) -> Result<()> {
-        info!("decrypting file {} to {}", src_file, dst_file);
+        log::info!("decrypting file {} to {}", src_file, dst_file);
         let d = match fs::read(src_file) {
             Ok(d) => d,
             Err(e) => {
@@ -351,9 +354,10 @@ impl Manager {
     pub async fn generate_data_key(&self, key_id: &str, spec: Option<DataKeySpec>) -> Result<DEK> {
         // default to "AES_256" for generate 256-bit symmetric key (32-byte)
         let dek_spec = spec.unwrap_or(DataKeySpec::Aes256);
-        info!(
+        log::info!(
             "generating KMS data key for '{}' with key spec {:?}",
-            key_id, dek_spec
+            key_id,
+            dek_spec
         );
         let ret = self
             .cli
@@ -367,7 +371,8 @@ impl Manager {
             Err(e) => {
                 return Err(API {
                     message: format!("failed generate_data_key {:?}", e),
-                    is_retryable: is_error_retryable_generate_data_key(&e),
+                    is_retryable: is_error_retryable(&e)
+                        || is_error_retryable_generate_data_key(&e),
                 });
             }
         };

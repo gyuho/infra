@@ -1,3 +1,4 @@
+pub mod autoscaling;
 pub mod cloudformation;
 pub mod cloudwatch;
 pub mod ec2;
