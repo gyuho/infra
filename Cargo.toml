@@ -34,13 +34,13 @@ rfc-manager = "0.0.1"
 ring = "0.16.20"
 serde = { version = "1.0.144", features = ["derive"] } # https://github.com/serde-rs/serde/releases
 serde_json = "1.0.85"
-thiserror = "1.0.34"
-tokio = { version = "1.21.0", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
-tokio-stream = "0.1.9"
+thiserror = "1.0.35"
+tokio = { version = "1.21.1", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
+tokio-stream = "0.1.10"
 
 [dev-dependencies]
 cmp-manager = "0.0.1"
-env_logger = "0.9.0"
-rust-embed = "6.4.0"
+env_logger = "0.9.1"
+rust-embed = "6.4.1"
 tempfile = "3.3.0"
 tokio-test = "0.4.2"
