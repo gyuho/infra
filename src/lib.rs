@@ -5,6 +5,7 @@ pub mod ec2;
 pub mod errors;
 pub mod kms;
 pub mod s3;
+pub mod ssm;
 pub mod sts;
 
 use std::io;
