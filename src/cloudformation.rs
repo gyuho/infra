@@ -210,16 +210,17 @@ impl Manager {
             }
 
             if current_stack_status.eq(&desired_status) {
-                let outputs = stack.outputs();
-                let outputs = outputs.unwrap();
-                let outputs = Vec::from(outputs);
-                let current_stack = Stack::new(
+                let outputs = if let Some(outputs) = stack.outputs() {
+                    Some(Vec::from(outputs))
+                } else {
+                    None
+                };
+                return Ok(Stack::new(
                     stack_name,
                     current_id,
                     current_stack_status.clone(),
-                    Some(outputs),
-                );
-                return Ok(current_stack);
+                    outputs,
+                ));
             }
 
             cnt += 1;
