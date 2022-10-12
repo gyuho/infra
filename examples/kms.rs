@@ -36,7 +36,7 @@ fn main() {
     let ret = ab!(kms_manager.schedule_to_delete("invalid_id"));
     assert!(ret.is_ok());
 
-    let cmk = ab!(kms_manager.create_key(&key_desc)).unwrap();
+    let cmk = ab!(kms_manager.create_symmetric_default_key(&key_desc)).unwrap();
     let dek = ab!(kms_manager.generate_data_key(&cmk.id, None)).unwrap();
 
     let dek_ciphertext_decrypted = ab!(kms_manager.decrypt(&cmk.id, None, dek.ciphertext)).unwrap();

@@ -3,25 +3,24 @@ pub mod envelope;
 use std::{
     fs::{self, File},
     io::Write,
-    string::String,
 };
-
-use aws_sdk_kms::{
-    error::{
-        CreateKeyError, CreateKeyErrorKind, DecryptError, DecryptErrorKind, EncryptError,
-        EncryptErrorKind, GenerateDataKeyError, GenerateDataKeyErrorKind, ScheduleKeyDeletionError,
-        ScheduleKeyDeletionErrorKind,
-    },
-    model::{DataKeySpec, EncryptionAlgorithmSpec, Tag},
-    types::{Blob, SdkError},
-    Client,
-};
-use aws_types::SdkConfig as AwsSdkConfig;
 
 use crate::errors::{
     Error::{Other, API},
     Result,
 };
+use aws_sdk_kms::{
+    error::{
+        CreateKeyError, CreateKeyErrorKind, DecryptError, DecryptErrorKind, EncryptError,
+        EncryptErrorKind, GenerateDataKeyError, GenerateDataKeyErrorKind, GetPublicKeyError,
+        GetPublicKeyErrorKind, ScheduleKeyDeletionError, ScheduleKeyDeletionErrorKind, SignError,
+        SignErrorKind,
+    },
+    model::{DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, Tag},
+    types::{Blob, SdkError},
+    Client,
+};
+use aws_types::SdkConfig as AwsSdkConfig;
 
 /// Represents the data encryption key.
 #[derive(Debug)]
@@ -63,30 +62,41 @@ impl Manager {
     }
 
     /// Creates an AWS KMS CMK.
-    pub async fn create_key(&self, key_desc: &str) -> Result<Key> {
-        log::info!("creating KMS CMK '{}'", key_desc);
-        let ret = self
+    /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html
+    pub async fn create_key(
+        &self,
+        name: &str,
+        key_spec: KeySpec,
+        key_usage: KeyUsageType,
+    ) -> Result<Key> {
+        log::info!(
+            "creating KMS CMK {}, key spec {:?}, key usage {:?}",
+            name,
+            key_spec,
+            key_usage
+        );
+        let resp = self
             .cli
             .create_key()
-            .description(key_desc)
-            .tags(Tag::builder().tag_key("Name").tag_value(key_desc).build())
+            .description(name)
+            // ref. https://docs.aws.amazon.com/kms/latest/developerguide/asymmetric-key-specs.html#key-spec-ecc
+            // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html#API_CreateKey_RequestSyntax
+            .key_spec(key_spec)
+            // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html#KMS-CreateKey-request-KeyUsage
+            .key_usage(key_usage)
+            .tags(Tag::builder().tag_key("Name").tag_value(name).build())
             .tags(
                 Tag::builder()
                     .tag_key("KIND")
-                    .tag_value("avalanche-ops")
+                    .tag_value("aws-manager")
                     .build(),
             )
             .send()
-            .await;
-        let resp = match ret {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(API {
-                    message: format!("failed create_key {:?}", e),
-                    is_retryable: is_error_retryable(&e) || is_error_retryable_create_key(&e),
-                });
-            }
-        };
+            .await
+            .map_err(|e| API {
+                message: format!("failed create_key {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_create_key(&e),
+            })?;
 
         let meta = match resp.key_metadata() {
             Some(v) => v,
@@ -97,15 +107,27 @@ impl Manager {
                 });
             }
         };
+
         let key_id = meta.key_id().unwrap_or("");
         let key_arn = meta.arn().unwrap_or("");
-
         log::info!(
-            "successfully created KMS CMK id '{}' and arn '{}'",
+            "successfully KMS CMK -- key Id '{}' and Arn '{}'",
             key_id,
             key_arn
         );
+
         Ok(Key::new(key_id, key_arn))
+    }
+
+    /// Creates a default symmetric AWS KMS CMK.
+    /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html
+    pub async fn create_symmetric_default_key(&self, name: &str) -> Result<Key> {
+        self.create_key(
+            name,
+            KeySpec::SymmetricDefault,
+            KeyUsageType::EncryptDecrypt,
+        )
+        .await
     }
 
     /// Schedules to delete a KMS CMK.
@@ -164,29 +186,24 @@ impl Manager {
             human_readable::bytes(plaintext.len() as f64),
         );
 
-        let ret = self
+        let resp = self
             .cli
             .encrypt()
             .key_id(key_id)
             .plaintext(Blob::new(plaintext))
             .encryption_algorithm(key_spec)
             .send()
-            .await;
-        let resp = match ret {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(API {
-                    message: format!("failed encrypt {:?}", e),
-                    is_retryable: is_error_retryable(&e) || is_error_retryable_encrypt(&e),
-                });
-            }
-        };
+            .await
+            .map_err(|e| API {
+                message: format!("failed encrypt {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_encrypt(&e),
+            })?;
 
         let ciphertext = match resp.ciphertext_blob() {
             Some(v) => v,
             None => {
                 return Err(API {
-                    message: String::from("EncryptOutput.ciphertext_blob not foun"),
+                    message: String::from("EncryptOutput.ciphertext_blob not found"),
                     is_retryable: false,
                 });
             }
@@ -216,29 +233,24 @@ impl Manager {
             human_readable::bytes(ciphertext.len() as f64),
         );
 
-        let ret = self
+        let resp = self
             .cli
             .decrypt()
             .key_id(key_id)
             .ciphertext_blob(Blob::new(ciphertext))
             .encryption_algorithm(key_spec)
             .send()
-            .await;
-        let resp = match ret {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(API {
-                    message: format!("failed decrypt {:?}", e),
-                    is_retryable: is_error_retryable(&e) || is_error_retryable_decrypt(&e),
-                });
-            }
-        };
+            .await
+            .map_err(|e| API {
+                message: format!("failed decrypt {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_decrypt(&e),
+            })?;
 
         let plaintext = match resp.plaintext() {
             Some(v) => v,
             None => {
                 return Err(API {
-                    message: String::from("DecryptOutput.plaintext not foun"),
+                    message: String::from("DecryptOutput.plaintext not found"),
                     is_retryable: false,
                 });
             }
@@ -261,43 +273,19 @@ impl Manager {
         dst_file: &str,
     ) -> Result<()> {
         log::info!("encrypting file {} to {}", src_file, dst_file);
-        let d = match fs::read(src_file) {
-            Ok(d) => d,
-            Err(e) => {
-                return Err(Other {
-                    message: format!("failed read {:?}", e),
-                    is_retryable: false,
-                });
-            }
-        };
-
-        let ciphertext = match self.encrypt(key_id, spec, d).await {
-            Ok(d) => d,
-            Err(e) => {
-                return Err(e);
-            }
-        };
-
-        let mut f = match File::create(dst_file) {
-            Ok(f) => f,
-            Err(e) => {
-                return Err(Other {
-                    message: format!("failed File::create {:?}", e),
-                    is_retryable: false,
-                });
-            }
-        };
-        match f.write_all(&ciphertext) {
-            Ok(_) => {}
-            Err(e) => {
-                return Err(Other {
-                    message: format!("failed File::write_all {:?}", e),
-                    is_retryable: false,
-                });
-            }
-        };
-
-        Ok(())
+        let d = fs::read(src_file).map_err(|e| Other {
+            message: format!("failed read {:?}", e),
+            is_retryable: false,
+        })?;
+        let ciphertext = self.encrypt(key_id, spec, d).await?;
+        let mut f = File::create(dst_file).map_err(|e| Other {
+            message: format!("failed File::create {:?}", e),
+            is_retryable: false,
+        })?;
+        f.write_all(&ciphertext).map_err(|e| Other {
+            message: format!("failed File::write_all {:?}", e),
+            is_retryable: false,
+        })
     }
 
     /// Decrypts data from a file and save the plaintext to the other file.
@@ -309,43 +297,19 @@ impl Manager {
         dst_file: &str,
     ) -> Result<()> {
         log::info!("decrypting file {} to {}", src_file, dst_file);
-        let d = match fs::read(src_file) {
-            Ok(d) => d,
-            Err(e) => {
-                return Err(Other {
-                    message: format!("failed read {:?}", e),
-                    is_retryable: false,
-                });
-            }
-        };
-
-        let plaintext = match self.decrypt(key_id, spec, d).await {
-            Ok(d) => d,
-            Err(e) => {
-                return Err(e);
-            }
-        };
-
-        let mut f = match File::create(dst_file) {
-            Ok(f) => f,
-            Err(e) => {
-                return Err(Other {
-                    message: format!("failed File::create {:?}", e),
-                    is_retryable: false,
-                });
-            }
-        };
-        match f.write_all(&plaintext) {
-            Ok(_) => {}
-            Err(e) => {
-                return Err(Other {
-                    message: format!("failed File::write_all {:?}", e),
-                    is_retryable: false,
-                });
-            }
-        };
-
-        Ok(())
+        let d = fs::read(src_file).map_err(|e| Other {
+            message: format!("failed read {:?}", e),
+            is_retryable: false,
+        })?;
+        let plaintext = self.decrypt(key_id, spec, d).await?;
+        let mut f = File::create(dst_file).map_err(|e| Other {
+            message: format!("failed File::create {:?}", e),
+            is_retryable: false,
+        })?;
+        f.write_all(&plaintext).map_err(|e| Other {
+            message: format!("failed File::write_all {:?}", e),
+            is_retryable: false,
+        })
     }
 
     /// Generates a data-encryption key.
@@ -359,23 +323,17 @@ impl Manager {
             key_id,
             dek_spec
         );
-        let ret = self
+        let resp = self
             .cli
             .generate_data_key()
             .key_id(key_id)
             .key_spec(dek_spec)
             .send()
-            .await;
-        let resp = match ret {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(API {
-                    message: format!("failed generate_data_key {:?}", e),
-                    is_retryable: is_error_retryable(&e)
-                        || is_error_retryable_generate_data_key(&e),
-                });
-            }
-        };
+            .await
+            .map_err(|e| API {
+                message: format!("failed generate_data_key {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_generate_data_key(&e),
+            })?;
 
         let cipher = resp.ciphertext_blob().unwrap();
         let plain = resp.plaintext().unwrap();
@@ -433,8 +391,8 @@ pub fn is_error_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) 
             matches!(
                 err.kind,
                 GenerateDataKeyErrorKind::DependencyTimeoutException(_)
-                    | GenerateDataKeyErrorKind::KmsInternalException(_)
                     | GenerateDataKeyErrorKind::KeyUnavailableException(_)
+                    | GenerateDataKeyErrorKind::KmsInternalException(_)
             )
         }
         _ => false,
@@ -448,8 +406,8 @@ pub fn is_error_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
             matches!(
                 err.kind,
                 EncryptErrorKind::DependencyTimeoutException(_)
-                    | EncryptErrorKind::KmsInternalException(_)
                     | EncryptErrorKind::KeyUnavailableException(_)
+                    | EncryptErrorKind::KmsInternalException(_)
             )
         }
         _ => false,
@@ -463,8 +421,8 @@ pub fn is_error_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
             matches!(
                 err.kind,
                 DecryptErrorKind::DependencyTimeoutException(_)
-                    | DecryptErrorKind::KmsInternalException(_)
                     | DecryptErrorKind::KeyUnavailableException(_)
+                    | DecryptErrorKind::KmsInternalException(_)
             )
         }
         _ => false,
@@ -489,6 +447,38 @@ fn is_error_schedule_key_deletion_already_scheduled(
         SdkError::ServiceError { err, .. } => {
             let msg = format!("{:?}", err);
             msg.contains("pending deletion")
+        }
+        _ => false,
+    }
+}
+
+/// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html
+#[inline]
+pub fn is_error_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> bool {
+    match e {
+        SdkError::ServiceError { err, .. } => {
+            matches!(
+                err.kind,
+                GetPublicKeyErrorKind::DependencyTimeoutException(_)
+                    | GetPublicKeyErrorKind::KeyUnavailableException(_)
+                    | GetPublicKeyErrorKind::KmsInternalException(_)
+            )
+        }
+        _ => false,
+    }
+}
+
+/// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-SigningAlgorithm
+#[inline]
+pub fn is_error_retryable_sign(e: &SdkError<SignError>) -> bool {
+    match e {
+        SdkError::ServiceError { err, .. } => {
+            matches!(
+                err.kind,
+                SignErrorKind::DependencyTimeoutException(_)
+                    | SignErrorKind::KeyUnavailableException(_)
+                    | SignErrorKind::KmsInternalException(_)
+            )
         }
         _ => false,
     }
