@@ -16,7 +16,7 @@ use aws_sdk_kms::{
         GetPublicKeyErrorKind, ScheduleKeyDeletionError, ScheduleKeyDeletionErrorKind, SignError,
         SignErrorKind,
     },
-    model::{DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, Tag},
+    model::{DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, MessageType, Tag},
     types::{Blob, SdkError},
     Client,
 };
@@ -128,6 +128,41 @@ impl Manager {
             KeyUsageType::EncryptDecrypt,
         )
         .await
+    }
+
+    /// Signs a digest message with AWS KMS CMK.
+    /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
+    pub async fn sign_digest(&self, key_id: &str, digest: &[u8]) -> Result<Vec<u8>> {
+        log::info!(
+            "signing {}-byte digest message with key Id {}",
+            digest.len(),
+            key_id
+        );
+
+        // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
+        let sign_output = self
+            .cli
+            .sign()
+            .key_id(key_id)
+            .message(aws_smithy_types::Blob::new(digest))
+            .message_type(MessageType::Digest)
+            .send()
+            .await
+            .map_err(|e| API {
+                message: format!("failed sign {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_sign(&e),
+            })?;
+
+        if let Some(blob) = sign_output.signature() {
+            let sig = blob.as_ref();
+            log::info!("signature out {}-byte", sig.len());
+            return Ok(Vec::from(sig));
+        }
+
+        return Err(API {
+            message: String::from("signature blob not found"),
+            is_retryable: false,
+        });
     }
 
     /// Schedules to delete a KMS CMK.
