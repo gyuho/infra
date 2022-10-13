@@ -144,6 +144,7 @@ impl Manager {
         );
 
         // DO NOT DO THIS -- fails with "Digest is invalid length for algorithm ECDSA_SHA_256"
+        // ref. https://github.com/awslabs/aws-sdk-rust/discussions/571
         // let msg = aws_smithy_types::base64::encode(digest);
 
         // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
