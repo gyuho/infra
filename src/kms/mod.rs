@@ -16,10 +16,14 @@ use aws_sdk_kms::{
         GetPublicKeyErrorKind, ScheduleKeyDeletionError, ScheduleKeyDeletionErrorKind, SignError,
         SignErrorKind,
     },
-    model::{DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, MessageType, Tag},
+    model::{
+        DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, MessageType,
+        SigningAlgorithmSpec, Tag,
+    },
     types::{Blob, SdkError},
     Client,
 };
+use aws_smithy_types::base64;
 use aws_types::SdkConfig as AwsSdkConfig;
 
 /// Represents the data encryption key.
@@ -130,22 +134,25 @@ impl Manager {
         .await
     }
 
-    /// Signs a digest message with AWS KMS CMK.
+    /// Signs the 32-byte SHA256 output message with the ECDSA private key and the recoverable code
+    /// using AWS KMS CMK.
     /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
-    pub async fn sign_digest(&self, key_id: &str, digest: &[u8]) -> Result<Vec<u8>> {
+    pub async fn secp256k1_sign_digest(&self, key_id: &str, digest: &[u8]) -> Result<Vec<u8>> {
         log::info!(
-            "signing {}-byte digest message with key Id {}",
+            "secp256k1 signing {}-byte digest message with key Id {}",
             digest.len(),
             key_id
         );
 
         // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
+        let msg = base64::encode(digest);
         let sign_output = self
             .cli
             .sign()
             .key_id(key_id)
-            .message(aws_smithy_types::Blob::new(digest))
-            .message_type(MessageType::Digest)
+            .message(aws_smithy_types::Blob::new(msg.as_bytes())) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-Message
+            .message_type(MessageType::Digest) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType
+            .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256)
             .send()
             .await
             .map_err(|e| API {
