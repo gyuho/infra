@@ -23,7 +23,6 @@ use aws_sdk_kms::{
     types::{Blob, SdkError},
     Client,
 };
-use aws_smithy_types::base64;
 use aws_types::SdkConfig as AwsSdkConfig;
 
 /// Represents the data encryption key.
@@ -144,13 +143,15 @@ impl Manager {
             key_id
         );
 
+        // DO NOT DO THIS -- fails with "Digest is invalid length for algorithm ECDSA_SHA_256"
+        // let msg = aws_smithy_types::base64::encode(digest);
+
         // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
-        let msg = base64::encode(digest);
         let sign_output = self
             .cli
             .sign()
             .key_id(key_id)
-            .message(aws_smithy_types::Blob::new(msg.as_bytes())) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-Message
+            .message(aws_smithy_types::Blob::new(digest)) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-Message
             .message_type(MessageType::Digest) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType
             .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256)
             .send()
