@@ -164,7 +164,11 @@ impl Manager {
 
         if let Some(blob) = sign_output.signature() {
             let sig = blob.as_ref();
-            log::info!("signature out {}-byte", sig.len());
+            log::info!(
+                "DER-encoded signature output from KMS is {}-byte",
+                sig.len()
+            );
+
             return Ok(Vec::from(sig));
         }
 
