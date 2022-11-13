@@ -10,8 +10,8 @@ use crate::errors::{
 use aws_sdk_ec2::{
     error::DeleteKeyPairError,
     model::{
-        Filter, Instance, InstanceState, InstanceStateName, Tag, Volume, VolumeAttachmentState,
-        VolumeState,
+        AttachmentStatus, Filter, Instance, InstanceState, InstanceStateName, ResourceType, Tag,
+        TagSpecification, Volume, VolumeAttachmentState, VolumeState,
     },
     types::SdkError,
     Client,
@@ -477,6 +477,153 @@ impl Manager {
 
         Ok(droplets)
     }
+
+    /// Allocates an EIP and returns the allocation Id and the public Ip.
+    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html
+    pub async fn allocate_eip(&self, id: &str) -> Result<(String, String)> {
+        log::info!("allocating elastic IP with '{id}'");
+        let resp = match self
+            .cli
+            .allocate_address()
+            .tag_specifications(
+                TagSpecification::builder()
+                    .resource_type(ResourceType::ElasticIp)
+                    .tags(Tag::builder().key(String::from("Name")).value(id).build())
+                    .tags(Tag::builder().key(String::from("Id")).value(id).build())
+                    .build(),
+            )
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(API {
+                    message: format!("failed allocate_address {:?}", e),
+                    is_retryable: is_error_retryable(&e),
+                });
+            }
+        };
+
+        let allocation_id = resp
+            .allocation_id
+            .to_owned()
+            .unwrap_or_else(|| String::from(""));
+        let public_ip = resp
+            .public_ip
+            .to_owned()
+            .unwrap_or_else(|| String::from(""));
+        log::info!("successfully allocated elastic IP {public_ip} with {allocation_id}");
+
+        Ok((allocation_id, public_ip))
+    }
+
+    /// Associates the elastic Ip with an EC2 instance.
+    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AssociateAddress.html
+    pub async fn associate_eip(&self, allocation_id: &str, instance_id: &str) -> Result<String> {
+        log::info!("associating elastic IP {allocation_id} with EC2 instance {instance_id}");
+        let resp = match self
+            .cli
+            .associate_address()
+            .allocation_id(allocation_id)
+            .instance_id(instance_id)
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(API {
+                    message: format!("failed associate_address {:?}", e),
+                    is_retryable: is_error_retryable(&e),
+                });
+            }
+        };
+
+        let association_id = resp
+            .association_id
+            .to_owned()
+            .unwrap_or_else(|| String::from(""));
+        log::info!("successfully associated elastic IP {allocation_id} with association Id {association_id}");
+
+        Ok(association_id)
+    }
+
+    /// Polls the elastic Ip for its describe add state.
+    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html
+    pub async fn poll_eip_by_describe_addresses(
+        &self,
+        association_id: &str,
+        instance_id: &str,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<()> {
+        log::info!(
+            "describing elastic IP association Id {association_id} for EC2 instance {instance_id}"
+        );
+
+        let filters = vec![
+            Filter::builder()
+                .set_name(Some(String::from("association-id")))
+                .set_values(Some(vec![association_id.to_string()]))
+                .build(),
+            Filter::builder()
+                .set_name(Some(String::from("instance-id")))
+                .set_values(Some(vec![instance_id.to_string()]))
+                .build(),
+        ];
+
+        let start = Instant::now();
+        let mut cnt: u128 = 0;
+        loop {
+            let elapsed = start.elapsed();
+            if elapsed.gt(&timeout) {
+                break;
+            }
+
+            let itv = {
+                if cnt == 0 {
+                    // first poll with no wait
+                    Duration::from_secs(1)
+                } else {
+                    interval
+                }
+            };
+            sleep(itv).await;
+
+            let resp = match self
+                .cli
+                .describe_addresses()
+                .set_filters(Some(filters.clone()))
+                .send()
+                .await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    return Err(API {
+                        message: format!("failed associate_address {:?}", e),
+                        is_retryable: is_error_retryable(&e),
+                    });
+                }
+            };
+            let addrs = if let Some(addrs) = resp.addresses() {
+                addrs.to_vec()
+            } else {
+                Vec::new()
+            };
+            log::info!("described addresses: {:?}", addrs);
+            if !addrs.is_empty() {
+                break;
+            }
+
+            cnt += 1;
+        }
+
+        Err(Other {
+            message: format!(
+                "failed to poll describe_address elastic IP association Id {association_id} for EC2 instance {instance_id} in time",
+            ),
+            is_retryable: true,
+        })
+    }
 }
 
 /// Represents the underlying EC2 instance.
@@ -493,6 +640,16 @@ pub struct Droplet {
     pub availability_zone: String,
     pub public_hostname: String,
     pub public_ipv4: String,
+
+    pub block_device_mappings: Vec<BlockDeviceMapping>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub struct BlockDeviceMapping {
+    pub device_name: String,
+    pub volume_id: String,
+    pub attachment_status: String,
 }
 
 impl Droplet {
@@ -502,7 +659,7 @@ impl Droplet {
             None => String::new(),
         };
         let launch_time = inst.launch_time().unwrap();
-        let native_dt = NaiveDateTime::from_timestamp(launch_time.secs(), 0);
+        let native_dt = NaiveDateTime::from_timestamp_opt(launch_time.secs(), 0).unwrap();
         let launched_at_utc = DateTime::<Utc>::from_utc(native_dt, Utc);
 
         let instance_state = match inst.state.to_owned() {
@@ -532,6 +689,33 @@ impl Droplet {
             .to_owned()
             .unwrap_or_else(|| String::from(""));
 
+        let mut block_device_mappings = Vec::new();
+        if let Some(mappings) = inst.block_device_mappings() {
+            for block_device_mapping in mappings.iter() {
+                let device_name = block_device_mapping
+                    .device_name
+                    .to_owned()
+                    .unwrap_or_else(|| String::from(""));
+
+                let (volume_id, attachment_status) = if let Some(ebs) = block_device_mapping.ebs() {
+                    let volume_id = ebs.volume_id.to_owned().unwrap_or_else(|| String::from(""));
+                    let attachment_status = ebs
+                        .status
+                        .to_owned()
+                        .unwrap_or_else(|| AttachmentStatus::Unknown(String::new()));
+                    (volume_id, attachment_status.as_str().to_string())
+                } else {
+                    (String::new(), String::new())
+                };
+
+                block_device_mappings.push(BlockDeviceMapping {
+                    device_name,
+                    volume_id,
+                    attachment_status,
+                });
+            }
+        }
+
         Self {
             instance_id,
             launched_at_utc,
@@ -540,6 +724,7 @@ impl Droplet {
             availability_zone,
             public_hostname,
             public_ipv4,
+            block_device_mappings,
         }
     }
 }

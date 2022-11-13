@@ -3,10 +3,10 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.21.0" # https://crates.io/crates/aws-manager/versions
+version = "0.21.1" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
-rust-version = "1.64"
+rust-version = "1.65"
 publish = true
 description = "AWS SDK manager"
 homepage = "https://github.com/gyuho/aws-manager"
@@ -26,12 +26,12 @@ aws-sdk-sts = "0.21.0" # https://crates.io/crates/aws-sdk-sts/versions
 aws-smithy-types = "0.51.0" # https://github.com/awslabs/smithy-rs/releases
 aws-types = "0.51.0" # https://crates.io/crates/aws-types/versions
 byteorder = "1.4.3"
-chrono = "0.4.22" # https://github.com/chronotope/chrono/releases
+chrono = "0.4.23" # https://github.com/chronotope/chrono/releases
 command-manager = "0.0.1"
 compress-manager = "0.0.2" # https://crates.io/crates/compress-manager/versions
 http-manager = "0.0.3"
 human-readable = "0.0.1"
-hyper = { version = "0.14.20", features = ["full"] } # https://github.com/hyperium/hyper/releases
+hyper = { version = "0.14.23", features = ["full"] } # https://github.com/hyperium/hyper/releases
 id-manager = "0.0.1"
 log = "0.4.17"
 random-manager = "0.0.1" # https://crates.io/crates/random-manager/versions
@@ -45,7 +45,7 @@ tokio-stream = "0.1.11"
 
 [dev-dependencies]
 cmp-manager = "0.0.1"
-env_logger = "0.9.1"
+env_logger = "0.9.3"
 rust-embed = "6.4.2"
 tempfile = "3.3.0"
 tokio-test = "0.4.2"
