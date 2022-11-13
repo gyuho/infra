@@ -1,7 +1,12 @@
 pub mod disk;
 pub mod metadata;
 
-use std::{fs::File, io::prelude::*, path::Path, sync::Arc};
+use std::{
+    fs::{self, File},
+    io::{self, Error, ErrorKind, Write},
+    path::Path,
+    sync::Arc,
+};
 
 use crate::errors::{
     Error::{Other, API},
@@ -793,4 +798,82 @@ fn is_error_delete_key_pair_does_not_exist(e: &SdkError<DeleteKeyPairError>) -> 
         }
         _ => false,
     }
+}
+
+/// Represents Elastic IP spec for management.
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
+pub struct Eip {
+    pub allocation_id: String,
+    pub public_ip: String,
+}
+
+impl Eip {
+    /// Saves to disk overwriting the file, if any.
+    pub fn sync(&self, file_path: &str) -> io::Result<()> {
+        log::info!("syncing Eip spec to '{}'", file_path);
+        let path = Path::new(file_path);
+        let parent_dir = path.parent().expect("unexpected None parent");
+        fs::create_dir_all(parent_dir)?;
+
+        let d = serde_yaml::to_string(self).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("failed to serialize Eip spec info to YAML {}", e),
+            )
+        })?;
+
+        let mut f = File::create(file_path)?;
+        f.write_all(d.as_bytes())?;
+
+        Ok(())
+    }
+
+    /// Loads the Eip spec from disk.
+    pub fn load(file_path: &str) -> io::Result<Self> {
+        log::info!("loading Eip spec from {}", file_path);
+
+        if !Path::new(file_path).exists() {
+            return Err(Error::new(
+                ErrorKind::NotFound,
+                format!("file {} does not exists", file_path),
+            ));
+        }
+
+        let f = File::open(file_path).map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("failed to open {} ({})", file_path, e),
+            )
+        })?;
+
+        serde_yaml::from_reader(f)
+            .map_err(|e| Error::new(ErrorKind::InvalidInput, format!("invalid YAML: {}", e)))
+    }
+}
+
+/// RUST_LOG=debug cargo test --package aws-manager --lib -- ec2::test_eip --exact --show-output
+#[test]
+fn test_eip() {
+    let d = r#"
+allocation_id: test
+public_ip: 1.2.3.4
+
+"#;
+    let mut f = tempfile::NamedTempFile::new().unwrap();
+    let ret = f.write_all(d.as_bytes());
+    assert!(ret.is_ok());
+    let eip_path = f.path().to_str().unwrap();
+
+    let ret = Eip::load(eip_path);
+    assert!(ret.is_ok());
+    let eip = ret.unwrap();
+
+    let ret = eip.sync(eip_path);
+    assert!(ret.is_ok());
+
+    let orig = Eip {
+        allocation_id: String::from("test"),
+        public_ip: String::from("1.2.3.4"),
+    };
+    assert_eq!(eip, orig);
 }
