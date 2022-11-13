@@ -2,6 +2,7 @@ pub mod disk;
 pub mod metadata;
 
 use std::{
+    collections::HashMap,
     fs::{self, File},
     io::{self, Error, ErrorKind, Write},
     path::Path,
@@ -568,7 +569,7 @@ impl Manager {
 
     /// Describes the elastic IP addresses with the instance Id.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html
-    pub async fn describe_eips(&self, instance_id: &str) -> Result<Vec<Address>> {
+    pub async fn describe_eips_by_instance_id(&self, instance_id: &str) -> Result<Vec<Address>> {
         log::info!("describing elastic IP addresses for EC2 instance {instance_id}");
 
         let resp = match self
@@ -595,7 +596,49 @@ impl Manager {
             Vec::new()
         };
 
-        log::info!("described addresses: {:?}", addrs);
+        log::info!("successfully described addresses: {:?}", addrs);
+        Ok(addrs)
+    }
+
+    /// Describes the elastic IP addresses with the tags.
+    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html
+    pub async fn describe_eips_by_tags(
+        &self,
+        tags: HashMap<String, String>,
+    ) -> Result<Vec<Address>> {
+        log::info!("describing elastic IP addresses with tags {:?}", tags);
+
+        let mut filters = Vec::new();
+        for (k, v) in tags.iter() {
+            filters.push(
+                Filter::builder()
+                    .set_name(Some(format!("tag:{}", k)))
+                    .set_values(Some(vec![v.clone()]))
+                    .build(),
+            );
+        }
+        let resp = match self
+            .cli
+            .describe_addresses()
+            .set_filters(Some(filters))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(API {
+                    message: format!("failed describe_addresses {:?}", e),
+                    is_retryable: is_error_retryable(&e),
+                });
+            }
+        };
+        let addrs = if let Some(addrs) = resp.addresses() {
+            addrs.to_vec()
+        } else {
+            Vec::new()
+        };
+
+        log::info!("successfully described addresses: {:?}", addrs);
         Ok(addrs)
     }
 
@@ -662,7 +705,7 @@ impl Manager {
             } else {
                 Vec::new()
             };
-            log::info!("described addresses: {:?}", addrs);
+            log::info!("successfully described addresses: {:?}", addrs);
             if !addrs.is_empty() {
                 return Ok(addrs);
             }
