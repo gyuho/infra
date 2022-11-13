@@ -558,6 +558,39 @@ impl Manager {
         Ok(association_id)
     }
 
+    /// Describes the elastic IP addresses with the instance Id.
+    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html
+    pub async fn describe_eips(&self, instance_id: &str) -> Result<Vec<Address>> {
+        log::info!("describing elastic IP addresses for EC2 instance {instance_id}");
+
+        let resp = match self
+            .cli
+            .describe_addresses()
+            .set_filters(Some(vec![Filter::builder()
+                .set_name(Some(String::from("instance-id")))
+                .set_values(Some(vec![instance_id.to_string()]))
+                .build()]))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(API {
+                    message: format!("failed describe_addresses {:?}", e),
+                    is_retryable: is_error_retryable(&e),
+                });
+            }
+        };
+        let addrs = if let Some(addrs) = resp.addresses() {
+            addrs.to_vec()
+        } else {
+            Vec::new()
+        };
+
+        log::info!("described addresses: {:?}", addrs);
+        Ok(addrs)
+    }
+
     /// Polls the elastic Ip for its describe address state,
     /// until the elastic Ip becomes attached to the instance.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html
@@ -611,7 +644,7 @@ impl Manager {
                 Ok(r) => r,
                 Err(e) => {
                     return Err(API {
-                        message: format!("failed associate_address {:?}", e),
+                        message: format!("failed describe_addresses {:?}", e),
                         is_retryable: is_error_retryable(&e),
                     });
                 }
