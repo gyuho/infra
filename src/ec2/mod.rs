@@ -485,7 +485,7 @@ impl Manager {
 
     /// Allocates an EIP and returns the allocation Id and the public Ip.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html
-    pub async fn allocate_eip(&self, kind_tag: &str, id_tag: &str) -> Result<(String, String)> {
+    pub async fn allocate_eip(&self, kind_tag: &str, id_tag: &str) -> Result<Eip> {
         log::info!("allocating elastic IP with Kind tag '{kind_tag}' and Id tag '{id_tag}'");
         let resp = match self
             .cli
@@ -530,7 +530,10 @@ impl Manager {
             .unwrap_or_else(|| String::from(""));
         log::info!("successfully allocated elastic IP {public_ip} with {allocation_id}");
 
-        Ok((allocation_id, public_ip))
+        Ok(Eip {
+            allocation_id,
+            public_ip,
+        })
     }
 
     /// Associates the elastic Ip with an EC2 instance.
