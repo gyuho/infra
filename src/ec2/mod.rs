@@ -10,8 +10,8 @@ use crate::errors::{
 use aws_sdk_ec2::{
     error::DeleteKeyPairError,
     model::{
-        AttachmentStatus, Filter, Instance, InstanceState, InstanceStateName, ResourceType, Tag,
-        TagSpecification, Volume, VolumeAttachmentState, VolumeState,
+        Address, AttachmentStatus, Filter, Instance, InstanceState, InstanceStateName,
+        ResourceType, Tag, TagSpecification, Volume, VolumeAttachmentState, VolumeState,
     },
     types::SdkError,
     Client,
@@ -480,16 +480,27 @@ impl Manager {
 
     /// Allocates an EIP and returns the allocation Id and the public Ip.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html
-    pub async fn allocate_eip(&self, id: &str) -> Result<(String, String)> {
-        log::info!("allocating elastic IP with '{id}'");
+    pub async fn allocate_eip(&self, kind_tag: &str, id_tag: &str) -> Result<(String, String)> {
+        log::info!("allocating elastic IP with Kind tag '{kind_tag}' and Id tag '{id_tag}'");
         let resp = match self
             .cli
             .allocate_address()
             .tag_specifications(
                 TagSpecification::builder()
                     .resource_type(ResourceType::ElasticIp)
-                    .tags(Tag::builder().key(String::from("Name")).value(id).build())
-                    .tags(Tag::builder().key(String::from("Id")).value(id).build())
+                    .tags(
+                        Tag::builder()
+                            .key(String::from("Kind"))
+                            .value(kind_tag)
+                            .build(),
+                    )
+                    .tags(
+                        Tag::builder()
+                            .key(String::from("Name"))
+                            .value(id_tag)
+                            .build(),
+                    )
+                    .tags(Tag::builder().key(String::from("Id")).value(id_tag).build())
                     .build(),
             )
             .send()
@@ -547,7 +558,8 @@ impl Manager {
         Ok(association_id)
     }
 
-    /// Polls the elastic Ip for its describe add state.
+    /// Polls the elastic Ip for its describe address state,
+    /// until the elastic Ip becomes attached to the instance.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html
     pub async fn poll_eip_by_describe_addresses(
         &self,
@@ -555,7 +567,7 @@ impl Manager {
         instance_id: &str,
         timeout: Duration,
         interval: Duration,
-    ) -> Result<()> {
+    ) -> Result<Vec<Address>> {
         log::info!(
             "describing elastic IP association Id {association_id} for EC2 instance {instance_id}"
         );
@@ -611,7 +623,7 @@ impl Manager {
             };
             log::info!("described addresses: {:?}", addrs);
             if !addrs.is_empty() {
-                break;
+                return Ok(addrs);
             }
 
             cnt += 1;
