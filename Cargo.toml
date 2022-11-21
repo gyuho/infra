@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.21.5" # https://crates.io/crates/aws-manager/versions
+version = "0.21.6" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.65"
@@ -29,7 +29,7 @@ byteorder = "1.4.3"
 chrono = "0.4.23" # https://github.com/chronotope/chrono/releases
 command-manager = "0.0.1"
 compress-manager = "0.0.2" # https://crates.io/crates/compress-manager/versions
-http-manager = "0.0.3"
+http-manager = "0.0.4"
 human-readable = "0.0.1"
 hyper = { version = "0.14.23", features = ["full"] } # https://github.com/hyperium/hyper/releases
 id-manager = "0.0.1"
@@ -38,10 +38,10 @@ random-manager = "0.0.1" # https://crates.io/crates/random-manager/versions
 rfc-manager = "0.0.1"
 ring = "0.16.20"
 serde = { version = "1.0.147", features = ["derive"] } # https://github.com/serde-rs/serde/releases
-serde_json = "1.0.87"
+serde_json = "1.0.88"
 serde_yaml = "0.9.14" # https://github.com/dtolnay/serde-yaml/releases
 thiserror = "1.0.37"
-tokio = { version = "1.21.2", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
+tokio = { version = "1.22.0", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
 tokio-stream = "0.1.11"
 
 [dev-dependencies]
