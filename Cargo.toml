@@ -46,7 +46,7 @@ tokio-stream = "0.1.11"
 
 [dev-dependencies]
 cmp-manager = "0.0.1"
-env_logger = "0.9.3"
+env_logger = "0.10.0"
 rust-embed = "6.4.2"
 tempfile = "3.3.0"
 tokio-test = "0.4.2"
