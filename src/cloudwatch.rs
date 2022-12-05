@@ -587,7 +587,12 @@ impl Config {
     pub fn default() -> Self {
         let mut config = Self::new();
         config.agent = Some(Agent::default());
-        config.metrics = Some(Metrics::default());
+
+        // DO NOT SET THIS SINCE NAMESPACE IS MISSING
+        // OTHERWISE
+        // "Under path : /metrics/namespace | Error : String length must be greater than or equal to 1"
+        // config.metrics = Some(Metrics::default());
+
         config
     }
 
