@@ -31,6 +31,7 @@ const BATCH_SIZE: usize = 900;
 pub struct Manager {
     #[allow(dead_code)]
     shared_config: AwsSdkConfig,
+
     metrics_cli: MetricsClient,
     logs_cli: LogsClient,
 }
@@ -270,8 +271,10 @@ pub const DEFAULT_LOGFILE: &str =
 pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent: Option<Agent>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logs: Option<Logs>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metrics: Option<Metrics>,
 }
@@ -303,6 +306,7 @@ impl Default for Agent {
 pub struct Logs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logs_collected: Option<LogsCollected>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub force_flush_interval: Option<u32>,
 }
@@ -330,13 +334,17 @@ pub struct Collect {
     pub log_stream_name: String,
     /// Specifies the path of the log file to upload to CloudWatch Logs.
     pub file_path: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp_format: Option<String>,
+
     /// The valid values are UTC and Local.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_removal: Option<bool>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retention_in_days: Option<u16>,
 }
@@ -361,12 +369,15 @@ impl Default for Collect {
 pub struct Metrics {
     pub namespace: String,
     pub metrics_collected: MetricsCollected,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub append_dimensions: Option<HashMap<String, String>>,
+
     /// Specifies the dimensions that collected metrics are to be aggregated on.
     /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html
     #[serde(skip_serializing_if = "Option::is_none")]
     pub aggregation_dimensions: Option<Vec<Vec<String>>>,
+
     pub force_flush_interval: u32,
 }
 
@@ -392,6 +403,15 @@ impl Default for Metrics {
                 vec!["InstanceId".to_string(), "InstanceType".to_string()],
             ]),
             force_flush_interval: 30,
+        }
+    }
+}
+
+impl Metrics {
+    pub fn new(metrics_collection_interval_seconds: u32) -> Self {
+        Self {
+            metrics_collected: MetricsCollected::new(metrics_collection_interval_seconds),
+            ..Default::default()
         }
     }
 }
@@ -427,6 +447,19 @@ impl Default for MetricsCollected {
     }
 }
 
+impl MetricsCollected {
+    pub fn new(metrics_collection_interval_seconds: u32) -> Self {
+        Self {
+            cpu: Some(Cpu::new(metrics_collection_interval_seconds)),
+            mem: Some(Mem::new(metrics_collection_interval_seconds)),
+            disk: Some(Disk::new(metrics_collection_interval_seconds)),
+            diskio: Some(DiskIo::new(metrics_collection_interval_seconds)),
+            net: Some(Net::new(metrics_collection_interval_seconds)),
+            netstat: Some(Netstat::new(metrics_collection_interval_seconds)),
+        }
+    }
+}
+
 /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -449,6 +482,15 @@ impl Default for Cpu {
     }
 }
 
+impl Cpu {
+    pub fn new(metrics_collection_interval_seconds: u32) -> Self {
+        Self {
+            metrics_collection_interval: metrics_collection_interval_seconds,
+            ..Default::default()
+        }
+    }
+}
+
 /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -466,14 +508,25 @@ impl Default for Mem {
     }
 }
 
+impl Mem {
+    pub fn new(metrics_collection_interval_seconds: u32) -> Self {
+        Self {
+            metrics_collection_interval: metrics_collection_interval_seconds,
+            ..Default::default()
+        }
+    }
+}
+
 /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
 pub struct Disk {
     pub resources: Vec<String>,
     pub measurement: Vec<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ignore_file_system_types: Option<Vec<String>>,
+
     pub metrics_collection_interval: u32,
 }
 
@@ -494,9 +547,20 @@ impl Default for Disk {
 }
 
 impl Disk {
-    pub fn new(resources: Vec<String>) -> Self {
+    pub fn new(metrics_collection_interval_seconds: u32) -> Self {
+        Self {
+            metrics_collection_interval: metrics_collection_interval_seconds,
+            ..Default::default()
+        }
+    }
+
+    pub fn new_with_resources(
+        resources: Vec<String>,
+        metrics_collection_interval_seconds: u32,
+    ) -> Self {
         Self {
             resources,
+            metrics_collection_interval: metrics_collection_interval_seconds,
             ..Default::default()
         }
     }
@@ -530,6 +594,15 @@ impl Default for DiskIo {
     }
 }
 
+impl DiskIo {
+    pub fn new(metrics_collection_interval_seconds: u32) -> Self {
+        Self {
+            metrics_collection_interval: metrics_collection_interval_seconds,
+            ..Default::default()
+        }
+    }
+}
+
 /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -554,6 +627,15 @@ impl Default for Net {
     }
 }
 
+impl Net {
+    pub fn new(metrics_collection_interval_seconds: u32) -> Self {
+        Self {
+            metrics_collection_interval: metrics_collection_interval_seconds,
+            ..Default::default()
+        }
+    }
+}
+
 /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -567,6 +649,15 @@ impl Default for Netstat {
         Self {
             measurement: vec!["tcp_listen".to_string(), "tcp_established".to_string()],
             metrics_collection_interval: DEFAULT_METRICS_COLLECTION_INTERVAL,
+        }
+    }
+}
+
+impl Netstat {
+    pub fn new(metrics_collection_interval_seconds: u32) -> Self {
+        Self {
+            metrics_collection_interval: metrics_collection_interval_seconds,
+            ..Default::default()
         }
     }
 }
