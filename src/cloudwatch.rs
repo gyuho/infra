@@ -256,7 +256,9 @@ pub async fn spawn_put_metric_data(
 /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html
 pub const DEFAULT_CONFIG_FILE_PATH: &str = "/opt/aws/amazon-cloudwatch-agent/bin/config.json";
 
-pub const DEFAULT_METRICS_COLLECTION_INTERVAL: u32 = 60;
+/// Default 10-minute
+pub const DEFAULT_METRICS_COLLECTION_INTERVAL: u32 = 600;
+
 pub const DEFAULT_LOGFILE: &str =
     "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log";
 
@@ -442,7 +444,7 @@ impl Default for Cpu {
                 "usage_active".to_string(), // cpu_usage_* metrics is Percent
                 "usage_system".to_string(), // cpu_usage_* metrics is Percent
             ],
-            metrics_collection_interval: 60,
+            metrics_collection_interval: DEFAULT_METRICS_COLLECTION_INTERVAL,
         }
     }
 }
@@ -459,7 +461,7 @@ impl Default for Mem {
     fn default() -> Self {
         Self {
             measurement: vec!["mem_used".to_string(), "mem_total".to_string()],
-            metrics_collection_interval: 60,
+            metrics_collection_interval: DEFAULT_METRICS_COLLECTION_INTERVAL,
         }
     }
 }
@@ -486,7 +488,7 @@ impl Default for Disk {
                 "inodes_total".to_string(),
             ],
             ignore_file_system_types: Some(vec!["sysfs".to_string(), "devtmpfs".to_string()]),
-            metrics_collection_interval: 60,
+            metrics_collection_interval: DEFAULT_METRICS_COLLECTION_INTERVAL,
         }
     }
 }
@@ -523,7 +525,7 @@ impl Default for DiskIo {
                 "read_time".to_string(),
                 "write_time".to_string(),
             ],
-            metrics_collection_interval: 60,
+            metrics_collection_interval: DEFAULT_METRICS_COLLECTION_INTERVAL,
         }
     }
 }
@@ -547,7 +549,7 @@ impl Default for Net {
                 "packets_sent".to_string(),
                 "packets_recv".to_string(),
             ],
-            metrics_collection_interval: 60,
+            metrics_collection_interval: DEFAULT_METRICS_COLLECTION_INTERVAL,
         }
     }
 }
@@ -564,7 +566,7 @@ impl Default for Netstat {
     fn default() -> Self {
         Self {
             measurement: vec!["tcp_listen".to_string(), "tcp_established".to_string()],
-            metrics_collection_interval: 60,
+            metrics_collection_interval: DEFAULT_METRICS_COLLECTION_INTERVAL,
         }
     }
 }
