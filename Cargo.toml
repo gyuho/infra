@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.21.11" # https://crates.io/crates/aws-manager/versions
+version = "0.21.12" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.65"
@@ -41,7 +41,7 @@ serde = { version = "1.0.149", features = ["derive"] } # https://github.com/serd
 serde_json = "1.0.89"
 serde_yaml = "0.9.14" # https://github.com/dtolnay/serde-yaml/releases
 thiserror = "1.0.37"
-tokio = { version = "1.22.0", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
+tokio = { version = "1.23.0", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
 tokio-stream = "0.1.11"
 
 [dev-dependencies]
