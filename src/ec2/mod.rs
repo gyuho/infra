@@ -201,7 +201,7 @@ impl Manager {
                 if let Some(v) = volume.state() {
                     v.clone()
                 } else {
-                    VolumeState::Unknown(String::from("not found"))
+                    VolumeState::from("not found")
                 }
             };
             log::info!(
@@ -765,7 +765,7 @@ impl Droplet {
         let instance_state_code = instance_state.code.unwrap_or(0);
         let instance_state_name = instance_state
             .name
-            .unwrap_or_else(|| InstanceStateName::Unknown(String::from("unknown")));
+            .unwrap_or_else(|| InstanceStateName::from("unknown"));
         let instance_state_name = instance_state_name.as_str().to_string();
 
         let availability_zone = match inst.placement.to_owned() {
@@ -798,7 +798,7 @@ impl Droplet {
                     let attachment_status = ebs
                         .status
                         .to_owned()
-                        .unwrap_or_else(|| AttachmentStatus::Unknown(String::new()));
+                        .unwrap_or_else(|| AttachmentStatus::from(""));
                     (volume_id, attachment_status.as_str().to_string())
                 } else {
                     (String::new(), String::new())
@@ -838,7 +838,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 #[inline]
 fn is_error_delete_key_pair_does_not_exist(e: &SdkError<DeleteKeyPairError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
+        SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
             msg.contains("does not exist")
         }

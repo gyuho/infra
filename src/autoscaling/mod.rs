@@ -1,9 +1,5 @@
 use crate::errors::{Error::API, Result};
-use aws_sdk_autoscaling::{
-    error::{SetInstanceHealthError, SetInstanceHealthErrorKind},
-    types::SdkError,
-    Client,
-};
+use aws_sdk_autoscaling::{error::SetInstanceHealthError, types::SdkError, Client};
 use aws_types::SdkConfig as AwsSdkConfig;
 
 /// Implements AWS EC2 autoscaling manager.
@@ -75,12 +71,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 #[inline]
 pub fn is_error_retryable_set_instance_health(e: &SdkError<SetInstanceHealthError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                SetInstanceHealthErrorKind::ResourceContentionFault(_)
-            )
-        }
+        SdkError::ServiceError(err) => err.err().is_resource_contention_fault(),
         _ => false,
     }
 }

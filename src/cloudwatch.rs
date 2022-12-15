@@ -13,9 +13,7 @@ use aws_sdk_cloudwatch::{
     model::MetricDatum, types::SdkError as MetricsSdkError, Client as MetricsClient,
 };
 use aws_sdk_cloudwatchlogs::{
-    error::{
-        CreateLogGroupError, CreateLogGroupErrorKind, DeleteLogGroupError, DeleteLogGroupErrorKind,
-    },
+    error::{CreateLogGroupError, DeleteLogGroupError},
     types::SdkError as LogsSdkError,
     Client as LogsClient,
 };
@@ -215,12 +213,7 @@ pub fn is_logs_error_retryable<E>(e: &LogsSdkError<E>) -> bool {
 #[inline]
 fn is_logs_error_create_log_group_already_exists(e: &LogsSdkError<CreateLogGroupError>) -> bool {
     match e {
-        LogsSdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                CreateLogGroupErrorKind::ResourceAlreadyExistsException(_)
-            )
-        }
+        LogsSdkError::ServiceError(err) => err.err().is_resource_already_exists_exception(),
         _ => false,
     }
 }
@@ -228,12 +221,7 @@ fn is_logs_error_create_log_group_already_exists(e: &LogsSdkError<CreateLogGroup
 #[inline]
 fn is_logs_error_delete_log_group_does_not_exist(e: &LogsSdkError<DeleteLogGroupError>) -> bool {
     match e {
-        LogsSdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                DeleteLogGroupErrorKind::ResourceNotFoundException(_)
-            )
-        }
+        LogsSdkError::ServiceError(err) => err.err().is_resource_not_found_exception(),
         _ => false,
     }
 }

@@ -266,7 +266,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 #[inline]
 fn is_error_delete_stack_does_not_exist(e: &SdkError<DeleteStackError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
+        SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
             msg.contains("does not exist")
         }
@@ -277,7 +277,7 @@ fn is_error_delete_stack_does_not_exist(e: &SdkError<DeleteStackError>) -> bool 
 #[inline]
 fn is_error_describe_stacks_does_not_exist(e: &SdkError<DescribeStacksError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
+        SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
             msg.contains("does not exist")
         }

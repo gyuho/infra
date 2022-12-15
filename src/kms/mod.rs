@@ -11,10 +11,8 @@ use crate::errors::{
 };
 use aws_sdk_kms::{
     error::{
-        CreateKeyError, CreateKeyErrorKind, DecryptError, DecryptErrorKind, EncryptError,
-        EncryptErrorKind, GenerateDataKeyError, GenerateDataKeyErrorKind, GetPublicKeyError,
-        GetPublicKeyErrorKind, ScheduleKeyDeletionError, ScheduleKeyDeletionErrorKind, SignError,
-        SignErrorKind,
+        CreateKeyError, CreateKeyErrorKind, DecryptError, EncryptError, GenerateDataKeyError,
+        GetPublicKeyError, ScheduleKeyDeletionError, SignError,
     },
     model::{
         DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, MessageType,
@@ -421,9 +419,9 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 #[inline]
 pub fn is_error_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
+        SdkError::ServiceError(err) => {
             matches!(
-                err.kind,
+                err.err().kind,
                 CreateKeyErrorKind::DependencyTimeoutException(_)
                     | CreateKeyErrorKind::KmsInternalException(_)
             )
@@ -435,13 +433,10 @@ pub fn is_error_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
 #[inline]
 pub fn is_error_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                GenerateDataKeyErrorKind::DependencyTimeoutException(_)
-                    | GenerateDataKeyErrorKind::KeyUnavailableException(_)
-                    | GenerateDataKeyErrorKind::KmsInternalException(_)
-            )
+        SdkError::ServiceError(err) => {
+            err.err().is_dependency_timeout_exception()
+                || err.err().is_key_unavailable_exception()
+                || err.err().is_kms_internal_exception()
         }
         _ => false,
     }
@@ -450,13 +445,10 @@ pub fn is_error_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) 
 #[inline]
 pub fn is_error_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                EncryptErrorKind::DependencyTimeoutException(_)
-                    | EncryptErrorKind::KeyUnavailableException(_)
-                    | EncryptErrorKind::KmsInternalException(_)
-            )
+        SdkError::ServiceError(err) => {
+            err.err().is_dependency_timeout_exception()
+                || err.err().is_key_unavailable_exception()
+                || err.err().is_kms_internal_exception()
         }
         _ => false,
     }
@@ -465,13 +457,10 @@ pub fn is_error_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
 #[inline]
 pub fn is_error_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                DecryptErrorKind::DependencyTimeoutException(_)
-                    | DecryptErrorKind::KeyUnavailableException(_)
-                    | DecryptErrorKind::KmsInternalException(_)
-            )
+        SdkError::ServiceError(err) => {
+            err.err().is_dependency_timeout_exception()
+                || err.err().is_key_unavailable_exception()
+                || err.err().is_kms_internal_exception()
         }
         _ => false,
     }
@@ -480,9 +469,7 @@ pub fn is_error_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
 #[inline]
 fn is_error_schedule_key_deletion_does_not_exist(e: &SdkError<ScheduleKeyDeletionError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
-            matches!(err.kind, ScheduleKeyDeletionErrorKind::NotFoundException(_))
-        }
+        SdkError::ServiceError(err) => err.err().is_not_found_exception(),
         _ => false,
     }
 }
@@ -492,7 +479,7 @@ fn is_error_schedule_key_deletion_already_scheduled(
     e: &SdkError<ScheduleKeyDeletionError>,
 ) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
+        SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
             msg.contains("pending deletion")
         }
@@ -504,13 +491,10 @@ fn is_error_schedule_key_deletion_already_scheduled(
 #[inline]
 pub fn is_error_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                GetPublicKeyErrorKind::DependencyTimeoutException(_)
-                    | GetPublicKeyErrorKind::KeyUnavailableException(_)
-                    | GetPublicKeyErrorKind::KmsInternalException(_)
-            )
+        SdkError::ServiceError(err) => {
+            err.err().is_dependency_timeout_exception()
+                || err.err().is_key_unavailable_exception()
+                || err.err().is_kms_internal_exception()
         }
         _ => false,
     }
@@ -520,13 +504,10 @@ pub fn is_error_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> boo
 #[inline]
 pub fn is_error_retryable_sign(e: &SdkError<SignError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                SignErrorKind::DependencyTimeoutException(_)
-                    | SignErrorKind::KeyUnavailableException(_)
-                    | SignErrorKind::KmsInternalException(_)
-            )
+        SdkError::ServiceError(err) => {
+            err.err().is_dependency_timeout_exception()
+                || err.err().is_key_unavailable_exception()
+                || err.err().is_kms_internal_exception()
         }
         _ => false,
     }

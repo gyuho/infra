@@ -8,7 +8,7 @@ use crate::{
     kms::envelope,
 };
 use aws_sdk_s3::{
-    error::{CreateBucketError, CreateBucketErrorKind, DeleteBucketError},
+    error::{CreateBucketError, DeleteBucketError},
     model::{
         BucketCannedAcl, BucketLocationConstraint, CreateBucketConfiguration, Delete, Object,
         ObjectCannedAcl, ObjectIdentifier, PublicAccessBlockConfiguration, ServerSideEncryption,
@@ -530,13 +530,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 #[inline]
 fn is_error_bucket_already_exist(e: &SdkError<CreateBucketError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
-            matches!(
-                err.kind,
-                CreateBucketErrorKind::BucketAlreadyExists(_)
-                    | CreateBucketErrorKind::BucketAlreadyOwnedByYou(_)
-            )
-        }
+        SdkError::ServiceError(err) => err.err().is_bucket_already_exists(),
         _ => false,
     }
 }
@@ -544,7 +538,7 @@ fn is_error_bucket_already_exist(e: &SdkError<CreateBucketError>) -> bool {
 #[inline]
 fn is_error_bucket_does_not_exist(e: &SdkError<DeleteBucketError>) -> bool {
     match e {
-        SdkError::ServiceError { err, .. } => {
+        SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
             msg.contains("bucket does not exist")
         }
