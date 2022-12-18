@@ -530,7 +530,9 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 #[inline]
 fn is_error_bucket_already_exist(e: &SdkError<CreateBucketError>) -> bool {
     match e {
-        SdkError::ServiceError(err) => err.err().is_bucket_already_exists(),
+        SdkError::ServiceError(err) => {
+            err.err().is_bucket_already_exists() || err.err().is_bucket_already_owned_by_you()
+        }
         _ => false,
     }
 }
