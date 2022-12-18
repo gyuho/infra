@@ -33,7 +33,7 @@ fn main() {
     key_desc.push_str("-cmk");
 
     // error should be ignored if it does not exist
-    let ret = ab!(kms_manager.schedule_to_delete("invalid_id"));
+    let ret = ab!(kms_manager.schedule_to_delete("invalid_id", 7));
     assert!(ret.is_ok());
 
     let cmk = ab!(kms_manager.create_symmetric_default_key(&key_desc)).unwrap();
@@ -136,12 +136,12 @@ fn main() {
         plaintext.as_bytes()
     ));
 
-    let ret = ab!(kms_manager.schedule_to_delete(&cmk.id));
+    let ret = ab!(kms_manager.schedule_to_delete(&cmk.id, 7));
     assert!(ret.is_ok());
 
     thread::sleep(time::Duration::from_secs(2));
 
     // error should be ignored if it's already scheduled for delete
-    let ret = ab!(kms_manager.schedule_to_delete(&cmk.id));
+    let ret = ab!(kms_manager.schedule_to_delete(&cmk.id, 7));
     assert!(ret.is_ok());
 }

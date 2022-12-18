@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.22.3" # https://crates.io/crates/aws-manager/versions
+version = "0.22.4" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.66"
@@ -32,7 +32,7 @@ compress-manager = "0.0.4" # https://crates.io/crates/compress-manager/versions
 http-manager = "0.0.6"
 human-readable = "0.0.1"
 hyper = { version = "0.14.23", features = ["full"] } # https://github.com/hyperium/hyper/releases
-id-manager = "0.0.1"
+id-manager = "0.0.2"
 log = "0.4.17"
 random-manager = "0.0.2" # https://crates.io/crates/random-manager/versions
 rfc-manager = "0.0.1"

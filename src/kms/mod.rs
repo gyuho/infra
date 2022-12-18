@@ -177,13 +177,19 @@ impl Manager {
     }
 
     /// Schedules to delete a KMS CMK.
-    pub async fn schedule_to_delete(&self, key_id: &str) -> Result<()> {
-        log::info!("deleting KMS CMK '{}'", key_id);
+    /// Pass either CMK Id or Arn.
+    /// The minimum pending window days are 7.
+    pub async fn schedule_to_delete(
+        &self,
+        key_arn: &str,
+        pending_window_in_days: i32,
+    ) -> Result<()> {
+        log::info!("deleting KMS CMK {key_arn} in {pending_window_in_days} days");
         let ret = self
             .cli
             .schedule_key_deletion()
-            .key_id(key_id)
-            .pending_window_in_days(7)
+            .key_id(key_arn)
+            .pending_window_in_days(pending_window_in_days)
             .send()
             .await;
 
@@ -192,11 +198,11 @@ impl Manager {
             Err(e) => {
                 let mut ignore_err: bool = false;
                 if is_error_schedule_key_deletion_does_not_exist(&e) {
-                    log::warn!("KMS CMK '{}' does not exist", key_id);
+                    log::warn!("KMS CMK '{key_arn}' does not exist");
                     ignore_err = true
                 }
                 if is_error_schedule_key_deletion_already_scheduled(&e) {
-                    log::warn!("KMS CMK '{}' already scheduled for deletion", key_id);
+                    log::warn!("KMS CMK '{key_arn}' already scheduled for deletion");
                     ignore_err = true
                 }
                 if !ignore_err {
@@ -209,7 +215,7 @@ impl Manager {
             }
         };
         if deleted {
-            log::info!("successfully scheduled to delete KMS CMK '{}'", key_id);
+            log::info!("successfully scheduled to delete KMS CMK '{key_arn}'");
         };
 
         Ok(())
