@@ -17,16 +17,17 @@ fn main() {
     println!();
     println!();
     info!("creating AWS S3 resources!");
-    let shared_config = rt.block_on(aws_manager::load_config(None)).unwrap();
+    let shared_config = rt
+        .block_on(aws_manager::load_config(Some(String::from("us-east-1"))))
+        .unwrap();
     let s3_manager = s3::Manager::new(&shared_config);
 
     println!();
     println!();
     println!();
     let bucket = format!(
-        "aws-manager-examples-tests-s3-{}-{}",
-        id_manager::time::timestamp(6),
-        random_manager::string(10)
+        "aws-manager-examples-tests-{}",
+        random_manager::string(5).to_lowercase()
     );
     rt.block_on(s3_manager.delete_bucket(&bucket)).unwrap(); // error should be ignored if it does not exist
 
