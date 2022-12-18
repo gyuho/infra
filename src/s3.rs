@@ -47,28 +47,28 @@ impl Manager {
     pub async fn create_bucket(&self, s3_bucket: &str) -> Result<()> {
         let reg = self.shared_config.region().unwrap();
 
-        let mut bucket_cfg = CreateBucketConfiguration::builder();
-
-        // don't specify if "us-east-1", default is "us-east-1"
-        if reg.to_string() != "us-east-1" {
-            let constraint = BucketLocationConstraint::from(reg.to_string().as_str());
-            bucket_cfg = bucket_cfg.location_constraint(constraint);
-        }
-
         log::info!(
             "creating S3 bucket '{}' in region {}",
             s3_bucket,
             reg.to_string()
         );
 
-        let ret = self
+        let mut req = self
             .cli
             .create_bucket()
-            .create_bucket_configuration(bucket_cfg.build())
             .bucket(s3_bucket)
-            .acl(BucketCannedAcl::Private)
-            .send()
-            .await;
+            .acl(BucketCannedAcl::Private);
+
+        // don't specify if "us-east-1", default is "us-east-1"
+        if reg.to_string() != "us-east-1" {
+            let constraint = BucketLocationConstraint::from(reg.to_string().as_str());
+            let bucket_cfg = CreateBucketConfiguration::builder()
+                .location_constraint(constraint)
+                .build();
+            req = req.create_bucket_configuration(bucket_cfg);
+        }
+
+        let ret = req.send().await;
         let already_created = match ret {
             Ok(_) => false,
             Err(e) => {
