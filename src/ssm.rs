@@ -29,6 +29,7 @@ impl Manager {
     }
 
     /// Polls SSM command status.
+    /// ref. <https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetCommandInvocation.html>
     pub async fn poll_command(
         &self,
         command_id: &str,
