@@ -155,9 +155,16 @@ impl Manager {
             .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256)
             .send()
             .await
-            .map_err(|e| API {
-                message: format!("failed sign {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_sign(&e),
+            .map_err(|e| {
+                log::warn!(
+                    "failed to sign {} (retryable {})",
+                    e.to_string(),
+                    is_error_retryable_sign(&e)
+                );
+                API {
+                    message: format!("failed sign {}", e.to_string()),
+                    is_retryable: is_error_retryable(&e) || is_error_retryable_sign(&e),
+                }
             })?;
 
         if let Some(blob) = sign_output.signature() {
