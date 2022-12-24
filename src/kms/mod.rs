@@ -160,13 +160,13 @@ impl Manager {
             .send()
             .await
             .map_err(|e| {
-                log::warn!(
+                log::debug!(
                     "failed sign; error {}, retryable '{}'",
                     explain_sign_error(&e),
                     is_error_retryable_sign(&e)
                 );
                 API {
-                    message: explain_sign_error(&e),
+                    message: e.to_string(),
                     is_retryable: is_error_retryable(&e) || is_error_retryable_sign(&e),
                 }
             })?;
