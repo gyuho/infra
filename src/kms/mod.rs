@@ -133,10 +133,14 @@ impl Manager {
 
     /// Signs the 32-byte SHA256 output message with the ECDSA private key and the recoverable code
     /// using AWS KMS CMK.
-    /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
-    pub async fn secp256k1_sign_digest(&self, key_id: &str, digest: &[u8]) -> Result<Vec<u8>> {
+    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html>
+    pub async fn sign_digest_secp256k1_ecdsa_sha256(
+        &self,
+        key_id: &str,
+        digest: &[u8],
+    ) -> Result<Vec<u8>> {
         log::info!(
-            "secp256k1 signing {}-byte digest message with key Id {}",
+            "secp256k1 signing {}-byte digest message with key Id '{}'",
             digest.len(),
             key_id
         );
@@ -157,8 +161,8 @@ impl Manager {
             .await
             .map_err(|e| {
                 log::warn!(
-                    "failed to sign {} (retryable {})",
-                    e.to_string(),
+                    "failed to sign; error {}, retryable '{}'",
+                    explain_sign_error(&e),
                     is_error_retryable_sign(&e)
                 );
                 API {
@@ -513,7 +517,7 @@ pub fn is_error_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> boo
     }
 }
 
-/// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-SigningAlgorithm
+/// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-SigningAlgorithm>
 #[inline]
 pub fn is_error_retryable_sign(e: &SdkError<SignError>) -> bool {
     match e {
@@ -523,5 +527,19 @@ pub fn is_error_retryable_sign(e: &SdkError<SignError>) -> bool {
                 || err.err().is_kms_internal_exception()
         }
         _ => false,
+    }
+}
+
+/// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-SigningAlgorithm>
+#[inline]
+pub fn explain_sign_error(e: &SdkError<SignError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "sign service error [code '{:?}', kind '{:?}', meta '{:?}']",
+            err.err().code(),
+            err.err().kind,
+            err.err().meta(),
+        ),
+        _ => e.to_string(),
     }
 }
