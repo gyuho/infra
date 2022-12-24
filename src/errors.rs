@@ -5,9 +5,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Backing errors for all AWS operations.
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("failed API")]
+    #[error("failed API (message: {message:?}, is_retryable: {is_retryable:?})")]
     API { message: String, is_retryable: bool },
-    #[error("failed for other reasons")]
+    #[error("failed for other reasons (message: {message:?}, is_retryable: {is_retryable:?})")]
     Other { message: String, is_retryable: bool },
 }
 
