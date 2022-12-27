@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.22.13" # https://crates.io/crates/aws-manager/versions
+version = "0.22.14" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.66"
@@ -37,7 +37,7 @@ log = "0.4.17"
 random-manager = "0.0.2" # https://crates.io/crates/random-manager/versions
 rfc-manager = "0.0.1"
 ring = "0.16.20"
-serde = { version = "1.0.151", features = ["derive"] } # https://github.com/serde-rs/serde/releases
+serde = { version = "1.0.152", features = ["derive"] } # https://github.com/serde-rs/serde/releases
 serde_json = "1.0.91"
 serde_yaml = "0.9.16" # https://github.com/dtolnay/serde-yaml/releases
 thiserror = "1.0.38"
