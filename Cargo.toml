@@ -171,3 +171,13 @@ required-features = ["s3"]
 [[example]]
 name = "sts"
 required-features = ["sts"]
+
+[package.metadata.cargo-udeps.ignore]
+development = [
+    "cmp-manager",
+    "env_logger",
+    "id-manager",
+    "rust-embed",
+    "tempfile",
+    "tokio-test",
+]
