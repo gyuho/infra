@@ -12,7 +12,7 @@ pub mod cloudwatch;
 #[cfg(feature = "ec2")]
 pub mod ec2;
 
-#[cfg(all(feature = "kms", feature = "s3"))]
+#[cfg(any(feature = "kms", feature = "s3"))]
 pub mod kms;
 
 #[cfg(feature = "s3")]
