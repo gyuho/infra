@@ -1,11 +1,8 @@
 use std::{fs, path::Path, sync::Arc};
 
-use crate::{
-    errors::{
-        Error::{Other, API},
-        Result,
-    },
-    kms::envelope,
+use crate::errors::{
+    Error::{Other, API},
+    Result,
 };
 use aws_sdk_s3::{
     error::{CreateBucketError, DeleteBucketError},
@@ -446,9 +443,10 @@ impl Manager {
     }
 
     /// Compresses the file, encrypts, and uploads to S3.
+    #[cfg(feature = "kms")]
     pub async fn compress_seal_put_object(
         &self,
-        envelope_manager: Arc<envelope::Manager>,
+        envelope_manager: Arc<crate::kms::envelope::Manager>,
         source_file_path: Arc<String>,
         s3_bucket: Arc<String>,
         s3_key: Arc<String>,
@@ -484,9 +482,10 @@ impl Manager {
     }
 
     /// Reverse of "compress_seal_put_object".
+    #[cfg(feature = "kms")]
     pub async fn get_object_unseal_decompress(
         &self,
-        envelope_manager: Arc<envelope::Manager>,
+        envelope_manager: Arc<crate::kms::envelope::Manager>,
         s3_bucket: Arc<String>,
         s3_key: Arc<String>,
         download_file_path: Arc<String>,
@@ -667,9 +666,10 @@ where
     .expect("failed spawn await")
 }
 
+#[cfg(feature = "kms")]
 pub async fn spawn_compress_seal_put_object<S>(
     s3_manager: Manager,
-    envelope_manager: envelope::Manager,
+    envelope_manager: crate::kms::envelope::Manager,
     file_path: S,
     s3_bucket: S,
     s3_key: S,
@@ -696,9 +696,10 @@ where
     .expect("failed spawn await")
 }
 
+#[cfg(feature = "kms")]
 pub async fn spawn_get_object_unseal_decompress<S>(
     s3_manager: Manager,
-    envelope_manager: envelope::Manager,
+    envelope_manager: crate::kms::envelope::Manager,
     s3_bucket: S,
     s3_key: S,
     file_path: S,
