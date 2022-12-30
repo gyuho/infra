@@ -1,10 +1,9 @@
 use std::{fs, io::Write, sync::Arc, thread, time};
 
 use aws_manager::{self, s3};
-use log::info;
 use tokio::runtime::Runtime;
 
-/// cargo run --example s3
+/// cargo run --example s3 --features="s3"
 fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
@@ -16,7 +15,7 @@ fn main() {
     println!();
     println!();
     println!();
-    info!("creating AWS S3 resources!");
+    log::info!("creating AWS S3 resources!");
     let shared_config = rt
         .block_on(aws_manager::load_config(Some(String::from("us-east-1"))))
         .unwrap();
@@ -88,7 +87,7 @@ fn main() {
         ))
         .unwrap();
     for obj in objects.iter() {
-        info!("object: {}", obj.key().unwrap());
+        log::info!("object: {}", obj.key().unwrap());
     }
 
     println!();

@@ -10,9 +10,8 @@ use aws_manager::{
     kms::{self, envelope::Manager},
     s3,
 };
-use log::info;
 
-/// cargo run --example s3_encrypt
+/// cargo run --example s3_encrypt --features="s3,kms"
 fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
@@ -25,7 +24,7 @@ fn main() {
         };
     }
 
-    info!("creating AWS resources!");
+    log::info!("creating AWS resources!");
     let shared_config = ab!(aws_manager::load_config(None)).unwrap();
 
     println!();

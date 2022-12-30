@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.22.14" # https://crates.io/crates/aws-manager/versions
+version = "0.22.15" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.66"
@@ -14,39 +14,160 @@ license = "Apache-2.0"
 
 [dependencies]
 aws-config = "0.52.0" # https://github.com/awslabs/aws-sdk-rust/releases
-aws-sdk-autoscaling = "0.22.0" # https://crates.io/crates/aws-sdk-autoscaling/versions
-aws-sdk-cloudformation = "0.22.0" # https://crates.io/crates/aws-sdk-cloudformation/versions
-aws-sdk-cloudwatch = "0.22.0" # https://crates.io/crates/aws-sdk-cloudwatch/versions
-aws-sdk-cloudwatchlogs = "0.22.0" # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
-aws-sdk-ec2 = "0.22.0" # https://crates.io/crates/aws-sdk-ec2/versions
-aws-sdk-kms = "0.22.0" # https://crates.io/crates/aws-sdk-kms/versions
-aws-sdk-s3 = "0.22.0" # https://crates.io/crates/aws-sdk-s3/versions
-aws-sdk-ssm = "0.22.0" # https://crates.io/crates/aws-sdk-ssm/versions
-aws-sdk-sts = "0.22.0" # https://crates.io/crates/aws-sdk-sts/versions
-aws-smithy-types = "0.52.0" # https://github.com/awslabs/smithy-rs/releases
 aws-types = "0.52.0" # https://crates.io/crates/aws-types/versions
-byteorder = "1.4.3"
-chrono = "0.4.23" # https://github.com/chronotope/chrono/releases
-command-manager = "0.0.1"
-compress-manager = "0.0.4" # https://crates.io/crates/compress-manager/versions
-http-manager = "0.0.6"
-human-readable = "0.0.1"
-hyper = { version = "0.14.23", features = ["full"] } # https://github.com/hyperium/hyper/releases
-id-manager = "0.0.2"
 log = "0.4.17"
-random-manager = "0.0.2" # https://crates.io/crates/random-manager/versions
-rfc-manager = "0.0.1"
-ring = "0.16.20"
-serde = { version = "1.0.152", features = ["derive"] } # https://github.com/serde-rs/serde/releases
-serde_json = "1.0.91"
-serde_yaml = "0.9.16" # https://github.com/dtolnay/serde-yaml/releases
 thiserror = "1.0.38"
-tokio = { version = "1.23.0", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
-tokio-stream = "0.1.11"
+
+human-readable = { version = "0.0.1", optional = true }
+random-manager = { version = "0.0.2", optional = true } # https://crates.io/crates/random-manager/versions
+serde = { version = "1.0.152", features = ["derive"], optional = true } # https://github.com/serde-rs/serde/releases
+tokio = { version = "1.23.0", features = ["full"], optional = true } # https://github.com/tokio-rs/tokio/releases
+
+aws-sdk-autoscaling = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
+aws-sdk-cloudformation = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
+aws-sdk-ssm = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
+aws-sdk-sts = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-sts/versions
+
+# [OPTIONAL] for "s3"
+aws-sdk-s3 = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
+tokio-stream = { version = "0.1.11", optional = true }
+
+# [OPTIONAL] for "cloudwatch"
+aws-sdk-cloudwatch = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
+aws-sdk-cloudwatchlogs = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
+serde_json = { version = "1.0.91", optional = true }
+
+# [OPTIONAL] for "ec2"
+aws-sdk-ec2 = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
+chrono = { version = "0.4.23", optional = true } # https://github.com/chronotope/chrono/releases
+command-manager = { version = "0.0.1", optional = true }
+http-manager = { version = "0.0.6", optional = true }
+hyper = { version = "0.14.23", features = ["full"], optional = true } # https://github.com/hyperium/hyper/releases
+rfc-manager = { version = "0.0.1", optional = true }
+serde_yaml = { version = "0.9.16", optional = true } # https://github.com/dtolnay/serde-yaml/releases
+
+# [OPTIONAL] for "kms"
+aws-sdk-kms = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
+aws-smithy-types = { version = "0.52.0", optional = true } # https://github.com/awslabs/smithy-rs/releases
+byteorder = { version = "1.4.3", optional = true } # https://github.com/briansmith/ring
+compress-manager = { version = "0.0.4", optional = true } # https://crates.io/crates/compress-manager/versions
+ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/ring
 
 [dev-dependencies]
 cmp-manager = "0.0.1"
 env_logger = "0.10.0"
+id-manager = "0.0.2"
 rust-embed = "6.4.2"
 tempfile = "3.3.0"
 tokio-test = "0.4.2"
+
+[features]
+default = [
+    # "autoscaling",
+    # "cloudformation",
+    # "cloudwatch",
+    # "ec2",
+    # "kms",
+    # "s3",
+    # "ssm",
+    # "sts",
+]
+
+autoscaling = [
+    "aws-sdk-autoscaling",
+]
+cloudformation = [
+    "aws-sdk-cloudformation",
+    "tokio",
+]
+cloudwatch = [
+    "aws-sdk-cloudwatch",
+    "aws-sdk-cloudwatchlogs",
+    "random-manager",
+    "serde",
+    "serde_json",
+    "tokio",
+]
+ec2 = [
+    "aws-sdk-ec2",
+    "chrono",
+    "command-manager",
+    "http-manager",
+    "hyper",
+    "random-manager",
+    "rfc-manager",
+    "serde",
+    "serde_json",
+    "serde_yaml",
+    "tokio",
+]
+kms = [
+    "aws-sdk-kms",
+    "aws-smithy-types",
+    "byteorder",
+    "compress-manager",
+    "human-readable",
+    "random-manager",
+    "ring",
+    "tokio",
+]
+s3 = [
+    "kms",
+    "aws-sdk-s3",
+    "human-readable",
+    "random-manager",
+    "tokio",
+    "tokio-stream",
+]
+ssm = [
+    "aws-sdk-ssm",
+    "tokio",
+]
+sts = [
+    "aws-sdk-sts",
+    "serde",
+]
+
+[[example]]
+name = "cloudformation_ec2_instance_role"
+required-features = ["cloudformation"]
+
+[[example]]
+name = "cloudformation_vpc"
+required-features = ["cloudformation"]
+
+[[example]]
+name = "cloudwatch"
+required-features = ["cloudwatch"]
+
+[[example]]
+name = "ec2_disk"
+required-features = ["ec2"]
+
+[[example]]
+name = "ec2_ebs_create_volume"
+required-features = ["ec2"]
+
+[[example]]
+name = "ec2_ebs_describe_volumes"
+required-features = ["ec2"]
+
+[[example]]
+name = "ec2_key_pair"
+required-features = ["ec2"]
+
+[[example]]
+name = "kms"
+required-features = ["kms"]
+
+[[example]]
+name = "s3_encrypt"
+required-features = ["s3"]
+
+[[example]]
+name = "s3"
+required-features = ["s3"]
+
+[[example]]
+name = "sts"
+required-features = ["sts"]

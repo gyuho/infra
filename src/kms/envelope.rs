@@ -11,10 +11,10 @@ use crate::{
 use aws_sdk_kms::model::{DataKeySpec, EncryptionAlgorithmSpec};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use compress_manager::{self, Decoder, Encoder};
-/// "NONCE_LEN" is the per-record nonce (iv_length), 12-byte
-/// ref. https://www.rfc-editor.org/rfc/rfc8446#appendix-E.2
-use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM, NONCE_LEN};
-use ring::rand::{SecureRandom, SystemRandom};
+use ring::{
+    aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM, NONCE_LEN},
+    rand::{SecureRandom, SystemRandom},
+};
 
 const DEK_AES_256_LENGTH: usize = 32;
 
@@ -232,6 +232,8 @@ impl Manager {
             });
         }
 
+        // "NONCE_LEN" is the per-record nonce (iv_length), 12-byte
+        // ref. <https://www.rfc-editor.org/rfc/rfc8446#appendix-E.2>
         let mut nonce_bytes = [0u8; NONCE_LEN];
         match buf.read_exact(&mut nonce_bytes) {
             Ok(_) => {}

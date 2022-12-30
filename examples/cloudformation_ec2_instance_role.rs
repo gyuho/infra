@@ -5,10 +5,9 @@ use std::{
 
 use aws_manager::{self, cloudformation};
 use aws_sdk_cloudformation::model::{Capability, OnFailure, Parameter, StackStatus, Tag};
-use log::info;
 use rust_embed::RustEmbed;
 
-/// cargo run --example cloudformation_ec2_instance_role
+/// cargo run --example cloudformation_ec2_instance_role --features="cloudformation"
 fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
@@ -21,7 +20,7 @@ fn main() {
         };
     }
 
-    info!("creating AWS CloudFormation resources!");
+    log::info!("creating AWS CloudFormation resources!");
 
     #[derive(RustEmbed)]
     #[folder = "examples/templates/"]
@@ -31,7 +30,7 @@ fn main() {
     let ec2_instance_role_yaml = Asset::get("examples/templates/ec2_instance_role.yaml").unwrap();
     let ret = std::str::from_utf8(ec2_instance_role_yaml.data.as_ref());
     let template_body = ret.unwrap();
-    info!("{:?}", template_body);
+    log::info!("{:?}", template_body);
 
     let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
@@ -85,7 +84,7 @@ fn main() {
     assert_eq!(stack.status, StackStatus::CreateComplete);
     let outputs = stack.outputs.unwrap();
     for o in outputs {
-        info!(
+        log::info!(
             "output key=[{}], value=[{}]",
             o.output_key.unwrap(),
             o.output_value.unwrap()

@@ -1,18 +1,33 @@
-pub mod autoscaling;
-pub mod cloudformation;
-pub mod cloudwatch;
-pub mod ec2;
 pub mod errors;
+
+#[cfg(feature = "autoscaling")]
+pub mod autoscaling;
+
+#[cfg(feature = "cloudformation")]
+pub mod cloudformation;
+
+#[cfg(feature = "cloudwatch")]
+pub mod cloudwatch;
+
+#[cfg(feature = "ec2")]
+pub mod ec2;
+
+#[cfg(all(feature = "kms", feature = "s3"))]
 pub mod kms;
+
+#[cfg(feature = "s3")]
 pub mod s3;
+
+#[cfg(feature = "ssm")]
 pub mod ssm;
+
+#[cfg(feature = "sts")]
 pub mod sts;
 
 use std::io;
 
 use aws_config::{self, meta::region::RegionProviderChain};
-use aws_sdk_ec2::Region;
-use aws_types::SdkConfig as AwsSdkConfig;
+use aws_types::{region::Region, SdkConfig as AwsSdkConfig};
 
 /// Loads an AWS config from default environments.
 pub async fn load_config(reg: Option<String>) -> io::Result<AwsSdkConfig> {
