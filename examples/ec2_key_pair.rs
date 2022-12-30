@@ -1,10 +1,8 @@
 use std::{fs, thread, time};
 
-use log::info;
-
 use aws_manager::{self, ec2};
 
-/// cargo run --example ec2_key_pair
+/// cargo run --example ec2_key_pair --features="ec2"
 fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
@@ -17,7 +15,7 @@ fn main() {
         };
     }
 
-    info!("creating AWS EC2 key-pair resources!");
+    log::info!("creating AWS EC2 key-pair resources!");
 
     let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
@@ -33,7 +31,7 @@ fn main() {
     let f = tempfile::NamedTempFile::new().unwrap();
     let key_path = f.path().to_str().unwrap();
     fs::remove_file(key_path).unwrap();
-    info!("created file path {}", key_path);
+    log::info!("created file path {}", key_path);
 
     let ret = ab!(ec2_manager.create_key_pair(&key_name, key_path));
     assert!(ret.is_ok());

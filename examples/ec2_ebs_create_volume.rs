@@ -3,7 +3,7 @@ use tokio::time::{sleep, Duration};
 use aws_manager::{self, ec2};
 use aws_sdk_ec2::model::{Filter, ResourceType, Tag, TagSpecification, VolumeState, VolumeType};
 
-/// cargo run --example ec2_ebs_create_volume
+/// cargo run --example ec2_ebs_create_volume --features="ec2"
 #[tokio::main]
 async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47

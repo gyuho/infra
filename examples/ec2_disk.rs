@@ -1,6 +1,6 @@
 use aws_manager::ec2;
 
-/// cargo run --example ec2_disk
+/// cargo run --example ec2_disk --features="ec2"
 fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(

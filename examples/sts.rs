@@ -1,8 +1,6 @@
-use log::info;
-
 use aws_manager::{self, sts};
 
-/// cargo run --example sts
+/// cargo run --example sts --features="sts"
 fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
@@ -15,7 +13,7 @@ fn main() {
         };
     }
 
-    info!("connecting to AWS STS!");
+    log::info!("connecting to AWS STS!");
 
     let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
@@ -23,14 +21,14 @@ fn main() {
 
     let ret = ab!(sts_manager.get_identity());
     let identity1 = ret.unwrap();
-    info!("identity1: {:?}", identity1);
+    log::info!("identity1: {:?}", identity1);
 
     let ret = ab!(aws_manager::load_config(None));
     let shared_config = ret.unwrap();
     let manager = sts::Manager::new(&shared_config);
     let ret = ab!(manager.get_identity());
     let identity2 = ret.unwrap();
-    info!("identity2: {:?}", identity2);
+    log::info!("identity2: {:?}", identity2);
 
     assert_eq!(identity1, identity2);
 }

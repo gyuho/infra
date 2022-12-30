@@ -9,9 +9,8 @@ use aws_manager::{
     self,
     kms::{self, envelope::Manager},
 };
-use log::info;
 
-/// cargo run --example kms
+/// cargo run --example kms --features="kms"
 fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
@@ -24,7 +23,7 @@ fn main() {
         };
     }
 
-    info!("creating AWS KMS resources!");
+    log::info!("creating AWS KMS resources!");
 
     let shared_config = ab!(aws_manager::load_config(None)).unwrap();
     let kms_manager = kms::Manager::new(&shared_config);
@@ -72,8 +71,8 @@ fn main() {
     decrypted_file
         .read_to_end(&mut decrypted_file_contents)
         .unwrap();
-    info!("encrypted_file_contents: {:?}", encrypted_file_contents);
-    info!("decrypted_file_contents: {:?}", decrypted_file_contents);
+    log::info!("encrypted_file_contents: {:?}", encrypted_file_contents);
+    log::info!("decrypted_file_contents: {:?}", decrypted_file_contents);
     assert_eq!(&decrypted_file_contents, plaintext.as_bytes());
     assert!(cmp_manager::eq_vectors(
         &decrypted_file_contents,
@@ -107,11 +106,11 @@ fn main() {
     unsealed_aes_256_file
         .read_to_end(&mut unsealed_aes_256_file_contents)
         .unwrap();
-    info!(
+    log::info!(
         "sealed_aes_256_file_contents: {:?}",
         sealed_aes_256_file_contents
     );
-    info!(
+    log::info!(
         "unsealed_aes_256_file_contents: {:?}",
         unsealed_aes_256_file_contents
     );
@@ -128,8 +127,8 @@ fn main() {
     thread::sleep(time::Duration::from_secs(1));
     let plaintext_sealed_unsealed =
         ab!(envelope_manager.unseal_aes_256(&plaintext_sealed)).unwrap();
-    info!("plaintext_sealed: {:?}", plaintext_sealed);
-    info!("plaintext_sealed_unsealed: {:?}", plaintext_sealed_unsealed);
+    log::info!("plaintext_sealed: {:?}", plaintext_sealed);
+    log::info!("plaintext_sealed_unsealed: {:?}", plaintext_sealed_unsealed);
     assert_eq!(&plaintext_sealed_unsealed, plaintext.as_bytes());
     assert!(cmp_manager::eq_vectors(
         &plaintext_sealed_unsealed,

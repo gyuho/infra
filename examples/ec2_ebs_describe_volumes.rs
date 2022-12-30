@@ -3,7 +3,7 @@ use std::time::Duration;
 use aws_manager::{self, ec2};
 use aws_sdk_ec2::model::VolumeAttachmentState;
 
-/// cargo run --example ec2_ebs_describe_volumes
+/// cargo run --example ec2_ebs_describe_volumes --features="ec2"
 fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
