@@ -486,8 +486,16 @@ impl Manager {
 
     /// Allocates an EIP and returns the allocation Id and the public Ip.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html
-    pub async fn allocate_eip(&self, kind_tag: &str, id_tag: &str) -> Result<Eip> {
-        log::info!("allocating elastic IP with Kind tag '{kind_tag}' and Id tag '{id_tag}'");
+    pub async fn allocate_eip(
+        &self,
+        id_tag_key: &str,
+        id_tag_value: &str,
+        kind_tag_key: &str,
+        kind_tag_value: &str,
+    ) -> Result<Eip> {
+        log::info!(
+            "allocating elastic IP with tags {id_tag_key}:{id_tag_value}, {kind_tag_key}:{kind_tag_value}"
+        );
         let resp = match self
             .cli
             .allocate_address()
@@ -496,17 +504,17 @@ impl Manager {
                     .resource_type(ResourceType::ElasticIp)
                     .tags(
                         Tag::builder()
-                            .key(String::from("Kind"))
-                            .value(kind_tag)
+                            .key(String::from("Name"))
+                            .value(id_tag_value)
                             .build(),
                     )
+                    .tags(Tag::builder().key(id_tag_key).value(id_tag_value).build())
                     .tags(
                         Tag::builder()
-                            .key(String::from("Name"))
-                            .value(id_tag)
+                            .key(kind_tag_key)
+                            .value(kind_tag_value)
                             .build(),
                     )
-                    .tags(Tag::builder().key(String::from("Id")).value(id_tag).build())
                     .build(),
             )
             .send()
