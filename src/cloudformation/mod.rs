@@ -182,20 +182,44 @@ impl Manager {
                 elapsed
             );
 
-            if desired_status.ne(&StackStatus::DeleteComplete)
-                && current_stack_status.eq(&StackStatus::DeleteComplete)
-            {
-                return Err(Other {
-                    message: String::from("stack create/update failed thus deleted"),
-                    is_retryable: false,
-                });
-            }
-
             if desired_status.eq(&StackStatus::CreateComplete)
                 && current_stack_status.eq(&StackStatus::CreateFailed)
             {
                 return Err(Other {
                     message: String::from("stack create failed"),
+                    is_retryable: false,
+                });
+            }
+            if desired_status.eq(&StackStatus::CreateComplete)
+                && current_stack_status.eq(&StackStatus::DeleteInProgress)
+            {
+                return Err(Other {
+                    message: String::from("stack create failed, being deleted"),
+                    is_retryable: false,
+                });
+            }
+            if desired_status.eq(&StackStatus::CreateComplete)
+                && current_stack_status.eq(&StackStatus::DeleteComplete)
+            {
+                return Err(Other {
+                    message: String::from("stack create failed, already deleted"),
+                    is_retryable: false,
+                });
+            }
+
+            if desired_status.ne(&StackStatus::DeleteComplete) // create or update
+                && current_stack_status.eq(&StackStatus::DeleteInProgress)
+            {
+                return Err(Other {
+                    message: String::from("stack create/update failed, being deleted"),
+                    is_retryable: false,
+                });
+            }
+            if desired_status.ne(&StackStatus::DeleteComplete) // create or update
+                && current_stack_status.eq(&StackStatus::DeleteComplete)
+            {
+                return Err(Other {
+                    message: String::from("stack create/update failed, already deleted"),
                     is_retryable: false,
                 });
             }
