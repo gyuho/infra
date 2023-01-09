@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.22.20" # https://crates.io/crates/aws-manager/versions
+version = "0.22.21" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.66"
@@ -21,7 +21,7 @@ thiserror = "1.0.38"
 human-readable = { version = "0.0.1", optional = true }
 random-manager = { version = "0.0.2", optional = true } # https://crates.io/crates/random-manager/versions
 serde = { version = "1.0.152", features = ["derive"], optional = true } # https://github.com/serde-rs/serde/releases
-tokio = { version = "1.24.0", features = ["full"], optional = true } # https://github.com/tokio-rs/tokio/releases
+tokio = { version = "1.24.1", features = ["full"], optional = true } # https://github.com/tokio-rs/tokio/releases
 
 aws-sdk-autoscaling = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-cloudformation = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
@@ -41,7 +41,7 @@ serde_json = { version = "1.0.91", optional = true }
 aws-sdk-ec2 = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
 chrono = { version = "0.4.23", optional = true } # https://github.com/chronotope/chrono/releases
 command-manager = { version = "0.0.1", optional = true }
-http-manager = { version = "0.0.6", optional = true }
+http-manager = { version = "0.0.7", optional = true }
 hyper = { version = "0.14.23", features = ["full"], optional = true } # https://github.com/hyperium/hyper/releases
 rfc-manager = { version = "0.0.1", optional = true }
 serde_yaml = { version = "0.9.16", optional = true } # https://github.com/dtolnay/serde-yaml/releases
