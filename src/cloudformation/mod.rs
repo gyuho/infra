@@ -268,7 +268,7 @@ pub struct Stack {
 
 impl Stack {
     pub fn new(name: &str, id: &str, status: StackStatus, outputs: Option<Vec<Output>>) -> Self {
-        // ref. https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html
+        // ref. <https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html>
         Self {
             name: String::from(name),
             id: String::from(id),

@@ -57,7 +57,7 @@ pub struct Identity {
 
 impl Identity {
     pub fn new(account_id: &str, role_arn: &str, user_id: &str) -> Self {
-        // ref. https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html
+        // ref. <https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html>
         Self {
             account_id: String::from(account_id),
             role_arn: String::from(role_arn),

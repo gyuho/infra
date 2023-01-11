@@ -1,7 +1,9 @@
 pub mod envelope;
 
 use std::{
+    collections::HashMap,
     fs::{self, File},
+    hash::Hash,
     io::Write,
 };
 
@@ -32,7 +34,7 @@ pub struct DEK {
 
 impl DEK {
     pub fn new(cipher: Vec<u8>, plain: Vec<u8>) -> Self {
-        // ref. https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html
+        // ref. <https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html>
         Self {
             ciphertext: cipher,
             plaintext: plain,
@@ -63,41 +65,37 @@ impl Manager {
     }
 
     /// Creates an AWS KMS CMK.
-    /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html
+    /// Set the tag "Name" with the name value for more descriptive key creation.
+    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html>
     pub async fn create_key(
         &self,
-        name: &str,
         key_spec: KeySpec,
         key_usage: KeyUsageType,
+        tags: Option<HashMap<String, String>>,
     ) -> Result<Key> {
         log::info!(
-            "creating KMS CMK {}, key spec {:?}, key usage {:?}",
-            name,
+            "creating KMS CMK key spec {:?}, key usage {:?}",
             key_spec,
             key_usage
         );
-        let resp = self
+        let mut req = self
             .cli
             .create_key()
-            .description(name)
             // ref. https://docs.aws.amazon.com/kms/latest/developerguide/asymmetric-key-specs.html#key-spec-ecc
             // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html#API_CreateKey_RequestSyntax
             .key_spec(key_spec)
             // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html#KMS-CreateKey-request-KeyUsage
-            .key_usage(key_usage)
-            .tags(Tag::builder().tag_key("Name").tag_value(name).build())
-            .tags(
-                Tag::builder()
-                    .tag_key("KIND")
-                    .tag_value("aws-manager")
-                    .build(),
-            )
-            .send()
-            .await
-            .map_err(|e| API {
-                message: format!("failed create_key {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_create_key(&e),
-            })?;
+            .key_usage(key_usage);
+        if let Some(tags) = &tags {
+            for (k, v) in tags.iter() {
+                req = req.tags(Tag::builder().tag_key(k).tag_value(v).build());
+            }
+        }
+
+        let resp = req.send().await.map_err(|e| API {
+            message: format!("failed create_key {:?}", e),
+            is_retryable: is_error_retryable(&e) || is_error_retryable_create_key(&e),
+        })?;
 
         let meta = match resp.key_metadata() {
             Some(v) => v,
@@ -123,10 +121,12 @@ impl Manager {
     /// Creates a default symmetric AWS KMS CMK.
     /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html
     pub async fn create_symmetric_default_key(&self, name: &str) -> Result<Key> {
+        let mut tags = HashMap::new();
+        tags.insert(String::from("Name"), name.to_string());
         self.create_key(
-            name,
             KeySpec::SymmetricDefault,
             KeyUsageType::EncryptDecrypt,
+            Some(tags),
         )
         .await
     }
@@ -416,7 +416,7 @@ pub struct Key {
 
 impl Key {
     pub fn new(id: &str, arn: &str) -> Self {
-        // ref. https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html
+        // ref. <https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html>
         Self {
             id: String::from(id),
             arn: String::from(arn),
