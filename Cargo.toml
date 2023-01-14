@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.22.22" # https://crates.io/crates/aws-manager/versions
+version = "0.23.0" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.66"
@@ -13,8 +13,8 @@ homepage = "https://github.com/gyuho/aws-manager"
 license = "Apache-2.0"
 
 [dependencies]
-aws-config = "0.52.0" # https://github.com/awslabs/aws-sdk-rust/releases
-aws-types = "0.52.0" # https://crates.io/crates/aws-types/versions
+aws-config = "0.53.0" # https://github.com/awslabs/aws-sdk-rust/releases
+aws-types = "0.53.0" # https://crates.io/crates/aws-types/versions
 log = "0.4.17"
 thiserror = "1.0.38"
 
@@ -23,22 +23,22 @@ random-manager = { version = "0.0.2", optional = true } # https://crates.io/crat
 serde = { version = "1.0.152", features = ["derive"], optional = true } # https://github.com/serde-rs/serde/releases
 tokio = { version = "1.24.1", features = ["full"], optional = true } # https://github.com/tokio-rs/tokio/releases
 
-aws-sdk-autoscaling = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
-aws-sdk-cloudformation = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
-aws-sdk-ssm = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
-aws-sdk-sts = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-sts/versions
+aws-sdk-autoscaling = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
+aws-sdk-cloudformation = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
+aws-sdk-ssm = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
+aws-sdk-sts = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-sts/versions
 
 # [OPTIONAL] for "s3"
-aws-sdk-s3 = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
+aws-sdk-s3 = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
 tokio-stream = { version = "0.1.11", optional = true }
 
 # [OPTIONAL] for "cloudwatch"
-aws-sdk-cloudwatch = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
-aws-sdk-cloudwatchlogs = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
+aws-sdk-cloudwatch = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
+aws-sdk-cloudwatchlogs = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
 serde_json = { version = "1.0.91", optional = true }
 
 # [OPTIONAL] for "ec2"
-aws-sdk-ec2 = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
+aws-sdk-ec2 = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
 chrono = { version = "0.4.23", optional = true } # https://github.com/chronotope/chrono/releases
 command-manager = { version = "0.0.1", optional = true }
 http-manager = { version = "0.0.7", optional = true }
@@ -47,8 +47,8 @@ rfc-manager = { version = "0.0.1", optional = true }
 serde_yaml = { version = "0.9.16", optional = true } # https://github.com/dtolnay/serde-yaml/releases
 
 # [OPTIONAL] for "kms"
-aws-sdk-kms = { version = "0.22.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
-aws-smithy-types = { version = "0.52.0", optional = true } # https://github.com/awslabs/smithy-rs/releases
+aws-sdk-kms = { version = "0.23.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
+aws-smithy-types = { version = "0.53.1", optional = true } # https://github.com/awslabs/smithy-rs/releases
 byteorder = { version = "1.4.3", optional = true } # https://github.com/briansmith/ring
 compress-manager = { version = "0.0.4", optional = true } # https://crates.io/crates/compress-manager/versions
 ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/ring
