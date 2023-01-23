@@ -5,7 +5,7 @@ use crate::errors::{
     Result,
 };
 use aws_sdk_s3::{
-    error::{CreateBucketError, DeleteBucketError},
+    error::{CreateBucketError, DeleteBucketError, HeadObjectError},
     model::{
         BucketCannedAcl, BucketLocationConstraint, CreateBucketConfiguration, Delete, Object,
         ObjectCannedAcl, ObjectIdentifier, PublicAccessBlockConfiguration, ServerSideEncryption,
@@ -365,6 +365,41 @@ impl Manager {
         Ok(())
     }
 
+    /// Returns "true" if the file exists.
+    pub async fn exists(&self, s3_bucket: Arc<String>, s3_key: Arc<String>) -> Result<bool> {
+        let res = self
+            .cli
+            .head_object()
+            .bucket(s3_bucket.to_string())
+            .key(s3_key.to_string())
+            .send()
+            .await;
+
+        if let Some(e) = res.as_ref().err() {
+            if is_error_head_not_found(e) {
+                log::info!("{s3_key} not found");
+                return Ok(false);
+            }
+
+            log::warn!("failed to head {s3_key} {}", e);
+            return Err(API {
+                message: format!("failed head_object {}", e),
+                is_retryable: is_error_retryable(e),
+            });
+        }
+
+        let head_output = res.unwrap();
+        log::info!(
+            "head object exists 's3://{}/{}' (content type '{}', size {})",
+            s3_bucket,
+            s3_key,
+            head_output.content_type().unwrap(),
+            human_readable::bytes(head_output.content_length() as f64),
+        );
+
+        Ok(true)
+    }
+
     /// Downloads an object from a S3 bucket using stream.
     ///
     /// WARN: use stream! otherwise it can cause OOM -- don't do the following!
@@ -552,6 +587,14 @@ fn is_error_bucket_does_not_exist(e: &SdkError<DeleteBucketError>) -> bool {
     }
 }
 
+#[inline]
+fn is_error_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
+    match e {
+        SdkError::ServiceError(err) => err.err().is_not_found(),
+        _ => false,
+    }
+}
+
 #[test]
 fn test_append_slash() {
     let s = "hello";
@@ -642,6 +685,18 @@ where
     })
     .await
     .expect("failed spawn await")
+}
+
+pub async fn spawn_exists<S>(s3_manager: Manager, s3_bucket: S, s3_key: S) -> Result<bool>
+where
+    S: AsRef<str>,
+{
+    let s3_manager_arc = Arc::new(s3_manager);
+    let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
+    let s3_key_arc = Arc::new(s3_key.as_ref().to_string());
+    tokio::spawn(async move { s3_manager_arc.exists(s3_bucket_arc, s3_key_arc).await })
+        .await
+        .expect("failed spawn await")
 }
 
 pub async fn spawn_get_object<S>(

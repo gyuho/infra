@@ -3,7 +3,6 @@ pub mod envelope;
 use std::{
     collections::HashMap,
     fs::{self, File},
-    hash::Hash,
     io::Write,
 };
 

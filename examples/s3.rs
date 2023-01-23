@@ -58,6 +58,9 @@ fn main() {
         &s3_key,
     ))
     .unwrap();
+    assert!(rt
+        .block_on(s3::spawn_exists(s3_manager.clone(), &bucket, &s3_key))
+        .unwrap());
 
     println!();
     println!();
