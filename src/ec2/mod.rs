@@ -492,6 +492,8 @@ impl Manager {
         id_tag_value: &str,
         kind_tag_key: &str,
         kind_tag_value: &str,
+        asg_tag_key: &str,
+        asg_tag_value: &str,
     ) -> Result<Eip> {
         log::info!(
             "allocating elastic IP with tags {id_tag_key}:{id_tag_value}, {kind_tag_key}:{kind_tag_value}"
@@ -515,6 +517,7 @@ impl Manager {
                             .value(kind_tag_value)
                             .build(),
                     )
+                    .tags(Tag::builder().key(asg_tag_key).value(asg_tag_value).build())
                     .build(),
             )
             .send()
