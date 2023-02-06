@@ -12,13 +12,14 @@ use crate::errors::{
 };
 use aws_sdk_kms::{
     error::{
-        CreateKeyError, CreateKeyErrorKind, DecryptError, EncryptError, GenerateDataKeyError,
-        GetPublicKeyError, ScheduleKeyDeletionError, SignError,
+        CreateKeyError, CreateKeyErrorKind, DecryptError, DescribeKeyError, DescribeKeyErrorKind,
+        EncryptError, GenerateDataKeyError, GetPublicKeyError, ScheduleKeyDeletionError, SignError,
     },
     model::{
         DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, MessageType,
         SigningAlgorithmSpec, Tag,
     },
+    output::DescribeKeyOutput,
     types::{Blob, SdkError},
     Client,
 };
@@ -115,6 +116,30 @@ impl Manager {
         );
 
         Ok(Key::new(key_id, key_arn))
+    }
+
+    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>
+    pub async fn describe_key(&self, key_arn: &str) -> Result<(String, DescribeKeyOutput)> {
+        log::info!("describing KMS ARN {key_arn}");
+        let desc = self
+            .cli
+            .describe_key()
+            .key_id(key_arn)
+            .send()
+            .await
+            .map_err(|e| API {
+                message: format!("failed describe_key {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_describe_key(&e),
+            })?;
+
+        let key_id = desc.key_metadata().unwrap().key_id().unwrap().to_string();
+        log::info!(
+            "successfully described KMS CMK -- key Id '{}' and Arn '{}'",
+            key_id,
+            key_arn
+        );
+
+        Ok((key_id, desc))
     }
 
     /// Creates a default symmetric AWS KMS CMK.
@@ -440,6 +465,20 @@ pub fn is_error_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
                 err.err().kind,
                 CreateKeyErrorKind::DependencyTimeoutException(_)
                     | CreateKeyErrorKind::KmsInternalException(_)
+            )
+        }
+        _ => false,
+    }
+}
+
+#[inline]
+pub fn is_error_retryable_describe_key(e: &SdkError<DescribeKeyError>) -> bool {
+    match e {
+        SdkError::ServiceError(err) => {
+            matches!(
+                err.err().kind,
+                DescribeKeyErrorKind::DependencyTimeoutException(_)
+                    | DescribeKeyErrorKind::KmsInternalException(_)
             )
         }
         _ => false,
