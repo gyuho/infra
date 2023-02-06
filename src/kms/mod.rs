@@ -12,14 +12,14 @@ use crate::errors::{
 };
 use aws_sdk_kms::{
     error::{
-        CreateKeyError, CreateKeyErrorKind, DecryptError, DescribeKeyError, DescribeKeyErrorKind,
-        EncryptError, GenerateDataKeyError, GetPublicKeyError, ScheduleKeyDeletionError, SignError,
+        CreateKeyError, DecryptError, DescribeKeyError, EncryptError, GenerateDataKeyError,
+        GetPublicKeyError, ScheduleKeyDeletionError, SignError,
     },
     model::{
         DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, MessageType,
         SigningAlgorithmSpec, Tag,
     },
-    output::DescribeKeyOutput,
+    output::{DescribeKeyOutput, GetPublicKeyOutput},
     types::{Blob, SdkError},
     Client,
 };
@@ -140,6 +140,23 @@ impl Manager {
         );
 
         Ok((key_id, desc))
+    }
+
+    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html>
+    pub async fn get_public_key(&self, key_arn: &str) -> Result<GetPublicKeyOutput> {
+        log::info!("getting public key for KMS ARN {key_arn}");
+        let out = self
+            .cli
+            .get_public_key()
+            .key_id(key_arn)
+            .send()
+            .await
+            .map_err(|e| API {
+                message: format!("failed get_public_key {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_get_public_key(&e),
+            })?;
+
+        Ok(out)
     }
 
     /// Creates a default symmetric AWS KMS CMK.
@@ -461,11 +478,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 pub fn is_error_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
-            matches!(
-                err.err().kind,
-                CreateKeyErrorKind::DependencyTimeoutException(_)
-                    | CreateKeyErrorKind::KmsInternalException(_)
-            )
+            err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
         }
         _ => false,
     }
@@ -475,11 +488,20 @@ pub fn is_error_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
 pub fn is_error_retryable_describe_key(e: &SdkError<DescribeKeyError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
-            matches!(
-                err.err().kind,
-                DescribeKeyErrorKind::DependencyTimeoutException(_)
-                    | DescribeKeyErrorKind::KmsInternalException(_)
-            )
+            err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
+        }
+        _ => false,
+    }
+}
+
+/// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html>
+#[inline]
+pub fn is_error_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> bool {
+    match e {
+        SdkError::ServiceError(err) => {
+            err.err().is_dependency_timeout_exception()
+                || err.err().is_key_unavailable_exception()
+                || err.err().is_kms_internal_exception()
         }
         _ => false,
     }
@@ -537,19 +559,6 @@ fn is_error_schedule_key_deletion_already_scheduled(
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
             msg.contains("pending deletion")
-        }
-        _ => false,
-    }
-}
-
-/// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html
-#[inline]
-pub fn is_error_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> bool {
-    match e {
-        SdkError::ServiceError(err) => {
-            err.err().is_dependency_timeout_exception()
-                || err.err().is_key_unavailable_exception()
-                || err.err().is_kms_internal_exception()
         }
         _ => false,
     }
