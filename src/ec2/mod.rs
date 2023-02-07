@@ -507,7 +507,7 @@ impl Manager {
                     .tags(
                         Tag::builder()
                             .key(String::from("Name"))
-                            .value(id_tag_value)
+                            .value(asg_tag_value)
                             .build(),
                     )
                     .tags(Tag::builder().key(id_tag_key).value(id_tag_value).build())
