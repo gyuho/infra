@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.24.8" # https://crates.io/crates/aws-manager/versions
+version = "0.24.9" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.67"
@@ -35,20 +35,20 @@ tokio-stream = { version = "0.1.11", optional = true }
 # [OPTIONAL] for "cloudwatch"
 aws-sdk-cloudwatch = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
 aws-sdk-cloudwatchlogs = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
-serde_json = { version = "1.0.92", optional = true }
+serde_json = { version = "1.0.93", optional = true }
 
 # [OPTIONAL] for "ec2"
 aws-sdk-ec2 = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
 chrono = { version = "0.4.23", optional = true } # https://github.com/chronotope/chrono/releases
 command-manager = { version = "0.0.1", optional = true }
-http-manager = { version = "0.0.11", optional = true }
+http-manager = { version = "0.0.12", optional = true }
 hyper = { version = "0.14.24", features = ["full"], optional = true } # https://github.com/hyperium/hyper/releases
 rfc-manager = { version = "0.0.1", optional = true }
 serde_yaml = { version = "0.9.17", optional = true } # https://github.com/dtolnay/serde-yaml/releases
 
 # [OPTIONAL] for "kms"
 aws-sdk-kms = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
-aws-smithy-types = { version = "0.54.2", optional = true } # https://github.com/awslabs/smithy-rs/releases
+aws-smithy-types = { version = "0.54.1", optional = true } # https://github.com/awslabs/smithy-rs/releases
 byteorder = { version = "1.4.3", optional = true } # https://github.com/briansmith/ring
 compress-manager = { version = "0.0.5", optional = true } # https://crates.io/crates/compress-manager/versions
 ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/ring
