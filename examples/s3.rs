@@ -26,7 +26,7 @@ fn main() {
     println!();
     let bucket = format!(
         "aws-manager-examples-tests-{}",
-        random_manager::string(5).to_lowercase()
+        random_manager::secure_string(5).to_lowercase()
     );
     rt.block_on(s3_manager.delete_bucket(&bucket)).unwrap(); // error should be ignored if it does not exist
 

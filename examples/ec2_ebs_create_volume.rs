@@ -58,13 +58,13 @@ async fn main() {
                 .tags(
                     Tag::builder()
                         .key(String::from("Name"))
-                        .value(format!("test-{}", random_manager::string(10)))
+                        .value(format!("test-{}", random_manager::secure_string(10)))
                         .build(),
                 )
                 .tags(
                     Tag::builder()
                         .key(String::from("ClusterId"))
-                        .value(random_manager::string(10))
+                        .value(random_manager::secure_string(10))
                         .build(),
                 )
                 .build(),

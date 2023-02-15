@@ -43,7 +43,7 @@ fn main() {
     let s3_manager = s3::Manager::new(&shared_config);
     let s3_bucket = format!(
         "aws-manager-examples-tests-s3-encrypt-{}",
-        random_manager::string(10).to_lowercase()
+        random_manager::secure_string(10).to_lowercase()
     );
     let s3_key = "sub-dir/aaa.zstd.encrypted".to_string();
     ab!(s3_manager.create_bucket(&s3_bucket)).unwrap();
