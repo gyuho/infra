@@ -3,7 +3,7 @@ use crate::errors::{
     Result,
 };
 use chrono::{DateTime, Utc};
-use hyper::{Body, Method, Request};
+use reqwest::ClientBuilder;
 use serde::{Deserialize, Serialize};
 use tokio::time::Duration;
 
@@ -76,37 +76,38 @@ pub async fn fetch_region() -> Result<String> {
 pub async fn fetch_metadata_by_path(path: &str) -> Result<String> {
     log::info!("fetching meta-data/{}", path);
 
-    let uri = format!("http://169.254.169.254/latest/meta-data/{}", path);
     let token = fetch_token().await?;
-    let req = match Request::builder()
-        .method(Method::GET)
-        .uri(uri)
-        .header("X-aws-ec2-metadata-token", token)
-        .body(Body::empty())
-    {
-        Ok(r) => r,
-        Err(e) => {
-            return Err(API {
-                message: format!("failed to build GET meta-data/{} {:?}", path, e),
-                is_retryable: false,
-            });
-        }
-    };
 
-    let ret = http_manager::read_bytes(req, Duration::from_secs(5), false, true).await;
-    match ret {
-        Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
-            Ok(text) => Ok(text),
-            Err(e) => Err(API {
-                message: format!(
-                    "GET meta-data/{} returned unexpected bytes {:?} ({})",
-                    path, bytes, e
-                ),
-                is_retryable: false,
-            }),
-        },
+    let uri = format!("http://169.254.169.254/latest/meta-data/{}", path);
+    let cli = ClientBuilder::new()
+        .user_agent(env!("CARGO_PKG_NAME"))
+        .danger_accept_invalid_certs(true)
+        .timeout(Duration::from_secs(15))
+        .connection_verbose(true)
+        .build()
+        .map_err(|e| API {
+            message: format!("failed ClientBuilder build {:?}", e),
+            is_retryable: false,
+        })?;
+    let resp = cli
+        .get(&uri)
+        .header("X-aws-ec2-metadata-token", token)
+        .send()
+        .await
+        .map_err(|e| API {
+            message: format!("failed to build GET meta-data/{} {:?}", path, e),
+            is_retryable: false,
+        })?;
+    let out = resp.bytes().await.map_err(|e| API {
+        message: format!("failed to read bytes {:?}", e),
+        is_retryable: false,
+    })?;
+    let out: Vec<u8> = out.into();
+
+    match String::from_utf8(out) {
+        Ok(text) => Ok(text),
         Err(e) => Err(API {
-            message: format!("failed GET meta-data/{} {:?}", path, e),
+            message: format!("GET meta-data/{} failed String::from_utf8 ({})", path, e),
             is_retryable: false,
         }),
     }
@@ -122,35 +123,35 @@ const IMDS_V2_SESSION_TOKEN_URI: &str = "http://169.254.169.254/latest/api/token
 async fn fetch_token() -> Result<String> {
     log::info!("fetching IMDS v2 token");
 
-    let req = match Request::builder()
-        .method(Method::PUT)
-        .uri(IMDS_V2_SESSION_TOKEN_URI)
+    let cli = ClientBuilder::new()
+        .user_agent(env!("CARGO_PKG_NAME"))
+        .danger_accept_invalid_certs(true)
+        .timeout(Duration::from_secs(15))
+        .connection_verbose(true)
+        .build()
+        .map_err(|e| API {
+            message: format!("failed ClientBuilder build {:?}", e),
+            is_retryable: false,
+        })?;
+    let resp = cli
+        .put(IMDS_V2_SESSION_TOKEN_URI)
         .header("X-aws-ec2-metadata-token-ttl-seconds", "21600")
-        .body(Body::empty())
-    {
-        Ok(r) => r,
-        Err(e) => {
-            return Err(API {
-                message: format!("failed to build PUT api/token {:?}", e),
-                is_retryable: false,
-            });
-        }
-    };
+        .send()
+        .await
+        .map_err(|e| API {
+            message: format!("failed to build PUT api/token {:?}", e),
+            is_retryable: false,
+        })?;
+    let out = resp.bytes().await.map_err(|e| API {
+        message: format!("failed to read bytes {:?}", e),
+        is_retryable: false,
+    })?;
+    let out: Vec<u8> = out.into();
 
-    let ret = http_manager::read_bytes(req, Duration::from_secs(5), false, true).await;
-    match ret {
-        Ok(bytes) => match String::from_utf8(bytes.to_vec()) {
-            Ok(text) => Ok(text),
-            Err(e) => Err(API {
-                message: format!(
-                    "PUT api/token returned unexpected bytes {:?} ({})",
-                    bytes, e
-                ),
-                is_retryable: false,
-            }),
-        },
+    match String::from_utf8(out) {
+        Ok(text) => Ok(text),
         Err(e) => Err(API {
-            message: format!("failed PUT api/token {:?}", e),
+            message: format!("GET token failed String::from_utf8 ({})", e),
             is_retryable: false,
         }),
     }
