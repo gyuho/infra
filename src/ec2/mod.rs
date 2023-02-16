@@ -27,6 +27,110 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration, Instant};
 
+/// Returns default instance types.
+/// Avalanche consensus paper used "c5.large" for testing 125 ~ 2,000 nodes
+/// Avalanche test net ("fuji") runs "c5.2xlarge"
+///
+/// https://aws.amazon.com/ec2/instance-types/c6a/
+/// c6a.large:   2  vCPU + 4  GiB RAM
+/// c6a.xlarge:  4  vCPU + 8  GiB RAM
+/// c6a.2xlarge: 8  vCPU + 16 GiB RAM
+/// c6a.4xlarge: 16 vCPU + 32 GiB RAM
+/// c6a.8xlarge: 32 vCPU + 64 GiB RAM
+///
+/// https://aws.amazon.com/ec2/instance-types/m6a/
+/// m6a.large:   2  vCPU + 8  GiB RAM
+/// m6a.xlarge:  4  vCPU + 16 GiB RAM
+/// m6a.2xlarge: 8  vCPU + 32 GiB RAM
+/// m6a.4xlarge: 16 vCPU + 64 GiB RAM
+/// m6a.8xlarge: 32 vCPU + 128 GiB RAM
+///
+/// https://aws.amazon.com/ec2/instance-types/m5/
+/// m5.large:   2  vCPU + 8  GiB RAM
+/// m5.xlarge:  4  vCPU + 16 GiB RAM
+/// m5.2xlarge: 8  vCPU + 32 GiB RAM
+/// m5.4xlarge: 16 vCPU + 64 GiB RAM
+/// m5.8xlarge: 32 vCPU + 128 GiB RAM
+///
+/// https://aws.amazon.com/ec2/instance-types/c5/
+/// c5.large:   2  vCPU + 4  GiB RAM
+/// c5.xlarge:  4  vCPU + 8  GiB RAM
+/// c5.2xlarge: 8  vCPU + 16 GiB RAM
+/// c5.4xlarge: 16 vCPU + 32 GiB RAM
+/// c5.9xlarge: 32 vCPU + 72 GiB RAM
+///
+/// https://aws.amazon.com/ec2/instance-types/r5/
+/// r5.large:   2  vCPU + 16 GiB RAM
+/// r5.xlarge:  4  vCPU + 32 GiB RAM
+/// r5.2xlarge: 8  vCPU + 64 GiB RAM
+/// r5.4xlarge: 16 vCPU + 128 GiB RAM
+/// r5.8xlarge: 32 vCPU + 256 GiB RAM
+///
+/// https://aws.amazon.com/ec2/instance-types/t3/
+/// t3.large:    2  vCPU + 8 GiB RAM
+/// t3.xlarge:   4  vCPU + 16 GiB RAM
+/// t3.2xlarge:  8  vCPU + 32 GiB RAM
+///
+/// Graviton 3 (in preview)
+/// https://aws.amazon.com/ec2/instance-types/c7g/
+/// c7g.large:   2 vCPU + 8  GiB RAM
+/// c7g.xlarge:  4 vCPU + 16 GiB RAM
+/// c7g.2xlarge: 8 vCPU + 32 GiB RAM
+///
+/// Graviton 2
+/// https://aws.amazon.com/ec2/instance-types/c6g/
+/// c6g.large:   2 vCPU + 4  GiB RAM
+/// c6g.xlarge:  4 vCPU + 8  GiB RAM
+/// c6g.2xlarge: 8 vCPU + 16 GiB RAM
+///
+/// Graviton 2
+/// https://aws.amazon.com/ec2/instance-types/m6g/
+/// m6g.large:   2 vCPU + 8  GiB RAM
+/// m6g.xlarge:  4 vCPU + 16 GiB RAM
+/// m6g.2xlarge: 8 vCPU + 32 GiB RAM
+///
+/// Graviton 2
+/// https://aws.amazon.com/ec2/instance-types/r6g/
+/// r6g.large:   2 vCPU + 16 GiB RAM
+/// r6g.xlarge:  4 vCPU + 32 GiB RAM
+/// r6g.2xlarge: 8 vCPU + 64 GiB RAM
+///
+/// Graviton 2
+/// https://aws.amazon.com/ec2/instance-types/t4/
+/// t4g.large:   2 vCPU + 8 GiB RAM
+/// t4g.xlarge:  4 vCPU + 16 GiB RAM
+/// t4g.2xlarge: 8 vCPU + 32 GiB RAM
+///
+pub fn default_instance_types(
+    region: &str,
+    arch: &str,
+    instance_size: &str,
+) -> io::Result<Vec<String>> {
+    match (region, arch) {
+        // incheon region doesn't support c6a/m6a yet
+        ("ap-northeast-2", "amd64") => Ok(vec![
+            format!("m5.{instance_size}"),
+            format!("c5.{instance_size}"),
+        ]),
+        (_, "amd64") => Ok(vec![
+            format!("c6a.{instance_size}"),
+            format!("m6a.{instance_size}"),
+            format!("m5.{instance_size}"),
+            format!("c5.{instance_size}"),
+        ]),
+        (_, "arm64") => Ok(vec![
+            format!("c6g.{instance_size}"),
+            format!("m6g.{instance_size}"),
+            format!("r6g.{instance_size}"),
+            format!("t4g.{instance_size}"),
+        ]),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("unknown region '{region}' and arch '{arch}'"),
+        )),
+    }
+}
+
 /// Implements AWS EC2 manager.
 #[derive(Debug, Clone)]
 pub struct Manager {
