@@ -5,7 +5,6 @@ use std::{
     path::Path,
     string::String,
     sync::Arc,
-    thread, time,
 };
 
 use crate::errors::{Error::API, Result};
@@ -19,6 +18,7 @@ use aws_sdk_cloudwatchlogs::{
 };
 use aws_types::SdkConfig as AwsSdkConfig;
 use serde::{Deserialize, Serialize};
+use tokio::time::{sleep, Duration};
 
 /// TODO: bump up to 1,000
 /// ref. https://aws.amazon.com/about-aws/whats-new/2022/08/amazon-cloudwatch-metrics-increases-throughput/
@@ -118,7 +118,7 @@ impl Manager {
                         });
                     }
                 }
-                thread::sleep(time::Duration::from_secs(1));
+                sleep(Duration::from_secs(1)).await;
             }
         }
 
@@ -709,11 +709,12 @@ impl Config {
         let mut f = File::create(file_path)?;
         f.write_all(&d)?;
 
+        log::info!("successfully synced CloudWatch config to '{}'", file_path);
         Ok(())
     }
 
     pub fn load(file_path: &str) -> io::Result<Self> {
-        log::info!("loading config from {}", file_path);
+        log::info!("loading CloudWatch config from {}", file_path);
 
         if !Path::new(file_path).exists() {
             return Err(Error::new(

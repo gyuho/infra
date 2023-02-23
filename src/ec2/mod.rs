@@ -228,6 +228,7 @@ impl Manager {
     /// Describes the EBS volumes by filters.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
     pub async fn describe_volumes(&self, filters: Option<Vec<Filter>>) -> Result<Vec<Volume>> {
+        log::info!("describing volumes...");
         let resp = match self
             .cli
             .describe_volumes()
