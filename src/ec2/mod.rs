@@ -71,6 +71,13 @@ use tokio::time::{sleep, Duration, Instant};
 /// t3.xlarge:   4  vCPU + 16 GiB RAM
 /// t3.2xlarge:  8  vCPU + 32 GiB RAM
 ///
+///
+/// Graviton
+/// https://aws.amazon.com/ec2/instance-types/a1/
+/// a1.large:   2 vCPU + 8  GiB RAM
+/// a1.xlarge:  4 vCPU + 8 GiB RAM
+/// a1.2xlarge: 8 vCPU + 16 GiB RAM
+///
 /// Graviton 3 (in preview)
 /// https://aws.amazon.com/ec2/instance-types/c7g/
 /// c7g.large:   2 vCPU + 8  GiB RAM
@@ -101,6 +108,7 @@ use tokio::time::{sleep, Duration, Instant};
 /// t4g.xlarge:  4 vCPU + 16 GiB RAM
 /// t4g.2xlarge: 8 vCPU + 32 GiB RAM
 ///
+/// ref. <https://instances.vantage.sh/?min_memory=8&min_vcpus=4&region=us-west-2&cost_duration=monthly&selected=t4g.xlarge,c5.xlarge>
 pub fn default_instance_types(
     region: &str,
     arch: &str,
@@ -109,20 +117,34 @@ pub fn default_instance_types(
     match (region, arch) {
         // incheon region doesn't support c6a/m6a yet
         ("ap-northeast-2", "amd64") => Ok(vec![
-            format!("m5.{instance_size}"),
-            format!("c5.{instance_size}"),
+            format!("t3a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t3>
+            format!("t3.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t3>
+            format!("t2.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t2>
+            format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        // incheon region doesn't support a1 yet
+        ("ap-northeast-2", "arm64") => Ok(vec![
+            format!("t4g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t4g>
+            format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
+            format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
         (_, "amd64") => Ok(vec![
-            format!("c6a.{instance_size}"),
-            format!("m6a.{instance_size}"),
-            format!("m5.{instance_size}"),
-            format!("c5.{instance_size}"),
+            format!("t3a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t3>
+            format!("t3.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t3>
+            format!("t2.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t2>
+            format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
+            format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
+            format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
         (_, "arm64") => Ok(vec![
-            format!("c6g.{instance_size}"),
-            format!("m6g.{instance_size}"),
-            format!("r6g.{instance_size}"),
-            format!("t4g.{instance_size}"),
+            // NOTE: "r6g" more expensive than c5...
+            // ref. <https://aws.amazon.com/ec2/instance-types/r6g>
+            format!("a1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/a1>
+            format!("t4g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t4g>
+            format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
+            format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
