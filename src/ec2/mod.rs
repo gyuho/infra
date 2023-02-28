@@ -114,22 +114,91 @@ pub fn default_instance_types(
     arch: &str,
     instance_size: &str,
 ) -> io::Result<Vec<String>> {
-    match (region, arch) {
-        // incheon region doesn't support c6a/m6a yet
-        ("ap-northeast-2", "amd64") => Ok(vec![
+    // NOTE
+    // incheon region doesn't support c6a/m6a yet
+    // incheon region doesn't support a1 yet
+    // r6g more expensive than c5...
+    // ref. <https://aws.amazon.com/ec2/instance-types/r6g>
+    match (region, arch, instance_size) {
+        ("ap-northeast-2", "amd64", "4xlarge") => Ok(vec![
+            format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        ("ap-northeast-2", "amd64", "8xlarge") => Ok(vec![
+            format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        ("ap-northeast-2", "amd64", "12xlarge") => Ok(vec![
+            format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        ("ap-northeast-2", "amd64", "16xlarge") => Ok(vec![
+            format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        ("ap-northeast-2", "amd64", "24xlarge") => Ok(vec![
+            format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        ("ap-northeast-2", "amd64", _) => Ok(vec![
             format!("t3a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t3>
             format!("t3.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t3>
             format!("t2.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t2>
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        // incheon region doesn't support a1 yet
-        ("ap-northeast-2", "arm64") => Ok(vec![
+        ("ap-northeast-2", "arm64", "4xlarge") => Ok(vec![
+            format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
+            format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
+        ]),
+        ("ap-northeast-2", "arm64", "8xlarge") => Ok(vec![
+            format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
+            format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
+        ]),
+        ("ap-northeast-2", "arm64", "12xlarge") => Ok(vec![
+            format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
+            format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
+        ]),
+        ("ap-northeast-2", "arm64", "16xlarge") => Ok(vec![
+            format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
+            format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
+        ]),
+        ("ap-northeast-2", "arm64", _) => Ok(vec![
             format!("t4g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t4g>
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        (_, "amd64") => Ok(vec![
+        (_, "amd64", "4xlarge") => Ok(vec![
+            format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
+            format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
+            format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        (_, "amd64", "8xlarge") => Ok(vec![
+            format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
+            format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
+            format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        (_, "amd64", "12xlarge") => Ok(vec![
+            format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
+            format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
+            format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        (_, "amd64", "16xlarge") => Ok(vec![
+            format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
+            format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
+            format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        (_, "amd64", "24xlarge") => Ok(vec![
+            format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
+            format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
+            format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
+            format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
+        ]),
+        (_, "amd64", _) => Ok(vec![
             format!("t3a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t3>
             format!("t3.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t3>
             format!("t2.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t2>
@@ -138,9 +207,16 @@ pub fn default_instance_types(
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        (_, "arm64") => Ok(vec![
-            // NOTE: "r6g" more expensive than c5...
-            // ref. <https://aws.amazon.com/ec2/instance-types/r6g>
+        (_, "arm64", "4xlarge") => Ok(vec![
+            format!("a1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/a1>
+            format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
+            format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
+        ]),
+        (_, "arm64", "8xlarge") => Ok(vec![
+            format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
+            format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
+        ]),
+        (_, "arm64", _) => Ok(vec![
             format!("a1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/a1>
             format!("t4g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t4g>
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
