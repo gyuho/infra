@@ -62,14 +62,14 @@ tokio-test = "0.4.2"
 
 [features]
 default = [
-    "autoscaling",
-    "cloudformation",
-    "cloudwatch",
-    "ec2",
-    "kms",
-    "s3",
-    "ssm",
-    "sts",
+    # "autoscaling",
+    # "cloudformation",
+    # "cloudwatch",
+    # "ec2",
+    # "kms",
+    # "s3",
+    # "ssm",
+    # "sts",
 ]
 
 autoscaling = [
