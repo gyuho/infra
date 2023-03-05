@@ -128,47 +128,47 @@ sts = [
 
 [[example]]
 name = "cloudformation_ec2_instance_role"
-required-features = ["cloudformation"]
+required-features = ["tokio", "cloudformation"]
 
 [[example]]
 name = "cloudformation_vpc"
-required-features = ["cloudformation"]
+required-features = ["tokio", "cloudformation"]
 
 [[example]]
 name = "cloudwatch"
-required-features = ["cloudwatch"]
+required-features = ["tokio", "cloudwatch"]
 
 [[example]]
 name = "ec2_disk"
-required-features = ["ec2"]
+required-features = ["tokio", "ec2"]
 
 [[example]]
 name = "ec2_ebs_create_volume"
-required-features = ["ec2"]
+required-features = ["tokio", "ec2"]
 
 [[example]]
 name = "ec2_ebs_describe_volumes"
-required-features = ["ec2"]
+required-features = ["tokio", "ec2"]
 
 [[example]]
 name = "ec2_key_pair"
-required-features = ["ec2"]
+required-features = ["tokio", "ec2"]
 
 [[example]]
 name = "kms"
-required-features = ["kms"]
+required-features = ["tokio", "kms"]
 
 [[example]]
 name = "s3_encrypt"
-required-features = ["s3"]
+required-features = ["tokio", "s3"]
 
 [[example]]
 name = "s3"
-required-features = ["s3"]
+required-features = ["tokio", "s3"]
 
 [[example]]
 name = "sts"
-required-features = ["sts"]
+required-features = ["tokio", "sts"]
 
 [package.metadata.cargo-udeps.ignore]
 development = [

@@ -3,8 +3,6 @@ use std::{
     fs::{self, File},
     io::{self, Error, ErrorKind, Write},
     path::Path,
-    string::String,
-    sync::Arc,
 };
 
 use crate::errors::{Error::API, Result};
@@ -22,7 +20,7 @@ use tokio::time::{sleep, Duration};
 
 /// TODO: bump up to 1,000
 /// ref. https://aws.amazon.com/about-aws/whats-new/2022/08/amazon-cloudwatch-metrics-increases-throughput/
-const BATCH_SIZE: usize = 900;
+const BATCH_SIZE: usize = 950;
 
 /// Implements AWS CloudWatch manager.
 #[derive(Debug, Clone)]
@@ -65,19 +63,15 @@ impl Manager {
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
-    pub async fn put_metric_data(
-        &self,
-        namespace: Arc<String>,
-        data: Arc<Vec<MetricDatum>>,
-    ) -> Result<()> {
+    pub async fn put_metric_data(&self, namespace: &str, data: Vec<MetricDatum>) -> Result<()> {
         let n = data.len();
         log::info!("posting CloudWatch {} metrics in '{}'", n, namespace);
         if n <= BATCH_SIZE {
             let ret = self
                 .metrics_cli
                 .put_metric_data()
-                .namespace(namespace.clone().to_string())
-                .set_metric_data(Some(data.to_vec()))
+                .namespace(namespace.to_string())
+                .set_metric_data(Some(data))
                 .send()
                 .await;
             match ret {
@@ -224,22 +218,6 @@ fn is_logs_error_delete_log_group_does_not_exist(e: &LogsSdkError<DeleteLogGroup
         LogsSdkError::ServiceError(err) => err.err().is_resource_not_found_exception(),
         _ => false,
     }
-}
-
-pub async fn spawn_put_metric_data(
-    cw_manager: Manager,
-    namespace: &str,
-    data: Vec<MetricDatum>,
-) -> Result<()> {
-    let cw_manager_arc = Arc::new(cw_manager);
-    let namespace_arc = Arc::new(namespace.to_string());
-    tokio::spawn(async move {
-        cw_manager_arc
-            .put_metric_data(namespace_arc, Arc::new(data))
-            .await
-    })
-    .await
-    .expect("failed spawn await")
 }
 
 /// ref. https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Agent-Configuration-File-Details.html

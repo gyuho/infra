@@ -1,64 +1,73 @@
 use std::{
     fs::File,
     io::{Read, Write},
-    sync::Arc,
-    thread, time,
 };
 
 use aws_manager::{
     self,
     kms::{self, envelope::Manager},
 };
+use tokio::time::{sleep, Duration};
 
 /// cargo run --example kms --features="kms"
-fn main() {
+#[tokio::main]
+async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    macro_rules! ab {
-        ($e:expr) => {
-            tokio_test::block_on($e)
-        };
-    }
-
-    log::info!("creating AWS KMS resources!");
-
-    let shared_config = ab!(aws_manager::load_config(None)).unwrap();
+    let shared_config = aws_manager::load_config(None).await.unwrap();
+    log::info!("region {:?}", shared_config.region().unwrap());
     let kms_manager = kms::Manager::new(&shared_config);
 
     let mut key_desc = id_manager::time::with_prefix("test");
     key_desc.push_str("-cmk");
 
     // error should be ignored if it does not exist
-    let ret = ab!(kms_manager.schedule_to_delete("invalid_id", 7));
-    assert!(ret.is_ok());
+    kms_manager
+        .schedule_to_delete("invalid_id", 7)
+        .await
+        .unwrap();
 
-    let cmk = ab!(kms_manager.create_symmetric_default_key(&key_desc)).unwrap();
-    let dek = ab!(kms_manager.generate_data_key(&cmk.id, None)).unwrap();
+    let cmk = kms_manager
+        .create_symmetric_default_key(&key_desc)
+        .await
+        .unwrap();
+    let dek = kms_manager.generate_data_key(&cmk.id, None).await.unwrap();
 
-    let dek_ciphertext_decrypted = ab!(kms_manager.decrypt(&cmk.id, None, dek.ciphertext)).unwrap();
+    let dek_ciphertext_decrypted = kms_manager
+        .decrypt(&cmk.id, None, dek.ciphertext)
+        .await
+        .unwrap();
     assert_eq!(dek.plaintext, dek_ciphertext_decrypted);
 
-    let dek_plaintext_encrypted =
-        ab!(kms_manager.encrypt(&cmk.id, None, dek.plaintext.clone())).unwrap();
-    let dek_plaintext_encrypted_decrypted =
-        ab!(kms_manager.decrypt(&cmk.id, None, dek_plaintext_encrypted)).unwrap();
+    let dek_plaintext_encrypted = kms_manager
+        .encrypt(&cmk.id, None, dek.plaintext.clone())
+        .await
+        .unwrap();
+    let dek_plaintext_encrypted_decrypted = kms_manager
+        .decrypt(&cmk.id, None, dek_plaintext_encrypted)
+        .await
+        .unwrap();
     assert_eq!(dek.plaintext, dek_plaintext_encrypted_decrypted);
     assert_eq!(dek_ciphertext_decrypted, dek_plaintext_encrypted_decrypted);
 
     let plaintext = "Hello World!";
     let mut plaintext_file = tempfile::NamedTempFile::new().unwrap();
-    let ret = plaintext_file.write_all(plaintext.as_bytes());
-    assert!(ret.is_ok());
+    plaintext_file.write_all(plaintext.as_bytes()).unwrap();
     let plaintext_file_path = plaintext_file.path().to_str().unwrap();
 
     let encrypted_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
     let decrypted_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
-    ab!(kms_manager.encrypt_file(&cmk.id, None, plaintext_file_path, &encrypted_file_path))
+
+    kms_manager
+        .encrypt_file(&cmk.id, None, plaintext_file_path, &encrypted_file_path)
+        .await
         .unwrap();
-    ab!(kms_manager.decrypt_file(&cmk.id, None, &encrypted_file_path, &decrypted_file_path))
+    kms_manager
+        .decrypt_file(&cmk.id, None, &encrypted_file_path, &decrypted_file_path)
+        .await
         .unwrap();
 
     let mut encrypted_file = File::open(encrypted_file_path).unwrap();
@@ -80,22 +89,20 @@ fn main() {
     ));
 
     let envelope_manager = Manager::new(
-        kms_manager.clone(),
+        &kms_manager,
         cmk.id.clone(),
         "test-aad-tag".to_string(), // AAD tag
     );
     let sealed_aes_256_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
     let unsealed_aes_256_file_path = random_manager::tmp_path(10, None).unwrap();
-    ab!(envelope_manager.seal_aes_256_file(
-        Arc::new(plaintext_file_path.to_string()),
-        Arc::new(sealed_aes_256_file_path.clone())
-    ))
-    .unwrap();
-    ab!(envelope_manager.unseal_aes_256_file(
-        Arc::new(sealed_aes_256_file_path.clone()),
-        Arc::new(unsealed_aes_256_file_path.clone())
-    ))
-    .unwrap();
+    envelope_manager
+        .seal_aes_256_file(plaintext_file_path, &sealed_aes_256_file_path)
+        .await
+        .unwrap();
+    envelope_manager
+        .unseal_aes_256_file(&sealed_aes_256_file_path, &unsealed_aes_256_file_path)
+        .await
+        .unwrap();
     let mut sealed_aes_256_file = File::open(sealed_aes_256_file_path).unwrap();
     let mut sealed_aes_256_file_contents = Vec::new();
     sealed_aes_256_file
@@ -120,13 +127,21 @@ fn main() {
         plaintext.as_bytes()
     ));
 
-    thread::sleep(time::Duration::from_secs(2));
+    sleep(Duration::from_secs(2)).await;
 
     // envelope encryption with "AES_256" (32-byte)
-    let plaintext_sealed = ab!(envelope_manager.seal_aes_256(plaintext.as_bytes())).unwrap();
-    thread::sleep(time::Duration::from_secs(1));
-    let plaintext_sealed_unsealed =
-        ab!(envelope_manager.unseal_aes_256(&plaintext_sealed)).unwrap();
+    let plaintext_sealed = envelope_manager
+        .seal_aes_256(plaintext.as_bytes())
+        .await
+        .unwrap();
+
+    sleep(Duration::from_secs(2)).await;
+
+    let plaintext_sealed_unsealed = envelope_manager
+        .unseal_aes_256(&plaintext_sealed)
+        .await
+        .unwrap();
+
     log::info!("plaintext_sealed: {:?}", plaintext_sealed);
     log::info!("plaintext_sealed_unsealed: {:?}", plaintext_sealed_unsealed);
     assert_eq!(&plaintext_sealed_unsealed, plaintext.as_bytes());
@@ -135,12 +150,10 @@ fn main() {
         plaintext.as_bytes()
     ));
 
-    let ret = ab!(kms_manager.schedule_to_delete(&cmk.id, 7));
-    assert!(ret.is_ok());
+    kms_manager.schedule_to_delete(&cmk.id, 7).await.unwrap();
 
-    thread::sleep(time::Duration::from_secs(2));
+    sleep(Duration::from_secs(2)).await;
 
     // error should be ignored if it's already scheduled for delete
-    let ret = ab!(kms_manager.schedule_to_delete(&cmk.id, 7));
-    assert!(ret.is_ok());
+    kms_manager.schedule_to_delete(&cmk.id, 7).await.unwrap();
 }

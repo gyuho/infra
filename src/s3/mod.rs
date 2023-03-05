@@ -1,4 +1,4 @@
-use std::{fs, path::Path, sync::Arc};
+use std::{fs, path::Path};
 
 use crate::errors::{
     Error::{Other, API},
@@ -152,11 +152,7 @@ impl Manager {
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
-    pub async fn delete_objects(
-        &self,
-        s3_bucket: Arc<String>,
-        prefix: Option<Arc<String>>,
-    ) -> Result<()> {
+    pub async fn delete_objects(&self, s3_bucket: &str, prefix: Option<&str>) -> Result<()> {
         log::info!(
             "deleting objects S3 bucket '{}' in region {} (prefix {:?})",
             s3_bucket,
@@ -208,11 +204,7 @@ impl Manager {
     /// e.g.
     /// "foo-mydatabucket" for bucket_name
     /// "mydata/myprefix/" for prefix
-    pub async fn list_objects(
-        &self,
-        s3_bucket: Arc<String>,
-        prefix: Option<Arc<String>>,
-    ) -> Result<Vec<Object>> {
+    pub async fn list_objects(&self, s3_bucket: &str, prefix: Option<&str>) -> Result<Vec<Object>> {
         let pfx = {
             if let Some(s) = prefix {
                 let s = s.to_string();
@@ -306,20 +298,15 @@ impl Manager {
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
-    pub async fn put_object(
-        &self,
-        file_path: Arc<String>,
-        s3_bucket: Arc<String>,
-        s3_key: Arc<String>,
-    ) -> Result<()> {
-        if !Path::new(file_path.as_str()).exists() {
+    pub async fn put_object(&self, file_path: &str, s3_bucket: &str, s3_key: &str) -> Result<()> {
+        if !Path::new(file_path).exists() {
             return Err(Other {
                 message: format!("file path {} does not exist", file_path),
                 is_retryable: false,
             });
         }
 
-        let meta = fs::metadata(file_path.as_str()).map_err(|e| Other {
+        let meta = fs::metadata(file_path).map_err(|e| Other {
             message: format!("failed metadata {}", e),
             is_retryable: false,
         })?;
@@ -332,7 +319,7 @@ impl Manager {
             s3_key
         );
 
-        let byte_stream = ByteStream::from_path(Path::new(file_path.as_str()))
+        let byte_stream = ByteStream::from_path(Path::new(file_path))
             .await
             .map_err(|e| Other {
                 message: format!("failed ByteStream::from_file {}", e),
@@ -355,7 +342,7 @@ impl Manager {
     }
 
     /// Returns "true" if the file exists.
-    pub async fn exists(&self, s3_bucket: Arc<String>, s3_key: Arc<String>) -> Result<bool> {
+    pub async fn exists(&self, s3_bucket: &str, s3_key: &str) -> Result<bool> {
         let res = self
             .cli
             .head_object()
@@ -398,13 +385,8 @@ impl Manager {
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
-    pub async fn get_object(
-        &self,
-        s3_bucket: Arc<String>,
-        s3_key: Arc<String>,
-        file_path: Arc<String>,
-    ) -> Result<()> {
-        if Path::new(file_path.as_str()).exists() {
+    pub async fn get_object(&self, s3_bucket: &str, s3_key: &str, file_path: &str) -> Result<()> {
+        if Path::new(file_path).exists() {
             return Err(Other {
                 message: format!("file path {} already exists", file_path),
                 is_retryable: false,
@@ -443,7 +425,7 @@ impl Manager {
             })?;
 
         // ref. https://docs.rs/tokio-stream/latest/tokio_stream/
-        let mut file = File::create(file_path.as_str()).await.map_err(|e| Other {
+        let mut file = File::create(file_path).await.map_err(|e| Other {
             message: format!("failed File::create {}", e),
             is_retryable: false,
         })?;
@@ -464,85 +446,6 @@ impl Manager {
         })?;
 
         Ok(())
-    }
-
-    /// Compresses the file, encrypts, and uploads to S3.
-    #[cfg(feature = "kms")]
-    pub async fn compress_seal_put_object(
-        &self,
-        envelope_manager: Arc<crate::kms::envelope::Manager>,
-        source_file_path: Arc<String>,
-        s3_bucket: Arc<String>,
-        s3_key: Arc<String>,
-    ) -> Result<()> {
-        log::info!(
-            "compress-seal-put-object: compress and seal '{}'",
-            source_file_path.as_str()
-        );
-
-        let tmp_compressed_sealed_path = random_manager::tmp_path(10, None).unwrap();
-        envelope_manager
-            .compress_seal(
-                source_file_path.clone(),
-                Arc::new(tmp_compressed_sealed_path.clone()),
-            )
-            .await?;
-
-        log::info!(
-            "compress-seal-put-object: upload object '{}'",
-            tmp_compressed_sealed_path
-        );
-        self.put_object(
-            Arc::new(tmp_compressed_sealed_path.clone()),
-            s3_bucket.clone(),
-            s3_key.clone(),
-        )
-        .await?;
-
-        fs::remove_file(tmp_compressed_sealed_path).map_err(|e| API {
-            message: format!("failed remove_file tmp_compressed_sealed_path: {}", e),
-            is_retryable: false,
-        })
-    }
-
-    /// Reverse of "compress_seal_put_object".
-    #[cfg(feature = "kms")]
-    pub async fn get_object_unseal_decompress(
-        &self,
-        envelope_manager: Arc<crate::kms::envelope::Manager>,
-        s3_bucket: Arc<String>,
-        s3_key: Arc<String>,
-        download_file_path: Arc<String>,
-    ) -> Result<()> {
-        log::info!(
-            "get-object-unseal-decompress: downloading object {}/{}",
-            s3_bucket.as_str(),
-            s3_key.as_str()
-        );
-
-        let tmp_downloaded_path = random_manager::tmp_path(10, None).unwrap();
-        self.get_object(
-            s3_bucket.clone(),
-            s3_key.clone(),
-            Arc::new(tmp_downloaded_path.clone()),
-        )
-        .await?;
-
-        log::info!(
-            "get-object-unseal-decompress: unseal and decompress '{}'",
-            tmp_downloaded_path
-        );
-        envelope_manager
-            .unseal_decompress(
-                Arc::new(tmp_downloaded_path.clone()),
-                download_file_path.clone(),
-            )
-            .await?;
-
-        fs::remove_file(tmp_downloaded_path).map_err(|e| API {
-            message: format!("failed remove_file tmp_downloaded_path: {}", e),
-            is_retryable: false,
-        })
     }
 }
 
@@ -600,172 +503,4 @@ pub fn append_slash(k: &str) -> String {
     } else {
         format!("{}/", k)
     }
-}
-
-pub async fn spawn_list_objects<S>(
-    s3_manager: Manager,
-    s3_bucket: S,
-    prefix: Option<String>,
-) -> Result<Vec<Object>>
-where
-    S: AsRef<str>,
-{
-    let s3_manager_arc = Arc::new(s3_manager);
-    let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
-    let pfx = {
-        if let Some(s) = prefix {
-            if s.is_empty() {
-                None
-            } else {
-                Some(Arc::new(s))
-            }
-        } else {
-            None
-        }
-    };
-    tokio::spawn(async move { s3_manager_arc.list_objects(s3_bucket_arc, pfx).await })
-        .await
-        .expect("failed spawn await")
-}
-
-pub async fn spawn_delete_objects<S>(
-    s3_manager: Manager,
-    s3_bucket: S,
-    prefix: Option<String>,
-) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let s3_manager_arc = Arc::new(s3_manager);
-    let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
-    let pfx = {
-        if let Some(s) = prefix {
-            if s.is_empty() {
-                None
-            } else {
-                Some(Arc::new(s))
-            }
-        } else {
-            None
-        }
-    };
-    tokio::spawn(async move { s3_manager_arc.delete_objects(s3_bucket_arc, pfx).await })
-        .await
-        .expect("failed spawn await")
-}
-
-pub async fn spawn_put_object<S>(
-    s3_manager: Manager,
-    file_path: S,
-    s3_bucket: S,
-    s3_key: S,
-) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let s3_manager_arc = Arc::new(s3_manager);
-    let file_path_arc = Arc::new(file_path.as_ref().to_string());
-    let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
-    let s3_key_arc = Arc::new(s3_key.as_ref().to_string());
-    tokio::spawn(async move {
-        s3_manager_arc
-            .put_object(file_path_arc, s3_bucket_arc, s3_key_arc)
-            .await
-    })
-    .await
-    .expect("failed spawn await")
-}
-
-pub async fn spawn_exists<S>(s3_manager: Manager, s3_bucket: S, s3_key: S) -> Result<bool>
-where
-    S: AsRef<str>,
-{
-    let s3_manager_arc = Arc::new(s3_manager);
-    let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
-    let s3_key_arc = Arc::new(s3_key.as_ref().to_string());
-    tokio::spawn(async move { s3_manager_arc.exists(s3_bucket_arc, s3_key_arc).await })
-        .await
-        .expect("failed spawn await")
-}
-
-pub async fn spawn_get_object<S>(
-    s3_manager: Manager,
-    s3_bucket: S,
-    s3_key: S,
-    file_path: S,
-) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let s3_manager_arc = Arc::new(s3_manager);
-    let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
-    let s3_key_arc = Arc::new(s3_key.as_ref().to_string());
-    let file_path_arc = Arc::new(file_path.as_ref().to_string());
-    tokio::spawn(async move {
-        s3_manager_arc
-            .get_object(s3_bucket_arc, s3_key_arc, file_path_arc)
-            .await
-    })
-    .await
-    .expect("failed spawn await")
-}
-
-#[cfg(feature = "kms")]
-pub async fn spawn_compress_seal_put_object<S>(
-    s3_manager: Manager,
-    envelope_manager: crate::kms::envelope::Manager,
-    file_path: S,
-    s3_bucket: S,
-    s3_key: S,
-) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let s3_manager_arc = Arc::new(s3_manager);
-    let envelope_manager_arc = Arc::new(envelope_manager);
-    let file_path_arc = Arc::new(file_path.as_ref().to_string());
-    let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
-    let s3_key_arc = Arc::new(s3_key.as_ref().to_string());
-    tokio::spawn(async move {
-        s3_manager_arc
-            .compress_seal_put_object(
-                envelope_manager_arc,
-                file_path_arc,
-                s3_bucket_arc,
-                s3_key_arc,
-            )
-            .await
-    })
-    .await
-    .expect("failed spawn await")
-}
-
-#[cfg(feature = "kms")]
-pub async fn spawn_get_object_unseal_decompress<S>(
-    s3_manager: Manager,
-    envelope_manager: crate::kms::envelope::Manager,
-    s3_bucket: S,
-    s3_key: S,
-    file_path: S,
-) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let s3_manager_arc = Arc::new(s3_manager);
-    let envelope_manager_arc = Arc::new(envelope_manager);
-    let file_path_arc = Arc::new(file_path.as_ref().to_string());
-    let s3_bucket_arc = Arc::new(s3_bucket.as_ref().to_string());
-    let s3_key_arc = Arc::new(s3_key.as_ref().to_string());
-    tokio::spawn(async move {
-        s3_manager_arc
-            .get_object_unseal_decompress(
-                envelope_manager_arc,
-                s3_bucket_arc,
-                s3_key_arc,
-                file_path_arc,
-            )
-            .await
-    })
-    .await
-    .expect("failed spawn await")
 }

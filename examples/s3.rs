@@ -1,24 +1,24 @@
-use std::{fs, io::Write, sync::Arc, thread, time};
+use std::{fs, io::Write};
 
 use aws_manager::{self, s3};
-use tokio::runtime::Runtime;
+use tokio::time::{sleep, Duration};
 
 /// cargo run --example s3 --features="s3"
-fn main() {
+#[tokio::main]
+async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    let rt = Runtime::new().unwrap();
-
     println!();
     println!();
     println!();
     log::info!("creating AWS S3 resources!");
-    let shared_config = rt
-        .block_on(aws_manager::load_config(Some(String::from("us-east-1"))))
+    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")))
+        .await
         .unwrap();
+    log::info!("region {:?}", shared_config.region().unwrap());
     let s3_manager = s3::Manager::new(&shared_config);
 
     println!();
@@ -28,52 +28,44 @@ fn main() {
         "aws-manager-examples-tests-{}",
         random_manager::secure_string(5).to_lowercase()
     );
-    rt.block_on(s3_manager.delete_bucket(&bucket)).unwrap(); // error should be ignored if it does not exist
+    s3_manager.delete_bucket(&bucket).await.unwrap(); // error should be ignored if it does not exist
 
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(5));
-    rt.block_on(s3_manager.create_bucket(&bucket)).unwrap();
+    sleep(Duration::from_secs(2)).await;
+    s3_manager.create_bucket(&bucket).await.unwrap();
 
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(3));
-    rt.block_on(s3_manager.create_bucket(&bucket)).unwrap();
+    sleep(Duration::from_secs(2)).await;
+    s3_manager.create_bucket(&bucket).await.unwrap();
 
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(3));
+    sleep(Duration::from_secs(2)).await;
     let contents = vec![7; 50 * 1024 * 1024];
     let mut upload_file = tempfile::NamedTempFile::new().unwrap();
     upload_file.write_all(&contents.to_vec()).unwrap();
     let upload_path = upload_file.path().to_str().unwrap().to_string();
     let s3_key = "sub-dir/aaa.txt".to_string();
-    rt.block_on(s3::spawn_put_object(
-        s3_manager.clone(),
-        &upload_path,
-        &bucket,
-        &s3_key,
-    ))
-    .unwrap();
-    assert!(rt
-        .block_on(s3::spawn_exists(s3_manager.clone(), &bucket, &s3_key))
-        .unwrap());
+    s3_manager
+        .put_object(&upload_path, &bucket, &s3_key)
+        .await
+        .unwrap();
+    s3_manager.exists(&bucket, &s3_key).await.unwrap();
 
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(2));
+    sleep(Duration::from_secs(2)).await;
     let download_path = random_manager::tmp_path(10, None).unwrap();
-    rt.block_on(s3::spawn_get_object(
-        s3_manager.clone(),
-        &bucket,
-        &s3_key,
-        &download_path,
-    ))
-    .unwrap();
+    s3_manager
+        .get_object(&bucket, &s3_key, &download_path)
+        .await
+        .unwrap();
     let download_contents = fs::read(download_path).unwrap();
     assert_eq!(contents.to_vec().len(), download_contents.len());
     assert_eq!(contents.to_vec(), download_contents);
@@ -81,13 +73,10 @@ fn main() {
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(1));
-    let objects = rt
-        .block_on(s3::spawn_list_objects(
-            s3_manager.clone(),
-            &bucket,
-            Some(String::from("sub-dir/")),
-        ))
+    sleep(Duration::from_secs(2)).await;
+    let objects = s3_manager
+        .list_objects(&bucket, Some(String::from("sub-dir/").as_str()))
+        .await
         .unwrap();
     for obj in objects.iter() {
         log::info!("object: {}", obj.key().unwrap());
@@ -96,13 +85,12 @@ fn main() {
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(1));
-    rt.block_on(s3_manager.delete_objects(Arc::new(bucket.clone()), None))
-        .unwrap();
+    sleep(Duration::from_secs(2)).await;
+    s3_manager.delete_objects(&bucket, None).await.unwrap();
 
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(2));
-    rt.block_on(s3_manager.delete_bucket(&bucket)).unwrap();
+    sleep(Duration::from_secs(2)).await;
+    s3_manager.delete_bucket(&bucket).await.unwrap();
 }

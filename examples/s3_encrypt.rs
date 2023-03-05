@@ -1,8 +1,6 @@
 use std::{
     fs::File,
     io::{Read, Write},
-    sync::Arc,
-    thread, time,
 };
 
 use aws_manager::{
@@ -10,43 +8,49 @@ use aws_manager::{
     kms::{self, envelope::Manager},
     s3,
 };
+use tokio::time::{sleep, Duration};
 
 /// cargo run --example s3_encrypt --features="s3,kms"
-fn main() {
+#[tokio::main]
+async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    macro_rules! ab {
-        ($e:expr) => {
-            tokio_test::block_on($e)
-        };
-    }
-
-    log::info!("creating AWS resources!");
-    let shared_config = ab!(aws_manager::load_config(None)).unwrap();
-
     println!();
     println!();
     println!();
+    log::info!("creating AWS S3 resources!");
+    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")))
+        .await
+        .unwrap();
+    log::info!("region {:?}", shared_config.region().unwrap());
+    let s3_manager = s3::Manager::new(&shared_config);
     let kms_manager = kms::Manager::new(&shared_config);
-    let cmk = ab!(kms_manager.create_symmetric_default_key("test key description")).unwrap();
+
+    println!();
+    println!();
+    println!();
+    let cmk = kms_manager
+        .create_symmetric_default_key("test key description")
+        .await
+        .unwrap();
     let envelope_manager = Manager::new(
-        kms_manager.clone(),
+        &kms_manager,
         cmk.id.clone(),
         "test-aad-tag".to_string(), // AAD tag
     );
 
     println!();
     println!();
-    let s3_manager = s3::Manager::new(&shared_config);
+    println!();
     let s3_bucket = format!(
         "aws-manager-examples-tests-s3-encrypt-{}",
         random_manager::secure_string(10).to_lowercase()
     );
     let s3_key = "sub-dir/aaa.zstd.encrypted".to_string();
-    ab!(s3_manager.create_bucket(&s3_bucket)).unwrap();
+    s3_manager.create_bucket(&s3_bucket).await.unwrap();
 
     println!();
     println!();
@@ -60,37 +64,29 @@ fn main() {
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(3));
-    ab!(s3::spawn_compress_seal_put_object(
-        s3_manager.clone(),
-        envelope_manager.clone(),
-        &src_file_path,
-        &s3_bucket,
-        &s3_key,
-    ))
-    .unwrap();
+    sleep(Duration::from_secs(2)).await;
+    envelope_manager
+        .compress_seal_put_object(&s3_manager, &src_file_path, &s3_bucket, &s3_key)
+        .await
+        .unwrap();
 
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(3));
-    ab!(s3::spawn_get_object_unseal_decompress(
-        s3_manager.clone(),
-        envelope_manager.clone(),
-        &s3_bucket,
-        &s3_key,
-        &dst_file_path,
-    ))
-    .unwrap();
+    sleep(Duration::from_secs(2)).await;
+    envelope_manager
+        .get_object_unseal_decompress(&s3_manager, &s3_bucket, &s3_key, &dst_file_path)
+        .await
+        .unwrap();
 
     println!();
     println!();
     println!();
-    thread::sleep(time::Duration::from_secs(3));
-    ab!(s3_manager.delete_objects(Arc::new(s3_bucket.clone()), None)).unwrap();
-    thread::sleep(time::Duration::from_secs(3));
-    ab!(s3_manager.delete_bucket(&s3_bucket)).unwrap();
-    ab!(kms_manager.schedule_to_delete(&cmk.id, 7)).unwrap();
+    sleep(Duration::from_secs(2)).await;
+    s3_manager.delete_objects(&s3_bucket, None).await.unwrap();
+    sleep(Duration::from_secs(2)).await;
+    s3_manager.delete_bucket(&s3_bucket).await.unwrap();
+    kms_manager.schedule_to_delete(&cmk.id, 7).await.unwrap();
 
     println!();
     println!();

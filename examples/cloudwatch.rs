@@ -1,38 +1,36 @@
-use std::{thread, time};
-
 use aws_manager::cloudwatch;
+use tokio::time::{sleep, Duration};
 
 /// cargo run --example cloudwatch --features="cloudwatch"
-fn main() {
+#[tokio::main]
+async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    macro_rules! ab {
-        ($e:expr) => {
-            tokio_test::block_on($e)
-        };
-    }
-
-    log::info!("creating AWS CloudWatch resources!");
-
-    let shared_config = ab!(aws_manager::load_config(None)).unwrap();
+    println!();
+    println!();
+    println!();
+    log::info!("creating AWS S3 resources!");
+    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")))
+        .await
+        .unwrap();
+    log::info!("region {:?}", shared_config.region().unwrap());
     let cw_manager = cloudwatch::Manager::new(&shared_config);
     let log_group_name = random_manager::secure_string(15);
 
     // error should be ignored if it does not exist
-    let ret = ab!(cw_manager.delete_log_group("invalid_id"));
-    assert!(ret.is_ok());
+    cw_manager.delete_log_group("invalid_id").await.unwrap();
 
-    ab!(cw_manager.create_log_group(&log_group_name)).unwrap();
+    cw_manager.create_log_group(&log_group_name).await.unwrap();
 
-    thread::sleep(time::Duration::from_secs(5));
+    sleep(Duration::from_secs(5)).await;
 
-    ab!(cw_manager.delete_log_group(&log_group_name)).unwrap();
+    cw_manager.delete_log_group(&log_group_name).await.unwrap();
 
-    thread::sleep(time::Duration::from_secs(5));
+    sleep(Duration::from_secs(5)).await;
 
     // error should be ignored if it's already scheduled for delete
-    ab!(cw_manager.delete_log_group(&log_group_name)).unwrap();
+    cw_manager.delete_log_group(&log_group_name).await.unwrap();
 }

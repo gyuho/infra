@@ -1,7 +1,6 @@
-use tokio::time::{sleep, Duration};
-
 use aws_manager::{self, ec2};
 use aws_sdk_ec2::model::{Filter, ResourceType, Tag, TagSpecification, VolumeState, VolumeType};
+use tokio::time::{sleep, Duration};
 
 /// cargo run --example ec2_ebs_create_volume --features="ec2"
 #[tokio::main]
@@ -12,9 +11,7 @@ async fn main() {
     );
 
     let shared_config = aws_manager::load_config(None).await.unwrap();
-    let region = shared_config.region().unwrap();
-    log::info!("region {:?}", region);
-
+    log::info!("region {:?}", shared_config.region().unwrap());
     let ec2_manager = ec2::Manager::new(&shared_config);
 
     // ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html
@@ -24,7 +21,7 @@ async fn main() {
         .filters(
             Filter::builder()
                 .set_name(Some(String::from("region-name")))
-                .set_values(Some(vec![region.as_ref().to_string()]))
+                .set_values(Some(vec![shared_config.region().unwrap().to_string()]))
                 .build(),
         )
         .send()

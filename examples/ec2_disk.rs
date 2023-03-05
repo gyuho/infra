@@ -1,7 +1,8 @@
 use aws_manager::ec2;
 
 /// cargo run --example ec2_disk --features="ec2"
-fn main() {
+#[tokio::main]
+async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),

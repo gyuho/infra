@@ -1,7 +1,6 @@
 use std::{
     fs::{self, File},
     io::{Cursor, Read, Write},
-    sync::Arc,
 };
 
 use crate::{
@@ -20,8 +19,8 @@ const DEK_AES_256_LENGTH: usize = 32;
 
 /// Implements envelope encryption manager.
 #[derive(Clone)]
-pub struct Manager {
-    pub kms_manager: kms::Manager,
+pub struct Manager<'k> {
+    pub kms_manager: &'k kms::Manager,
     pub kms_key_id: String,
 
     /// Represents additional authenticated data (AAD) that attaches information
@@ -29,9 +28,9 @@ pub struct Manager {
     aad_tag: String,
 }
 
-impl Manager {
+impl<'k> Manager<'k> {
     /// Creates a new envelope encryption manager.
-    pub fn new(kms_manager: kms::Manager, kms_key_id: String, aad_tag: String) -> Self {
+    pub fn new(kms_manager: &'k kms::Manager, kms_key_id: String, aad_tag: String) -> Self {
         Self {
             kms_manager,
             kms_key_id,
@@ -310,11 +309,7 @@ impl Manager {
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
-    pub async fn seal_aes_256_file(
-        &self,
-        src_file: Arc<String>,
-        dst_file: Arc<String>,
-    ) -> Result<()> {
+    pub async fn seal_aes_256_file(&self, src_file: &str, dst_file: &str) -> Result<()> {
         log::info!("envelope-encrypting file {} to {}", src_file, dst_file);
         let d = match fs::read(src_file.to_string()) {
             Ok(d) => d,
@@ -356,11 +351,7 @@ impl Manager {
     }
 
     /// Envelope-decrypts data from a file and save the plaintext to the other file.
-    pub async fn unseal_aes_256_file(
-        &self,
-        src_file: Arc<String>,
-        dst_file: Arc<String>,
-    ) -> Result<()> {
+    pub async fn unseal_aes_256_file(&self, src_file: &str, dst_file: &str) -> Result<()> {
         log::info!("envelope-decrypting file {} to {}", src_file, dst_file);
         let d = match fs::read(src_file.to_string()) {
             Ok(d) => d,
@@ -404,7 +395,7 @@ impl Manager {
     /// Compresses the source file ("src_file") and envelope-encrypts to "dst_file".
     /// The compression uses "zstd".
     /// The encryption uses AES 256.
-    pub async fn compress_seal(&self, src_file: Arc<String>, dst_file: Arc<String>) -> Result<()> {
+    pub async fn compress_seal(&self, src_file: &str, dst_file: &str) -> Result<()> {
         log::info!("compress-seal: compressing the file '{}'", src_file);
         let compressed_path = random_manager::tmp_path(10, None).unwrap();
         compress_manager::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3))
@@ -417,99 +408,94 @@ impl Manager {
             "compress-seal: sealing the compressed file '{}'",
             compressed_path
         );
-        self.seal_aes_256_file(Arc::new(compressed_path), dst_file.clone())
+        self.seal_aes_256_file(&compressed_path, dst_file.clone())
             .await
     }
 
     /// Reverse of "compress_seal".
     /// The decompression uses "zstd".
     /// The decryption uses AES 256.
-    pub async fn unseal_decompress(
-        &self,
-        src_file: Arc<String>,
-        dst_file: Arc<String>,
-    ) -> Result<()> {
+    pub async fn unseal_decompress(&self, src_file: &str, dst_file: &str) -> Result<()> {
         log::info!(
             "unseal-decompress: unsealing the encrypted file '{}'",
-            src_file.as_ref()
+            src_file
         );
         let unsealed_path = random_manager::tmp_path(10, None).unwrap();
-        self.unseal_aes_256_file(src_file.clone(), Arc::new(unsealed_path.clone()))
+        self.unseal_aes_256_file(src_file, &unsealed_path).await?;
+
+        log::info!("unseal-decompress: decompressing the file '{}'", src_file);
+        compress_manager::unpack_file(&unsealed_path, dst_file, Decoder::Zstd).map_err(|e| Other {
+            message: format!("failed decompression {}", e),
+            is_retryable: false,
+        })
+    }
+
+    /// Compresses the file, encrypts, and uploads to S3.
+    #[cfg(feature = "kms")]
+    pub async fn compress_seal_put_object(
+        &self,
+        s3_manager: &crate::s3::Manager,
+        source_file_path: &str,
+        s3_bucket: &str,
+        s3_key: &str,
+    ) -> Result<()> {
+        log::info!(
+            "compress-seal-put-object: compress and seal '{}'",
+            source_file_path
+        );
+
+        let tmp_compressed_sealed_path = random_manager::tmp_path(10, None).unwrap();
+        self.compress_seal(source_file_path, &tmp_compressed_sealed_path)
             .await?;
 
         log::info!(
-            "unseal-decompress: decompressing the file '{}'",
-            src_file.as_ref()
+            "compress-seal-put-object: upload object '{}'",
+            tmp_compressed_sealed_path
         );
-        compress_manager::unpack_file(&unsealed_path, dst_file.as_ref(), Decoder::Zstd).map_err(
-            |e| Other {
-                message: format!("failed decompression {}", e),
-                is_retryable: false,
-            },
-        )
+        s3_manager
+            .put_object(&tmp_compressed_sealed_path, s3_bucket, s3_key)
+            .await?;
+
+        fs::remove_file(tmp_compressed_sealed_path).map_err(|e| Other {
+            message: format!("failed remove_file tmp_compressed_sealed_path: {}", e),
+            is_retryable: false,
+        })
+    }
+
+    /// Reverse of "compress_seal_put_object".
+    #[cfg(feature = "s3")]
+    pub async fn get_object_unseal_decompress(
+        &self,
+        s3_manager: &crate::s3::Manager,
+        s3_bucket: &str,
+        s3_key: &str,
+        download_file_path: &str,
+    ) -> Result<()> {
+        log::info!(
+            "get-object-unseal-decompress: downloading object {}/{}",
+            s3_bucket,
+            s3_key
+        );
+
+        let tmp_downloaded_path = random_manager::tmp_path(10, None).unwrap();
+        s3_manager
+            .get_object(s3_bucket, s3_key, &tmp_downloaded_path)
+            .await?;
+
+        log::info!(
+            "get-object-unseal-decompress: unseal and decompress '{}'",
+            tmp_downloaded_path
+        );
+        self.unseal_decompress(&tmp_downloaded_path, download_file_path)
+            .await?;
+
+        fs::remove_file(tmp_downloaded_path).map_err(|e| Other {
+            message: format!("failed remove_file tmp_downloaded_path: {}", e),
+            is_retryable: false,
+        })
     }
 }
 
 fn zero_vec(n: usize) -> Vec<u8> {
     (0..n).map(|_| 0).collect()
-}
-
-pub async fn spawn_seal_aes_256_file<S>(envelope: Manager, src_file: S, dst_file: S) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let envelope_arc = Arc::new(envelope);
-    let src_file_arc = Arc::new(src_file.as_ref().to_string());
-    let dst_file_arc = Arc::new(dst_file.as_ref().to_string());
-    tokio::spawn(async move {
-        envelope_arc
-            .seal_aes_256_file(src_file_arc, dst_file_arc)
-            .await
-    })
-    .await
-    .expect("failed spawn await")
-}
-
-pub async fn spawn_unseal_aes_256_file<S>(envelope: Manager, src_file: S, dst_file: S) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let envelope_arc = Arc::new(envelope);
-    let src_file_arc = Arc::new(src_file.as_ref().to_string());
-    let dst_file_arc = Arc::new(dst_file.as_ref().to_string());
-    tokio::spawn(async move {
-        envelope_arc
-            .unseal_aes_256_file(src_file_arc, dst_file_arc)
-            .await
-    })
-    .await
-    .expect("failed spawn await")
-}
-
-pub async fn spawn_compress_seal<S>(envelope: Manager, src_file: S, dst_file: S) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let envelope_arc = Arc::new(envelope);
-    let src_file_arc = Arc::new(src_file.as_ref().to_string());
-    let dst_file_arc = Arc::new(dst_file.as_ref().to_string());
-    tokio::spawn(async move { envelope_arc.compress_seal(src_file_arc, dst_file_arc).await })
-        .await
-        .expect("failed spawn await")
-}
-
-pub async fn spawn_unseal_decompress<S>(envelope: Manager, src_file: S, dst_file: S) -> Result<()>
-where
-    S: AsRef<str>,
-{
-    let envelope_arc = Arc::new(envelope);
-    let src_file_arc = Arc::new(src_file.as_ref().to_string());
-    let dst_file_arc = Arc::new(dst_file.as_ref().to_string());
-    tokio::spawn(async move {
-        envelope_arc
-            .unseal_decompress(src_file_arc, dst_file_arc)
-            .await
-    })
-    .await
-    .expect("failed spawn await")
 }
