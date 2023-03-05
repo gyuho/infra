@@ -232,23 +232,16 @@ pub fn default_instance_types(
 /// Implements AWS EC2 manager.
 #[derive(Debug, Clone)]
 pub struct Manager {
-    #[allow(dead_code)]
-    shared_config: AwsSdkConfig,
-    cli: Client,
+    pub region: String,
+    pub cli: Client,
 }
 
 impl Manager {
     pub fn new(shared_config: &AwsSdkConfig) -> Self {
-        let cloned = shared_config.clone();
-        let cli = Client::new(shared_config);
         Self {
-            shared_config: cloned,
-            cli,
+            region: shared_config.region().unwrap().to_string(),
+            cli: Client::new(shared_config),
         }
-    }
-
-    pub fn client(&self) -> Client {
-        self.cli.clone()
     }
 
     /// Creates an AWS EC2 key-pair and saves the private key to disk.

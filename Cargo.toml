@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.24.19" # https://crates.io/crates/aws-manager/versions
+version = "0.24.20" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.67"
@@ -43,7 +43,7 @@ chrono = { version = "0.4.23", optional = true } # https://github.com/chronotope
 command-manager = { version = "0.0.1", optional = true }
 reqwest = { version = "0.11.14", optional = true }
 rfc-manager = { version = "0.0.1", optional = true }
-serde_yaml = { version = "0.9.17", optional = true } # https://github.com/dtolnay/serde-yaml/releases
+serde_yaml = { version = "0.9.18", optional = true } # https://github.com/dtolnay/serde-yaml/releases
 
 # [OPTIONAL] for "kms"
 aws-sdk-kms = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
@@ -62,14 +62,14 @@ tokio-test = "0.4.2"
 
 [features]
 default = [
-    # "autoscaling",
-    # "cloudformation",
-    # "cloudwatch",
-    # "ec2",
-    # "kms",
-    # "s3",
-    # "ssm",
-    # "sts",
+    "autoscaling",
+    "cloudformation",
+    "cloudwatch",
+    "ec2",
+    "kms",
+    "s3",
+    "ssm",
+    "sts",
 ]
 
 autoscaling = [

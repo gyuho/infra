@@ -21,33 +21,24 @@ use tokio_stream::StreamExt;
 /// Implements AWS S3 manager.
 #[derive(Debug, Clone)]
 pub struct Manager {
-    #[allow(dead_code)]
-    shared_config: AwsSdkConfig,
-    cli: Client,
+    pub region: String,
+    pub cli: Client,
 }
 
 impl Manager {
     pub fn new(shared_config: &AwsSdkConfig) -> Self {
-        let cloned = shared_config.clone();
-        let cli = Client::new(shared_config);
         Self {
-            shared_config: cloned,
-            cli,
+            region: shared_config.region().unwrap().to_string(),
+            cli: Client::new(shared_config),
         }
-    }
-
-    pub fn client(&self) -> Client {
-        self.cli.clone()
     }
 
     /// Creates a S3 bucket.
     pub async fn create_bucket(&self, s3_bucket: &str) -> Result<()> {
-        let reg = self.shared_config.region().unwrap();
-
         log::info!(
             "creating S3 bucket '{}' in region {}",
             s3_bucket,
-            reg.to_string()
+            self.region
         );
 
         let mut req = self
@@ -57,8 +48,8 @@ impl Manager {
             .acl(BucketCannedAcl::Private);
 
         // don't specify if "us-east-1", default is "us-east-1"
-        if reg.to_string() != "us-east-1" {
-            let constraint = BucketLocationConstraint::from(reg.to_string().as_str());
+        if self.region != "us-east-1" {
+            let constraint = BucketLocationConstraint::from(self.region.as_str());
             let bucket_cfg = CreateBucketConfiguration::builder()
                 .location_constraint(constraint)
                 .build();
@@ -131,11 +122,10 @@ impl Manager {
 
     /// Deletes a S3 bucket.
     pub async fn delete_bucket(&self, s3_bucket: &str) -> Result<()> {
-        let reg = self.shared_config.region().unwrap();
         log::info!(
             "deleting S3 bucket '{}' in region {}",
             s3_bucket,
-            reg.to_string()
+            self.region
         );
         let ret = self.cli.delete_bucket().bucket(s3_bucket).send().await;
         match ret {
@@ -167,11 +157,10 @@ impl Manager {
         s3_bucket: Arc<String>,
         prefix: Option<Arc<String>>,
     ) -> Result<()> {
-        let reg = self.shared_config.region().unwrap();
         log::info!(
             "deleting objects S3 bucket '{}' in region {} (prefix {:?})",
             s3_bucket,
-            reg.to_string(),
+            self.region,
             prefix,
         );
 

@@ -17,10 +17,9 @@ async fn main() {
 
     let ec2_manager = ec2::Manager::new(&shared_config);
 
-    let cli = ec2_manager.client();
-
     // ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html
-    let resp = cli
+    let resp = ec2_manager
+        .cli
         .describe_availability_zones()
         .filters(
             Filter::builder()
@@ -44,7 +43,8 @@ async fn main() {
     log::info!("using az {}", az);
 
     // ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateVolume.html
-    let resp = cli
+    let resp = ec2_manager
+        .cli
         .create_volume()
         .availability_zone(az)
         .volume_type(VolumeType::Gp3)
@@ -90,7 +90,8 @@ async fn main() {
 
     sleep(Duration::from_secs(20)).await;
 
-    let resp = cli
+    let resp = ec2_manager
+        .cli
         .delete_volume()
         .volume_id(volume_id.to_string())
         .send()
