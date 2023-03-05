@@ -431,7 +431,7 @@ impl<'k> Manager<'k> {
     }
 
     /// Compresses the file, encrypts, and uploads to S3.
-    #[cfg(feature = "kms")]
+    #[cfg(feature = "s3")]
     pub async fn compress_seal_put_object(
         &self,
         s3_manager: &crate::s3::Manager,
