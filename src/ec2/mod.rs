@@ -6,7 +6,6 @@ use std::{
     fs::{self, File},
     io::{self, Error, ErrorKind, Write},
     path::Path,
-    sync::Arc,
 };
 
 use crate::errors::{
@@ -573,12 +572,12 @@ impl Manager {
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
-    pub async fn fetch_tags(&self, instance_id: Arc<String>) -> Result<Vec<Tag>> {
+    pub async fn fetch_tags(&self, instance_id: &str) -> Result<Vec<Tag>> {
         log::info!("fetching tags for '{}'", instance_id);
         let ret = self
             .cli
             .describe_instances()
-            .instance_ids(instance_id.to_string())
+            .instance_ids(instance_id)
             .send()
             .await;
         let resp = match ret {
