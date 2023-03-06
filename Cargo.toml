@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.24.22" # https://crates.io/crates/aws-manager/versions
+version = "0.24.23" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.67"
@@ -16,7 +16,7 @@ license = "Apache-2.0"
 aws-config = "0.54.1" # https://github.com/awslabs/aws-sdk-rust/releases
 aws-types = "0.54.1" # https://crates.io/crates/aws-types/versions
 log = "0.4.17"
-thiserror = "1.0.38"
+thiserror = "1.0.39"
 
 human-readable = { version = "0.0.1", optional = true }
 random-manager = { version = "0.0.5", optional = true } # https://crates.io/crates/random-manager/versions
@@ -35,7 +35,7 @@ tokio-stream = { version = "0.1.12", optional = true } # https://github.com/toki
 # [OPTIONAL] for "cloudwatch"
 aws-sdk-cloudwatch = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
 aws-sdk-cloudwatchlogs = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
-serde_json = { version = "1.0.93", optional = true }
+serde_json = { version = "1.0.94", optional = true }
 
 # [OPTIONAL] for "ec2"
 aws-sdk-ec2 = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
@@ -43,7 +43,7 @@ chrono = { version = "0.4.23", optional = true } # https://github.com/chronotope
 command-manager = { version = "0.0.1", optional = true }
 reqwest = { version = "0.11.14", optional = true }
 rfc-manager = { version = "0.0.1", optional = true }
-serde_yaml = { version = "0.9.18", optional = true } # https://github.com/dtolnay/serde-yaml/releases
+serde_yaml = { version = "0.9.19", optional = true } # https://github.com/dtolnay/serde-yaml/releases
 
 # [OPTIONAL] for "kms"
 aws-sdk-kms = { version = "0.24.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
