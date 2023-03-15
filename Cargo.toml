@@ -77,7 +77,6 @@ autoscaling = [
 ]
 cloudformation = [
     "aws-sdk-cloudformation",
-    "tokio",
 ]
 cloudwatch = [
     "aws-sdk-cloudwatch",
@@ -85,7 +84,6 @@ cloudwatch = [
     "random-manager",
     "serde",
     "serde_json",
-    "tokio",
 ]
 ec2 = [
     "aws-sdk-ec2",
@@ -97,7 +95,6 @@ ec2 = [
     "serde",
     "serde_json",
     "serde_yaml",
-    "tokio",
 ]
 kms = [
     "aws-sdk-kms",
@@ -107,19 +104,16 @@ kms = [
     "human-readable",
     "random-manager",
     "ring",
-    "tokio",
 ]
 s3 = [
     "kms",
     "aws-sdk-s3",
     "human-readable",
     "random-manager",
-    "tokio",
     "tokio-stream",
 ]
 ssm = [
     "aws-sdk-ssm",
-    "tokio",
 ]
 sts = [
     "aws-sdk-sts",
