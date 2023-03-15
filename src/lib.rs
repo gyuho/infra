@@ -26,16 +26,32 @@ pub mod sts;
 
 use std::io;
 
-use aws_config::{self, meta::region::RegionProviderChain};
+use aws_config::{self, meta::region::RegionProviderChain, timeout::TimeoutConfig};
 use aws_types::{region::Region, SdkConfig as AwsSdkConfig};
+use tokio::time::Duration;
 
 /// Loads an AWS config from default environments.
-pub async fn load_config(reg: Option<String>) -> io::Result<AwsSdkConfig> {
+pub async fn load_config(
+    reg: Option<String>,
+    operation_timeout: Option<Duration>,
+) -> io::Result<AwsSdkConfig> {
     log::info!("loading AWS configuration for region {:?}", reg);
     let regp = RegionProviderChain::first_try(reg.map(Region::new))
         .or_default_provider()
         .or_else(Region::new("us-west-2"));
 
-    let shared_config = aws_config::from_env().region(regp).load().await;
+    let mut builder = TimeoutConfig::builder().connect_timeout(Duration::from_secs(5));
+    if let Some(to) = &operation_timeout {
+        if !to.is_zero() {
+            builder = builder.operation_timeout(to.clone());
+        }
+    }
+    let timeout_cfg = builder.build();
+
+    let shared_config = aws_config::from_env()
+        .region(regp)
+        .timeout_config(timeout_cfg)
+        .load()
+        .await;
     Ok(shared_config)
 }

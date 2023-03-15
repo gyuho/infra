@@ -17,7 +17,7 @@ async fn main() {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    let shared_config = aws_manager::load_config(None).await.unwrap();
+    let shared_config = aws_manager::load_config(None, None).await.unwrap();
     log::info!("region {:?}", shared_config.region().unwrap());
     let kms_manager = kms::Manager::new(&shared_config);
 

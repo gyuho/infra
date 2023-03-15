@@ -12,7 +12,7 @@ async fn main() {
     println!();
     println!();
     log::info!("creating AWS S3 resources!");
-    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")))
+    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None)
         .await
         .unwrap();
     log::info!("region {:?}", shared_config.region().unwrap());
@@ -20,7 +20,7 @@ async fn main() {
     let identity1 = sts_manager.get_identity().await.unwrap();
     log::info!("identity1: {:?}", identity1);
 
-    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")))
+    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None)
         .await
         .unwrap();
     log::info!("region {:?}", shared_config.region().unwrap());
