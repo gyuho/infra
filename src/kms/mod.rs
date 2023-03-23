@@ -188,7 +188,7 @@ impl Manager {
             .cli
             .sign()
             .key_id(key_id)
-            .message(aws_smithy_types::Blob::new(digest)) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-Message
+            .message(Blob::new(digest)) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-Message
             .message_type(MessageType::Digest) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType
             .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256)
             .send()
