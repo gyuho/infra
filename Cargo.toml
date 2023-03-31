@@ -13,7 +13,7 @@ homepage = "https://github.com/gyuho/aws-manager"
 license = "Apache-2.0"
 
 [dependencies]
-aws-config = "0.54.1" # https://github.com/awslabs/aws-sdk-rust/releases
+aws-config = "0.55.0" # https://github.com/awslabs/aws-sdk-rust/releases
 aws-types = "0.54.1" # https://crates.io/crates/aws-types/versions
 log = "0.4.17"
 thiserror = "1.0.40"
