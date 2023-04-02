@@ -1,5 +1,5 @@
 use aws_manager::{self, cloudformation};
-use aws_sdk_cloudformation::model::{OnFailure, Parameter, StackStatus, Tag};
+use aws_sdk_cloudformation::types::{OnFailure, Parameter, StackStatus, Tag};
 use rust_embed::RustEmbed;
 use tokio::time::{sleep, Duration};
 

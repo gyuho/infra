@@ -2,7 +2,8 @@ use crate::errors::{
     Error::{Other, API},
     Result,
 };
-use aws_sdk_ssm::{model::CommandInvocationStatus, types::SdkError, Client};
+use aws_sdk_ssm::{types::CommandInvocationStatus, Client};
+use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::time::{sleep, Duration, Instant};
 

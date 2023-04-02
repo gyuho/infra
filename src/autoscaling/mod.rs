@@ -1,5 +1,6 @@
 use crate::errors::{Error::API, Result};
-use aws_sdk_autoscaling::{error::SetInstanceHealthError, types::SdkError, Client};
+use aws_sdk_autoscaling::{operation::set_instance_health::SetInstanceHealthError, Client};
+use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 
 /// Implements AWS EC2 autoscaling manager.

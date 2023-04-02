@@ -1,5 +1,5 @@
 use aws_manager::{self, ec2};
-use aws_sdk_ec2::model::{Filter, ResourceType, Tag, TagSpecification, VolumeState, VolumeType};
+use aws_sdk_ec2::types::{Filter, ResourceType, Tag, TagSpecification, VolumeState, VolumeType};
 use tokio::time::{sleep, Duration};
 
 /// cargo run --example ec2_ebs_create_volume --features="ec2"

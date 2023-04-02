@@ -1,5 +1,5 @@
 use aws_manager::{self, ec2};
-use aws_sdk_ec2::model::VolumeAttachmentState;
+use aws_sdk_ec2::types::VolumeAttachmentState;
 use tokio::time::Duration;
 
 /// cargo run --example ec2_ebs_describe_volumes --features="ec2"

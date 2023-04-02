@@ -7,7 +7,7 @@ use crate::{
     errors::{Error::Other, Result},
     kms,
 };
-use aws_sdk_kms::model::{DataKeySpec, EncryptionAlgorithmSpec};
+use aws_sdk_kms::types::{DataKeySpec, EncryptionAlgorithmSpec};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use compress_manager::{self, Decoder, Encoder};
 use ring::{

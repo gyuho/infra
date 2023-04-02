@@ -6,14 +6,12 @@ use std::{
 };
 
 use crate::errors::{Error::API, Result};
-use aws_sdk_cloudwatch::{
-    model::MetricDatum, types::SdkError as MetricsSdkError, Client as MetricsClient,
-};
+use aws_sdk_cloudwatch::{types::MetricDatum, Client as MetricsClient};
 use aws_sdk_cloudwatchlogs::{
-    error::{CreateLogGroupError, DeleteLogGroupError},
-    types::SdkError as LogsSdkError,
+    operation::{create_log_group::CreateLogGroupError, delete_log_group::DeleteLogGroupError},
     Client as LogsClient,
 };
+use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
@@ -187,35 +185,35 @@ impl Manager {
 }
 
 #[inline]
-pub fn is_metrics_error_retryable<E>(e: &MetricsSdkError<E>) -> bool {
+pub fn is_metrics_error_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
-        MetricsSdkError::TimeoutError(_) | MetricsSdkError::ResponseError { .. } => true,
-        MetricsSdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
+        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
+        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
         _ => false,
     }
 }
 
 #[inline]
-pub fn is_logs_error_retryable<E>(e: &LogsSdkError<E>) -> bool {
+pub fn is_logs_error_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
-        LogsSdkError::TimeoutError(_) | LogsSdkError::ResponseError { .. } => true,
-        LogsSdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
+        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
+        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
         _ => false,
     }
 }
 
 #[inline]
-fn is_logs_error_create_log_group_already_exists(e: &LogsSdkError<CreateLogGroupError>) -> bool {
+fn is_logs_error_create_log_group_already_exists(e: &SdkError<CreateLogGroupError>) -> bool {
     match e {
-        LogsSdkError::ServiceError(err) => err.err().is_resource_already_exists_exception(),
+        SdkError::ServiceError(err) => err.err().is_resource_already_exists_exception(),
         _ => false,
     }
 }
 
 #[inline]
-fn is_logs_error_delete_log_group_does_not_exist(e: &LogsSdkError<DeleteLogGroupError>) -> bool {
+fn is_logs_error_delete_log_group_does_not_exist(e: &SdkError<DeleteLogGroupError>) -> bool {
     match e {
-        LogsSdkError::ServiceError(err) => err.err().is_resource_not_found_exception(),
+        SdkError::ServiceError(err) => err.err().is_resource_not_found_exception(),
         _ => false,
     }
 }
