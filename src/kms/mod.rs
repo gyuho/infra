@@ -10,19 +10,26 @@ use crate::errors::{
     Error::{Other, API},
     Result,
 };
+use aws_config::retry::ProvideErrorKind;
 use aws_sdk_kms::{
-    error::{
-        CreateKeyError, DecryptError, DescribeKeyError, EncryptError, GenerateDataKeyError,
-        GetPublicKeyError, ScheduleKeyDeletionError, SignError,
+    operation::{
+        create_key::CreateKeyError,
+        decrypt::DecryptError,
+        describe_key::{DescribeKeyError, DescribeKeyOutput},
+        encrypt::EncryptError,
+        generate_data_key::GenerateDataKeyError,
+        get_public_key::{GetPublicKeyError, GetPublicKeyOutput},
+        schedule_key_deletion::ScheduleKeyDeletionError,
+        sign::SignError,
     },
-    model::{
+    primitives::Blob,
+    types::{
         DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, MessageType,
         SigningAlgorithmSpec, Tag,
     },
-    output::{DescribeKeyOutput, GetPublicKeyOutput},
-    types::{Blob, SdkError},
     Client,
 };
+use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 
 /// Represents the data encryption key.
@@ -577,7 +584,7 @@ pub fn explain_sign_error(e: &SdkError<SignError>) -> String {
         SdkError::ServiceError(err) => format!(
             "sign service error [code '{:?}', kind '{:?}', meta '{:?}']",
             err.err().code(),
-            err.err().kind,
+            err.err().retryable_error_kind(),
             err.err().meta(),
         ),
         _ => e.to_string(),

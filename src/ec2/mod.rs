@@ -13,14 +13,14 @@ use crate::errors::{
     Result,
 };
 use aws_sdk_ec2::{
-    error::DeleteKeyPairError,
-    model::{
+    operation::delete_key_pair::DeleteKeyPairError,
+    types::{
         Address, AttachmentStatus, Filter, Instance, InstanceState, InstanceStateName,
         ResourceType, Tag, TagSpecification, Volume, VolumeAttachmentState, VolumeState,
     },
-    types::SdkError,
     Client,
 };
+use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};

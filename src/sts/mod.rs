@@ -1,5 +1,6 @@
 use crate::errors::{Error::API, Result};
-use aws_sdk_sts::{types::SdkError, Client};
+use aws_sdk_sts::Client;
+use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use serde::{Deserialize, Serialize};
 

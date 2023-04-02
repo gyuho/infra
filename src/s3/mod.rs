@@ -5,15 +5,19 @@ use crate::errors::{
     Result,
 };
 use aws_sdk_s3::{
-    error::{CreateBucketError, DeleteBucketError, HeadObjectError},
-    model::{
+    operation::{
+        create_bucket::CreateBucketError, delete_bucket::DeleteBucketError,
+        head_object::HeadObjectError,
+    },
+    primitives::ByteStream,
+    types::{
         BucketCannedAcl, BucketLocationConstraint, CreateBucketConfiguration, Delete, Object,
         ObjectCannedAcl, ObjectIdentifier, PublicAccessBlockConfiguration, ServerSideEncryption,
         ServerSideEncryptionByDefault, ServerSideEncryptionConfiguration, ServerSideEncryptionRule,
     },
-    types::{ByteStream, SdkError},
     Client,
 };
+use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio_stream::StreamExt;

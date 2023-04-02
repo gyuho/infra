@@ -3,11 +3,11 @@ use crate::errors::{
     Result,
 };
 use aws_sdk_cloudformation::{
-    error::{DeleteStackError, DescribeStacksError},
-    model::{Capability, OnFailure, Output, Parameter, StackStatus, Tag},
-    types::SdkError,
+    operation::{delete_stack::DeleteStackError, describe_stacks::DescribeStacksError},
+    types::{Capability, OnFailure, Output, Parameter, StackStatus, Tag},
     Client,
 };
+use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::time::{sleep, Duration, Instant};
 
