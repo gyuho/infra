@@ -13,18 +13,20 @@ use crate::errors::{
 use aws_config::retry::ProvideErrorKind;
 use aws_sdk_kms::{
     operation::{
+        create_grant::CreateGrantError,
         create_key::CreateKeyError,
         decrypt::DecryptError,
         describe_key::{DescribeKeyError, DescribeKeyOutput},
         encrypt::EncryptError,
         generate_data_key::GenerateDataKeyError,
         get_public_key::{GetPublicKeyError, GetPublicKeyOutput},
+        revoke_grant::RevokeGrantError,
         schedule_key_deletion::ScheduleKeyDeletionError,
         sign::SignError,
     },
     primitives::Blob,
     types::{
-        DataKeySpec, EncryptionAlgorithmSpec, KeySpec, KeyUsageType, MessageType,
+        DataKeySpec, EncryptionAlgorithmSpec, GrantOperation, KeySpec, KeyUsageType, MessageType,
         SigningAlgorithmSpec, Tag,
     },
     Client,
@@ -118,6 +120,54 @@ impl Manager {
         Ok(Key::new(key_id, key_arn))
     }
 
+    /// Creates a KMS grant for Sign and Verify operations.
+    /// And returns the grant Id and token.
+    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Grant.html>
+    pub async fn create_grant_for_sign_verify(
+        &self,
+        key_id: &str,
+        grantee_principal: &str,
+    ) -> Result<(String, String)> {
+        log::info!("creating KMS ARN/ID grant on {key_id} for {grantee_principal}");
+
+        let out = self
+            .cli
+            .create_grant()
+            .key_id(key_id)
+            .grantee_principal(grantee_principal)
+            .operations(GrantOperation::Sign)
+            .operations(GrantOperation::Verify)
+            .send()
+            .await
+            .map_err(|e| API {
+                message: format!("failed create_grant {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_create_grant(&e),
+            })?;
+
+        let grant_id = out.grant_id().unwrap().to_string();
+        let grant_token = out.grant_token().unwrap().to_string();
+        Ok((grant_id, grant_token))
+    }
+
+    /// Revokes a KMS grant.
+    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_RevokeGrant.html>
+    pub async fn revoke_grant(&self, key_id: &str, grant_id: &str) -> Result<()> {
+        log::info!("revoking KMS grant {grant_id} for {key_id}");
+
+        self.cli
+            .revoke_grant()
+            .key_id(key_id)
+            .grant_id(grant_id)
+            .send()
+            .await
+            .map_err(|e| API {
+                message: format!("failed revoke_grant {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_revoke_grant(&e),
+            })?;
+
+        Ok(())
+    }
+
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>
     pub async fn describe_key(&self, key_arn: &str) -> Result<(String, DescribeKeyOutput)> {
         log::info!("describing KMS ARN {key_arn}");
@@ -172,45 +222,47 @@ impl Manager {
         .await
     }
 
-    /// Signs the 32-byte SHA256 output message with the ECDSA private key and the recoverable code
-    /// using AWS KMS CMK.
+    /// Signs the 32-byte SHA256 output message with the ECDSA private key and the recoverable code.
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html>
     pub async fn sign_digest_secp256k1_ecdsa_sha256(
         &self,
         key_id: &str,
         digest: &[u8],
+        grant_token: Option<&str>,
     ) -> Result<Vec<u8>> {
         log::info!(
-            "secp256k1 signing {}-byte digest message with key Id '{}'",
+            "secp256k1 signing {}-byte digest message with key Id '{key_id}' (grant token {:?})",
             digest.len(),
-            key_id
+            grant_token
         );
 
         // DO NOT DO THIS -- fails with "Digest is invalid length for algorithm ECDSA_SHA_256"
         // ref. https://github.com/awslabs/aws-sdk-rust/discussions/571
         // let msg = aws_smithy_types::base64::encode(digest);
 
-        // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
-        let sign_output = self
+        let mut builder = self
             .cli
             .sign()
             .key_id(key_id)
             .message(Blob::new(digest)) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-Message
             .message_type(MessageType::Digest) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType
-            .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256)
-            .send()
-            .await
-            .map_err(|e| {
-                log::debug!(
-                    "failed sign; error {}, retryable '{}'",
-                    explain_sign_error(&e),
-                    is_error_retryable_sign(&e)
-                );
-                API {
-                    message: e.to_string(),
-                    is_retryable: is_error_retryable(&e) || is_error_retryable_sign(&e),
-                }
-            })?;
+            .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256);
+        if let Some(grant_token) = grant_token {
+            builder = builder.grant_tokens(grant_token);
+        }
+
+        // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
+        let sign_output = builder.send().await.map_err(|e| {
+            log::debug!(
+                "failed sign; error {}, retryable '{}'",
+                explain_sign_error(&e),
+                is_error_retryable_sign(&e)
+            );
+            API {
+                message: e.to_string(),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_sign(&e),
+            }
+        })?;
 
         if let Some(blob) = sign_output.signature() {
             let sig = blob.as_ref();
@@ -320,6 +372,8 @@ impl Manager {
         );
         Ok(ciphertext)
     }
+
+    /// TODO: decrypt with kms grant
 
     /// Decrypts data.
     /// The maximum length of "ciphertext" is 6144 bytes.
@@ -476,6 +530,26 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 
 #[inline]
 pub fn is_error_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
+    match e {
+        SdkError::ServiceError(err) => {
+            err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
+        }
+        _ => false,
+    }
+}
+
+#[inline]
+pub fn is_error_retryable_create_grant(e: &SdkError<CreateGrantError>) -> bool {
+    match e {
+        SdkError::ServiceError(err) => {
+            err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
+        }
+        _ => false,
+    }
+}
+
+#[inline]
+pub fn is_error_retryable_revoke_grant(e: &SdkError<RevokeGrantError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
