@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.25.2" # https://crates.io/crates/aws-manager/versions
+version = "0.25.3" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.68"
@@ -50,7 +50,7 @@ serde_yaml = { version = "0.9.21", optional = true } # https://github.com/dtolna
 # [OPTIONAL] for "kms"
 aws-sdk-kms = { version = "0.25.1", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
 byteorder = { version = "1.4.3", optional = true } # https://github.com/briansmith/ring
-compress-manager = { version = "0.0.6", optional = true } # https://crates.io/crates/compress-manager/versions
+compress-manager = { version = "0.0.7", optional = true } # https://crates.io/crates/compress-manager/versions
 ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/ring
 
 [dev-dependencies]

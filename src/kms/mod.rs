@@ -233,9 +233,9 @@ impl Manager {
         grant_token: Option<String>,
     ) -> Result<Vec<u8>> {
         log::info!(
-            "secp256k1 signing {}-byte digest message with key Id '{key_id}' (grant token {:?})",
+            "secp256k1 signing {}-byte digest message with key Id '{key_id}' (grant token exists {})",
             digest.len(),
-            grant_token
+            grant_token.is_some()
         );
 
         // DO NOT DO THIS -- fails with "Digest is invalid length for algorithm ECDSA_SHA_256"
