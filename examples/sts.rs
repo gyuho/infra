@@ -18,7 +18,7 @@ async fn main() {
     log::info!("region {:?}", shared_config.region().unwrap());
     let sts_manager = sts::Manager::new(&shared_config);
     let identity1 = sts_manager.get_identity().await.unwrap();
-    log::info!("identity1: {:?}", identity1);
+    log::info!("STS identity1: {:?}", identity1);
 
     let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None)
         .await
@@ -26,7 +26,7 @@ async fn main() {
     log::info!("region {:?}", shared_config.region().unwrap());
     let sts_manager = sts::Manager::new(&shared_config);
     let identity2 = sts_manager.get_identity().await.unwrap();
-    log::info!("identity2: {:?}", identity2);
+    log::info!("STS identity2: {:?}", identity2);
 
     assert_eq!(identity1, identity2);
 }

@@ -122,7 +122,7 @@ impl Manager {
 
     /// Creates a KMS grant for Sign and Verify operations.
     /// And returns the grant Id and token.
-    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Grant.html>
+    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html>
     pub async fn create_grant_for_sign_verify(
         &self,
         key_id: &str,
@@ -146,6 +146,8 @@ impl Manager {
 
         let grant_id = out.grant_id().unwrap().to_string();
         let grant_token = out.grant_token().unwrap().to_string();
+        log::info!("created grant Id {grant_id} and token {grant_token}");
+
         Ok((grant_id, grant_token))
     }
 
@@ -228,7 +230,7 @@ impl Manager {
         &self,
         key_id: &str,
         digest: &[u8],
-        grant_token: Option<&str>,
+        grant_token: Option<String>,
     ) -> Result<Vec<u8>> {
         log::info!(
             "secp256k1 signing {}-byte digest message with key Id '{key_id}' (grant token {:?})",
@@ -266,11 +268,10 @@ impl Manager {
 
         if let Some(blob) = sign_output.signature() {
             let sig = blob.as_ref();
-            log::info!(
+            log::debug!(
                 "DER-encoded signature output from KMS is {}-byte",
                 sig.len()
             );
-
             return Ok(Vec::from(sig));
         }
 
@@ -288,7 +289,7 @@ impl Manager {
         key_arn: &str,
         pending_window_in_days: i32,
     ) -> Result<()> {
-        log::info!("deleting KMS CMK {key_arn} in {pending_window_in_days} days");
+        log::info!("scheduling to delete KMS CMK {key_arn} in {pending_window_in_days} days");
         let ret = self
             .cli
             .schedule_key_deletion()
@@ -372,8 +373,6 @@ impl Manager {
         );
         Ok(ciphertext)
     }
-
-    /// TODO: decrypt with kms grant
 
     /// Decrypts data.
     /// The maximum length of "ciphertext" is 6144 bytes.

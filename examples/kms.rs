@@ -6,10 +6,11 @@ use std::{
 use aws_manager::{
     self,
     kms::{self, envelope::Manager},
+    sts,
 };
 use tokio::time::{sleep, Duration};
 
-/// cargo run --example kms --features="kms"
+/// cargo run --example kms --features="sts,kms"
 #[tokio::main]
 async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
@@ -17,8 +18,14 @@ async fn main() {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    let shared_config = aws_manager::load_config(None, None).await.unwrap();
+    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None)
+        .await
+        .unwrap();
     log::info!("region {:?}", shared_config.region().unwrap());
+    let sts_manager = sts::Manager::new(&shared_config);
+    let identity = sts_manager.get_identity().await.unwrap();
+    log::info!("STS identity: {:?}", identity);
+
     let kms_manager = kms::Manager::new(&shared_config);
 
     let mut key_desc = id_manager::time::with_prefix("test");
@@ -34,6 +41,12 @@ async fn main() {
         .create_symmetric_default_key(&key_desc)
         .await
         .unwrap();
+
+    let (grant_id, _grant_token) = kms_manager
+        .create_grant_for_sign_verify(&cmk.id, &identity.role_arn)
+        .await
+        .unwrap();
+
     let dek = kms_manager.generate_data_key(&cmk.id, None).await.unwrap();
 
     let dek_ciphertext_decrypted = kms_manager
@@ -149,6 +162,8 @@ async fn main() {
         &plaintext_sealed_unsealed,
         plaintext.as_bytes()
     ));
+
+    kms_manager.revoke_grant(&cmk.id, &grant_id).await.unwrap();
 
     kms_manager.schedule_to_delete(&cmk.id, 7).await.unwrap();
 
