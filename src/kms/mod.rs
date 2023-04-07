@@ -120,10 +120,10 @@ impl Manager {
         Ok(Key::new(key_id, key_arn))
     }
 
-    /// Creates a KMS grant for Sign and Verify operations.
+    /// Creates a KMS grant for Sign, Verify, and other read operations.
     /// And returns the grant Id and token.
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html>
-    pub async fn create_grant_for_sign_verify(
+    pub async fn create_grant_for_sign_reads(
         &self,
         key_id: &str,
         grantee_principal: &str,
@@ -137,6 +137,8 @@ impl Manager {
             .grantee_principal(grantee_principal)
             .operations(GrantOperation::Sign)
             .operations(GrantOperation::Verify)
+            .operations(GrantOperation::DescribeKey)
+            .operations(GrantOperation::GetPublicKey)
             .send()
             .await
             .map_err(|e| API {

@@ -43,7 +43,7 @@ async fn main() {
         .unwrap();
 
     let (grant_id, _grant_token) = kms_manager
-        .create_grant_for_sign_verify(&cmk.id, &identity.role_arn)
+        .create_grant_for_sign_reads(&cmk.id, &identity.role_arn)
         .await
         .unwrap();
 
