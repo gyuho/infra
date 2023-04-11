@@ -120,15 +120,48 @@ impl Manager {
         Ok(Key::new(key_id, key_arn))
     }
 
+    /// Creates a KMS grant for encrypt and decrypt.
+    /// And returns the grant Id and token.
+    /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html>
+    pub async fn create_grant_for_encrypt_decrypt(
+        &self,
+        key_id: &str,
+        grantee_principal: &str,
+    ) -> Result<(String, String)> {
+        log::info!("creating KMS grant for encrypt and decrypt for the key '{key_id}' on the grantee '{grantee_principal}'");
+
+        let out = self
+            .cli
+            .create_grant()
+            .key_id(key_id)
+            .grantee_principal(grantee_principal)
+            .operations(GrantOperation::Encrypt)
+            .operations(GrantOperation::Decrypt)
+            .operations(GrantOperation::DescribeKey)
+            .send()
+            .await
+            .map_err(|e| API {
+                message: format!("failed create_grant {:?}", e),
+                is_retryable: is_error_retryable(&e) || is_error_retryable_create_grant(&e),
+            })?;
+
+        let grant_id = out.grant_id().unwrap().to_string();
+        let grant_token = out.grant_token().unwrap().to_string();
+        log::info!("created grant Id {grant_id} and token {grant_token}");
+
+        Ok((grant_id, grant_token))
+    }
+
     /// Creates a KMS grant for Sign, Verify, and other read operations.
     /// And returns the grant Id and token.
+    /// Note that "GetPublicKey" are not supported when creating a grant for a symmetric KMS.
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html>
     pub async fn create_grant_for_sign_reads(
         &self,
         key_id: &str,
         grantee_principal: &str,
     ) -> Result<(String, String)> {
-        log::info!("creating KMS ARN/ID grant on {key_id} for {grantee_principal}");
+        log::info!("creating KMS grant for sign and reads for the key '{key_id}' on the grantee '{grantee_principal}'");
 
         let out = self
             .cli
@@ -227,15 +260,16 @@ impl Manager {
     }
 
     /// Signs the 32-byte SHA256 output message with the ECDSA private key and the recoverable code.
+    /// Make sure to use key ARN in case sign happens cross-account with a grant token.
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html>
     pub async fn sign_digest_secp256k1_ecdsa_sha256(
         &self,
-        key_id: &str,
+        key_arn: &str,
         digest: &[u8],
         grant_token: Option<String>,
     ) -> Result<Vec<u8>> {
         log::info!(
-            "secp256k1 signing {}-byte digest message with key Id '{key_id}' (grant token exists {})",
+            "secp256k1 signing {}-byte digest message with key Arn '{key_arn}' (grant token exists {})",
             digest.len(),
             grant_token.is_some()
         );
@@ -247,7 +281,7 @@ impl Manager {
         let mut builder = self
             .cli
             .sign()
-            .key_id(key_id)
+            .key_id(key_arn)
             .message(Blob::new(digest)) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-Message
             .message_type(MessageType::Digest) // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-MessageType
             .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256);
@@ -257,14 +291,15 @@ impl Manager {
 
         // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
         let sign_output = builder.send().await.map_err(|e| {
-            log::debug!(
-                "failed sign; error {}, retryable '{}'",
-                explain_sign_error(&e),
-                is_error_retryable_sign(&e)
-            );
+            let is_retryable = is_error_retryable(&e) || is_error_retryable_sign(&e);
+            if !is_retryable {
+                log::warn!("non-retryable sign error {}", explain_sign_error(&e));
+            } else {
+                log::warn!("retryable sign error {}", explain_sign_error(&e));
+            }
             API {
                 message: e.to_string(),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_sign(&e),
+                is_retryable,
             }
         })?;
 

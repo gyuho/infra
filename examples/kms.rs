@@ -10,7 +10,7 @@ use aws_manager::{
 };
 use tokio::time::{sleep, Duration};
 
-/// cargo run --example kms --features="sts,kms"
+/// cargo run --example kms --features="kms,sts"
 #[tokio::main]
 async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
@@ -37,30 +37,33 @@ async fn main() {
         .await
         .unwrap();
 
-    let cmk = kms_manager
+    let encrypt_key = kms_manager
         .create_symmetric_default_key(&key_desc)
         .await
         .unwrap();
 
     let (grant_id, _grant_token) = kms_manager
-        .create_grant_for_sign_reads(&cmk.id, &identity.role_arn)
+        .create_grant_for_encrypt_decrypt(&encrypt_key.id, &identity.role_arn)
         .await
         .unwrap();
 
-    let dek = kms_manager.generate_data_key(&cmk.id, None).await.unwrap();
+    let dek = kms_manager
+        .generate_data_key(&encrypt_key.id, None)
+        .await
+        .unwrap();
 
     let dek_ciphertext_decrypted = kms_manager
-        .decrypt(&cmk.id, None, dek.ciphertext)
+        .decrypt(&encrypt_key.id, None, dek.ciphertext)
         .await
         .unwrap();
     assert_eq!(dek.plaintext, dek_ciphertext_decrypted);
 
     let dek_plaintext_encrypted = kms_manager
-        .encrypt(&cmk.id, None, dek.plaintext.clone())
+        .encrypt(&encrypt_key.id, None, dek.plaintext.clone())
         .await
         .unwrap();
     let dek_plaintext_encrypted_decrypted = kms_manager
-        .decrypt(&cmk.id, None, dek_plaintext_encrypted)
+        .decrypt(&encrypt_key.id, None, dek_plaintext_encrypted)
         .await
         .unwrap();
     assert_eq!(dek.plaintext, dek_plaintext_encrypted_decrypted);
@@ -75,11 +78,21 @@ async fn main() {
     let decrypted_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
 
     kms_manager
-        .encrypt_file(&cmk.id, None, plaintext_file_path, &encrypted_file_path)
+        .encrypt_file(
+            &encrypt_key.id,
+            None,
+            plaintext_file_path,
+            &encrypted_file_path,
+        )
         .await
         .unwrap();
     kms_manager
-        .decrypt_file(&cmk.id, None, &encrypted_file_path, &decrypted_file_path)
+        .decrypt_file(
+            &encrypt_key.id,
+            None,
+            &encrypted_file_path,
+            &decrypted_file_path,
+        )
         .await
         .unwrap();
 
@@ -103,7 +116,7 @@ async fn main() {
 
     let envelope_manager = Manager::new(
         &kms_manager,
-        cmk.id.clone(),
+        encrypt_key.id.clone(),
         "test-aad-tag".to_string(), // AAD tag
     );
     let sealed_aes_256_file_path = random_manager::tmp_path(10, Some(".encrypted")).unwrap();
@@ -163,12 +176,21 @@ async fn main() {
         plaintext.as_bytes()
     ));
 
-    kms_manager.revoke_grant(&cmk.id, &grant_id).await.unwrap();
+    kms_manager
+        .revoke_grant(&encrypt_key.id, &grant_id)
+        .await
+        .unwrap();
 
-    kms_manager.schedule_to_delete(&cmk.id, 7).await.unwrap();
+    kms_manager
+        .schedule_to_delete(&encrypt_key.id, 7)
+        .await
+        .unwrap();
 
     sleep(Duration::from_secs(2)).await;
 
     // error should be ignored if it's already scheduled for delete
-    kms_manager.schedule_to_delete(&cmk.id, 7).await.unwrap();
+    kms_manager
+        .schedule_to_delete(&encrypt_key.id, 7)
+        .await
+        .unwrap();
 }
