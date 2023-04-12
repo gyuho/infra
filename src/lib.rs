@@ -1,5 +1,8 @@
 pub mod errors;
 
+#[cfg(feature = "acmpca")]
+pub mod acmpca;
+
 #[cfg(feature = "autoscaling")]
 pub mod autoscaling;
 

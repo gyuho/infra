@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.25.5" # https://crates.io/crates/aws-manager/versions
+version = "0.25.6" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.68"
@@ -25,6 +25,7 @@ human-readable = { version = "0.0.1", optional = true }
 random-manager = { version = "0.0.5", optional = true } # https://crates.io/crates/random-manager/versions
 serde = { version = "1.0.160", features = ["derive"], optional = true } # https://github.com/serde-rs/serde/releases
 
+aws-sdk-acmpca = { version = "0.25.1", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-autoscaling = { version = "0.25.1", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-cloudformation = { version = "0.25.1", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
 aws-sdk-ssm = { version = "0.25.1", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
@@ -57,12 +58,14 @@ ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/
 cmp-manager = "0.0.1"
 env_logger = "0.10.0"
 id-manager = "0.0.3"
+random-manager = "0.0.5"
 rust-embed = "6.6.1"
 tempfile = "3.5.0"
 tokio-test = "0.4.2"
 
 [features]
 default = [
+    # "acmpca",
     # "autoscaling",
     # "cloudformation",
     # "cloudwatch",
@@ -73,6 +76,9 @@ default = [
     # "sts",
 ]
 
+acmpca = [
+    "aws-sdk-acmpca",
+]
 autoscaling = [
     "aws-sdk-autoscaling",
 ]
@@ -119,6 +125,11 @@ sts = [
     "aws-sdk-sts",
     "serde",
 ]
+
+
+[[example]]
+name = "acmpca"
+required-features = ["acmpca"]
 
 [[example]]
 name = "cloudformation_ec2_instance_role"
