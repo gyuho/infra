@@ -58,7 +58,6 @@ ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/
 cmp-manager = "0.0.1"
 env_logger = "0.10.0"
 id-manager = "0.0.3"
-random-manager = "0.0.5"
 rust-embed = "6.6.1"
 tempfile = "3.5.0"
 tokio-test = "0.4.2"
@@ -129,7 +128,7 @@ sts = [
 
 [[example]]
 name = "acmpca"
-required-features = ["acmpca"]
+required-features = ["acmpca", "random-manager"]
 
 [[example]]
 name = "cloudformation_ec2_instance_role"
