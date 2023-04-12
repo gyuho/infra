@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    errors::{Error::Other, Result},
+    errors::{Error, Result},
     kms,
 };
 use aws_sdk_kms::types::{DataKeySpec, EncryptionAlgorithmSpec};
@@ -56,13 +56,13 @@ impl<'k> Manager<'k> {
             .generate_data_key(&self.kms_key_id, Some(DataKeySpec::Aes256))
             .await?;
         if dek.plaintext.len() != DEK_AES_256_LENGTH {
-            return Err(Other {
+            return Err(Error::Other {
                 message: format!(
                     "DEK.plaintext for AES_256 must be {}-byte, got {}-byte",
                     DEK_AES_256_LENGTH,
                     dek.plaintext.len()
                 ),
-                is_retryable: false,
+                retryable: false,
             });
         }
 
@@ -71,18 +71,18 @@ impl<'k> Manager<'k> {
         match random.fill(&mut nonce_bytes) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to generate ring.random for nonce ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         }
         let unbound_key = match UnboundKey::new(&AES_256_GCM, &dek.plaintext) {
             Ok(v) => v,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to create UnboundKey ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -97,9 +97,9 @@ impl<'k> Manager<'k> {
         ) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to seal ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         }
@@ -116,9 +116,9 @@ impl<'k> Manager<'k> {
         match encrypted.write_u16::<LittleEndian>(NONCE_LEN as u16) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to write ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         }
@@ -127,9 +127,9 @@ impl<'k> Manager<'k> {
         match encrypted.write_u16::<LittleEndian>(dek.ciphertext.len() as u16) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to write ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         }
@@ -138,9 +138,9 @@ impl<'k> Manager<'k> {
         match encrypted.write_all(&nonce_bytes) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to write ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         }
@@ -149,9 +149,9 @@ impl<'k> Manager<'k> {
         match encrypted.write_all(&dek.ciphertext) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to write ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         }
@@ -160,9 +160,9 @@ impl<'k> Manager<'k> {
         match encrypted.write_all(&cipher) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to write ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         }
@@ -198,36 +198,36 @@ impl<'k> Manager<'k> {
         let nonce_len = match buf.read_u16::<LittleEndian>() {
             Ok(v) => v as usize,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to read_u16 for nonce_len ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
         if nonce_len != NONCE_LEN {
-            return Err(Other {
+            return Err(Error::Other {
                 message: format!("nonce_len {} != NONCE_LEN {}", nonce_len, NONCE_LEN),
-                is_retryable: false,
+                retryable: false,
             });
         }
 
         let dek_ciphertext_len = match buf.read_u16::<LittleEndian>() {
             Ok(v) => v as usize,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to read_u16 for dek_ciphertext_len ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
         if dek_ciphertext_len > d.len() {
-            return Err(Other {
+            return Err(Error::Other {
                 message: format!(
                     "invalid DEK ciphertext len {} > cipher.len {}",
                     dek_ciphertext_len,
                     d.len()
                 ),
-                is_retryable: false,
+                retryable: false,
             });
         }
 
@@ -237,9 +237,9 @@ impl<'k> Manager<'k> {
         match buf.read_exact(&mut nonce_bytes) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to read_exact for nonce_bytes ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -249,9 +249,9 @@ impl<'k> Manager<'k> {
         match buf.read_exact(&mut dek_ciphertext) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to read_exact for DEK.ciphertext ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -267,9 +267,9 @@ impl<'k> Manager<'k> {
         let unbound_key = match UnboundKey::new(&AES_256_GCM, &dek_plain) {
             Ok(v) => v,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to create UnboundKey ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -279,9 +279,9 @@ impl<'k> Manager<'k> {
         match buf.read_to_end(&mut cipher) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to read_to_end for ciphertext ({:?})", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -290,9 +290,9 @@ impl<'k> Manager<'k> {
             match safe_key.open_in_place(nonce, Aad::from(self.aad_tag.clone()), &mut cipher) {
                 Ok(plaintext) => plaintext.to_vec(),
                 Err(e) => {
-                    return Err(Other {
+                    return Err(Error::Other {
                         message: format!("failed to open_in_place ciphertext ({:?})", e),
-                        is_retryable: false,
+                        retryable: false,
                     });
                 }
             };
@@ -314,9 +314,9 @@ impl<'k> Manager<'k> {
         let d = match fs::read(src_file.to_string()) {
             Ok(d) => d,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed read {:?}", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -331,18 +331,18 @@ impl<'k> Manager<'k> {
         let mut f = match File::create(dst_file.to_string()) {
             Ok(f) => f,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed File::create {:?}", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
         match f.write_all(&ciphertext) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed File::write_all {:?}", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -356,9 +356,9 @@ impl<'k> Manager<'k> {
         let d = match fs::read(src_file.to_string()) {
             Ok(d) => d,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed read {:?}", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -373,18 +373,18 @@ impl<'k> Manager<'k> {
         let mut f = match File::create(dst_file.to_string()) {
             Ok(f) => f,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed File::create {:?}", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
         match f.write_all(&plaintext) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed File::write_all {:?}", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -399,9 +399,9 @@ impl<'k> Manager<'k> {
         log::info!("compress-seal: compressing the file '{}'", src_file);
         let compressed_path = random_manager::tmp_path(10, None).unwrap();
         compress_manager::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3))
-            .map_err(|e| Other {
+            .map_err(|e| Error::Other {
                 message: format!("failed compression {}", e),
-                is_retryable: false,
+                retryable: false,
             })?;
 
         log::info!(
@@ -424,9 +424,11 @@ impl<'k> Manager<'k> {
         self.unseal_aes_256_file(src_file, &unsealed_path).await?;
 
         log::info!("unseal-decompress: decompressing the file '{}'", src_file);
-        compress_manager::unpack_file(&unsealed_path, dst_file, Decoder::Zstd).map_err(|e| Other {
-            message: format!("failed decompression {}", e),
-            is_retryable: false,
+        compress_manager::unpack_file(&unsealed_path, dst_file, Decoder::Zstd).map_err(|e| {
+            Error::Other {
+                message: format!("failed decompression {}", e),
+                retryable: false,
+            }
         })
     }
 
@@ -456,9 +458,9 @@ impl<'k> Manager<'k> {
             .put_object(&tmp_compressed_sealed_path, s3_bucket, s3_key)
             .await?;
 
-        fs::remove_file(tmp_compressed_sealed_path).map_err(|e| Other {
+        fs::remove_file(tmp_compressed_sealed_path).map_err(|e| Error::Other {
             message: format!("failed remove_file tmp_compressed_sealed_path: {}", e),
-            is_retryable: false,
+            retryable: false,
         })
     }
 
@@ -489,9 +491,9 @@ impl<'k> Manager<'k> {
         self.unseal_decompress(&tmp_downloaded_path, download_file_path)
             .await?;
 
-        fs::remove_file(tmp_downloaded_path).map_err(|e| Other {
+        fs::remove_file(tmp_downloaded_path).map_err(|e| Error::Other {
             message: format!("failed remove_file tmp_downloaded_path: {}", e),
-            is_retryable: false,
+            retryable: false,
         })
     }
 }

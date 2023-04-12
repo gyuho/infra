@@ -1,7 +1,4 @@
-use crate::errors::{
-    Error::{Other, API},
-    Result,
-};
+use crate::errors::{Error, Result};
 use aws_sdk_cloudformation::{
     operation::{delete_stack::DeleteStackError, describe_stacks::DescribeStacksError},
     types::{Capability, OnFailure, Output, Parameter, StackStatus, Tag},
@@ -52,9 +49,9 @@ impl Manager {
         let resp = match ret {
             Ok(v) => v,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed create_stack {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -77,10 +74,10 @@ impl Manager {
         match ret {
             Ok(_) => {}
             Err(e) => {
-                if !is_error_delete_stack_does_not_exist(&e) {
-                    return Err(API {
+                if !is_err_does_not_exist_delete_stack(&e) {
+                    return Err(Error::API {
                         message: format!("failed schedule_key_deletion {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
                 log::warn!("stack already deleted so returning DeleteComplete status (original error '{}')", e);
@@ -145,24 +142,24 @@ impl Manager {
                 Ok(v) => v.stacks,
                 Err(e) => {
                     // CFN should fail for non-existing stack, instead of returning 0 stack
-                    if is_error_describe_stacks_does_not_exist(&e)
+                    if is_err_does_not_exist_describe_stacks(&e)
                         && desired_status.eq(&StackStatus::DeleteComplete)
                     {
                         log::info!("stack already deleted as desired");
                         return Ok(Stack::new(stack_name, "", desired_status, None));
                     }
-                    return Err(API {
+                    return Err(Error::API {
                         message: format!("failed describe_stacks {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
             };
             let stacks = stacks.unwrap();
             if stacks.len() != 1 {
                 // CFN should fail for non-existing stack, instead of returning 0 stack
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("failed to find stack"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
 
@@ -178,51 +175,51 @@ impl Manager {
             if desired_status.eq(&StackStatus::CreateComplete)
                 && current_stack_status.eq(&StackStatus::CreateFailed)
             {
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("stack create failed"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
             if desired_status.eq(&StackStatus::CreateComplete)
                 && current_stack_status.eq(&StackStatus::DeleteInProgress)
             {
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("stack create failed, being deleted"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
             if desired_status.eq(&StackStatus::CreateComplete)
                 && current_stack_status.eq(&StackStatus::DeleteComplete)
             {
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("stack create failed, already deleted"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
 
             if desired_status.ne(&StackStatus::DeleteComplete) // create or update
                 && current_stack_status.eq(&StackStatus::DeleteInProgress)
             {
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("stack create/update failed, being deleted"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
             if desired_status.ne(&StackStatus::DeleteComplete) // create or update
                 && current_stack_status.eq(&StackStatus::DeleteComplete)
             {
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("stack create/update failed, already deleted"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
 
             if desired_status.eq(&StackStatus::DeleteComplete)
                 && current_stack_status.eq(&StackStatus::DeleteFailed)
             {
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("stack delete failed"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
 
@@ -243,9 +240,9 @@ impl Manager {
             cnt += 1;
         }
 
-        Err(Other {
+        Err(Error::Other {
             message: format!("failed to poll stack {} in time", stack_name),
-            is_retryable: true,
+            retryable: true,
         })
     }
 }
@@ -272,7 +269,7 @@ impl Stack {
 }
 
 #[inline]
-pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -281,7 +278,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-fn is_error_delete_stack_does_not_exist(e: &SdkError<DeleteStackError>) -> bool {
+fn is_err_does_not_exist_delete_stack(e: &SdkError<DeleteStackError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
@@ -292,7 +289,7 @@ fn is_error_delete_stack_does_not_exist(e: &SdkError<DeleteStackError>) -> bool 
 }
 
 #[inline]
-fn is_error_describe_stacks_does_not_exist(e: &SdkError<DescribeStacksError>) -> bool {
+fn is_err_does_not_exist_describe_stacks(e: &SdkError<DescribeStacksError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);

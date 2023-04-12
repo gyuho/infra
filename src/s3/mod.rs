@@ -1,9 +1,6 @@
 use std::{fs, path::Path};
 
-use crate::errors::{
-    Error::{Other, API},
-    Result,
-};
+use crate::errors::{Error, Result};
 use aws_sdk_s3::{
     operation::{
         create_bucket::CreateBucketError, delete_bucket::DeleteBucketError,
@@ -64,10 +61,10 @@ impl Manager {
         let already_created = match ret {
             Ok(_) => false,
             Err(e) => {
-                if !is_error_bucket_already_exist(&e) {
-                    return Err(API {
+                if !is_err_already_exists_bucket(&e) {
+                    return Err(Error::API {
                         message: format!("failed create_bucket {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
                 log::warn!(
@@ -95,9 +92,9 @@ impl Manager {
             .public_access_block_configuration(public_access_block_cfg)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed put_public_access_block {}", e),
-                is_retryable: is_error_retryable(&e),
+                retryable: is_err_retryable(&e),
             })?;
 
         let algo = ServerSideEncryption::Aes256;
@@ -116,9 +113,9 @@ impl Manager {
             .server_side_encryption_configuration(server_side_encryption_cfg)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed put_bucket_encryption {}", e),
-                is_retryable: is_error_retryable(&e),
+                retryable: is_err_retryable(&e),
             })?;
 
         Ok(())
@@ -135,10 +132,10 @@ impl Manager {
         match ret {
             Ok(_) => {}
             Err(e) => {
-                if !is_error_bucket_does_not_exist(&e) {
-                    return Err(API {
+                if !is_err_does_not_exist_bucket(&e) {
+                    return Err(Error::API {
                         message: format!("failed delete_bucket {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
                 log::warn!("bucket already deleted or does not exist ({})", e);
@@ -185,9 +182,9 @@ impl Manager {
             match ret {
                 Ok(_) => {}
                 Err(e) => {
-                    return Err(API {
+                    return Err(Error::API {
                         message: format!("failed delete_bucket {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
             };
@@ -236,9 +233,9 @@ impl Manager {
             let ret = match builder.send().await {
                 Ok(r) => r,
                 Err(e) => {
-                    return Err(API {
+                    return Err(Error::API {
                         message: format!("failed list_objects_v2 {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
             };
@@ -252,9 +249,9 @@ impl Manager {
             for obj in contents.iter() {
                 let k = obj.key().unwrap_or("");
                 if k.is_empty() {
-                    return Err(API {
+                    return Err(Error::API {
                         message: String::from("empty key returned"),
-                        is_retryable: false,
+                        retryable: false,
                     });
                 }
                 log::debug!("listing [{}]", k);
@@ -304,15 +301,15 @@ impl Manager {
     /// ref. https://tokio.rs/tokio/tutorial/spawning
     pub async fn put_object(&self, file_path: &str, s3_bucket: &str, s3_key: &str) -> Result<()> {
         if !Path::new(file_path).exists() {
-            return Err(Other {
+            return Err(Error::Other {
                 message: format!("file path {} does not exist", file_path),
-                is_retryable: false,
+                retryable: false,
             });
         }
 
-        let meta = fs::metadata(file_path).map_err(|e| Other {
+        let meta = fs::metadata(file_path).map_err(|e| Error::Other {
             message: format!("failed metadata {}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
         let size = meta.len() as f64;
         log::info!(
@@ -325,9 +322,9 @@ impl Manager {
 
         let byte_stream = ByteStream::from_path(Path::new(file_path))
             .await
-            .map_err(|e| Other {
+            .map_err(|e| Error::Other {
                 message: format!("failed ByteStream::from_file {}", e),
-                is_retryable: false,
+                retryable: false,
             })?;
         self.cli
             .put_object()
@@ -337,9 +334,9 @@ impl Manager {
             .acl(ObjectCannedAcl::Private)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed put_object {}", e),
-                is_retryable: is_error_retryable(&e),
+                retryable: is_err_retryable(&e),
             })?;
 
         Ok(())
@@ -356,15 +353,15 @@ impl Manager {
             .await;
 
         if let Some(e) = res.as_ref().err() {
-            if is_error_head_not_found(e) {
+            if is_err_head_not_found(e) {
                 log::info!("{s3_key} not found");
                 return Ok(false);
             }
 
             log::warn!("failed to head {s3_key} {}", e);
-            return Err(API {
+            return Err(Error::API {
                 message: format!("failed head_object {}", e),
-                is_retryable: is_error_retryable(e),
+                retryable: is_err_retryable(e),
             });
         }
 
@@ -391,9 +388,9 @@ impl Manager {
     /// ref. https://tokio.rs/tokio/tutorial/spawning
     pub async fn get_object(&self, s3_bucket: &str, s3_key: &str, file_path: &str) -> Result<()> {
         if Path::new(file_path).exists() {
-            return Err(Other {
+            return Err(Error::Other {
                 message: format!("file path {} already exists", file_path),
-                is_retryable: false,
+                retryable: false,
             });
         }
 
@@ -404,9 +401,9 @@ impl Manager {
             .key(s3_key.to_string())
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed head_object {}", e),
-                is_retryable: is_error_retryable(&e),
+                retryable: is_err_retryable(&e),
             })?;
 
         log::info!(
@@ -423,30 +420,30 @@ impl Manager {
             .key(s3_key.to_string())
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed get_object {}", e),
-                is_retryable: is_error_retryable(&e),
+                retryable: is_err_retryable(&e),
             })?;
 
         // ref. https://docs.rs/tokio-stream/latest/tokio_stream/
-        let mut file = File::create(file_path).await.map_err(|e| Other {
+        let mut file = File::create(file_path).await.map_err(|e| Error::Other {
             message: format!("failed File::create {}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
 
         log::info!("writing byte stream to file {}", file_path);
-        while let Some(d) = output.body.try_next().await.map_err(|e| Other {
+        while let Some(d) = output.body.try_next().await.map_err(|e| Error::Other {
             message: format!("failed ByteStream::try_next {}", e),
-            is_retryable: false,
+            retryable: false,
         })? {
-            file.write_all(&d).await.map_err(|e| API {
+            file.write_all(&d).await.map_err(|e| Error::API {
                 message: format!("failed File.write_all {}", e),
-                is_retryable: false,
+                retryable: false,
             })?;
         }
-        file.flush().await.map_err(|e| Other {
+        file.flush().await.map_err(|e| Error::Other {
             message: format!("failed File.flush {}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
 
         Ok(())
@@ -454,7 +451,7 @@ impl Manager {
 }
 
 #[inline]
-pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -463,7 +460,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-fn is_error_bucket_already_exist(e: &SdkError<CreateBucketError>) -> bool {
+fn is_err_already_exists_bucket(e: &SdkError<CreateBucketError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_bucket_already_exists() || err.err().is_bucket_already_owned_by_you()
@@ -473,7 +470,7 @@ fn is_error_bucket_already_exist(e: &SdkError<CreateBucketError>) -> bool {
 }
 
 #[inline]
-fn is_error_bucket_does_not_exist(e: &SdkError<DeleteBucketError>) -> bool {
+fn is_err_does_not_exist_bucket(e: &SdkError<DeleteBucketError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
@@ -484,7 +481,7 @@ fn is_error_bucket_does_not_exist(e: &SdkError<DeleteBucketError>) -> bool {
 }
 
 #[inline]
-fn is_error_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
+fn is_err_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found(),
         _ => false,

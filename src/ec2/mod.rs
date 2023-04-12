@@ -4,14 +4,11 @@ pub mod metadata;
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{self, Error, ErrorKind, Write},
+    io::{self, Write},
     path::Path,
 };
 
-use crate::errors::{
-    Error::{Other, API},
-    Result,
-};
+use crate::errors::{Error, Result};
 use aws_sdk_ec2::{
     operation::delete_key_pair::DeleteKeyPairError,
     types::{
@@ -221,8 +218,8 @@ pub fn default_instance_types(
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        _ => Err(Error::new(
-            ErrorKind::InvalidInput,
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
             format!("unknown region '{region}' and arch '{arch}'"),
         )),
     }
@@ -248,9 +245,9 @@ impl Manager {
     pub async fn create_key_pair(&self, key_name: &str, key_path: &str) -> Result<()> {
         let path = Path::new(key_path);
         if path.exists() {
-            return Err(Other {
+            return Err(Error::Other {
                 message: format!("key path {} already exists", key_path),
-                is_retryable: false,
+                retryable: false,
             });
         }
 
@@ -259,9 +256,9 @@ impl Manager {
         let resp = match ret {
             Ok(v) => v,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed create_key_pair {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -276,18 +273,18 @@ impl Manager {
         let mut f = match File::create(&path) {
             Ok(f) => f,
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to create file {:?}", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
         match f.write_all(key_material.as_bytes()) {
             Ok(_) => {}
             Err(e) => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: format!("failed to write file {:?}", e),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         }
@@ -302,10 +299,10 @@ impl Manager {
         match ret {
             Ok(_) => {}
             Err(e) => {
-                if !is_error_delete_key_pair_does_not_exist(&e) {
-                    return Err(API {
+                if !is_err_does_not_exist_delete_key_pair(&e) {
+                    return Err(Error::API {
                         message: format!("failed delete_key_pair {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
                 log::warn!("key already deleted ({})", e);
@@ -328,9 +325,9 @@ impl Manager {
         {
             Ok(r) => r,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed describe_volumes {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -412,12 +409,12 @@ impl Manager {
             cnt += 1;
         }
 
-        Err(Other {
+        Err(Error::Other {
             message: format!(
                 "failed to poll volume state for '{}' in time",
                 ebs_volume_id
             ),
-            is_retryable: true,
+            retryable: true,
         })
     }
 
@@ -558,12 +555,12 @@ impl Manager {
             cnt += 1;
         }
 
-        Err(Other {
+        Err(Error::Other {
             message: format!(
                 "failed to poll volume attachment state for '{}' in time",
                 local_ec2_instance_id
             ),
-            is_retryable: true,
+            retryable: true,
         })
     }
 
@@ -583,9 +580,9 @@ impl Manager {
         let resp = match ret {
             Ok(r) => r,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed describe_instances {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -593,31 +590,31 @@ impl Manager {
         let reservations = match resp.reservations {
             Some(rvs) => rvs,
             None => {
-                return Err(API {
+                return Err(Error::API {
                     message: String::from("empty reservation from describe_instances response"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
         if reservations.len() != 1 {
-            return Err(API {
+            return Err(Error::API {
                 message: format!(
                     "expected only 1 reservation from describe_instances response but got {}",
                     reservations.len()
                 ),
-                is_retryable: false,
+                retryable: false,
             });
         }
 
         let rvs = reservations.get(0).unwrap();
         let instances = rvs.instances.to_owned().unwrap();
         if instances.len() != 1 {
-            return Err(API {
+            return Err(Error::API {
                 message: format!(
                     "expected only 1 instance from describe_instances response but got {}",
                     instances.len()
                 ),
-                is_retryable: false,
+                retryable: false,
             });
         }
 
@@ -625,9 +622,9 @@ impl Manager {
         let tags = match instance.tags.to_owned() {
             Some(ss) => ss,
             None => {
-                return Err(API {
+                return Err(Error::API {
                     message: String::from("empty tags from describe_instances response"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -651,9 +648,9 @@ impl Manager {
         {
             Ok(r) => r,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed describe_instances {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -698,9 +695,9 @@ impl Manager {
         {
             Ok(r) => r,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed allocate_address {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -735,9 +732,9 @@ impl Manager {
         {
             Ok(r) => r,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed associate_address {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -768,9 +765,9 @@ impl Manager {
         {
             Ok(r) => r,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed describe_addresses {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -810,9 +807,9 @@ impl Manager {
         {
             Ok(r) => r,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed describe_addresses {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -878,9 +875,9 @@ impl Manager {
             {
                 Ok(r) => r,
                 Err(e) => {
-                    return Err(API {
+                    return Err(Error::API {
                         message: format!("failed describe_addresses {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
             };
@@ -897,11 +894,11 @@ impl Manager {
             cnt += 1;
         }
 
-        Err(Other {
+        Err(Error::Other {
             message: format!(
                 "failed to poll describe_address elastic IP association Id {association_id} for EC2 instance {instance_id} in time",
             ),
-            is_retryable: true,
+            retryable: true,
         })
     }
 }
@@ -1010,7 +1007,7 @@ impl Droplet {
 }
 
 #[inline]
-pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -1020,7 +1017,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 
 /// EC2 does not return any error for non-existing key deletes, just in case...
 #[inline]
-fn is_error_delete_key_pair_does_not_exist(e: &SdkError<DeleteKeyPairError>) -> bool {
+fn is_err_does_not_exist_delete_key_pair(e: &SdkError<DeleteKeyPairError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
@@ -1046,8 +1043,8 @@ impl Eip {
         fs::create_dir_all(parent_dir)?;
 
         let d = serde_yaml::to_string(self).map_err(|e| {
-            Error::new(
-                ErrorKind::Other,
+            io::Error::new(
+                io::ErrorKind::Other,
                 format!("failed to serialize Eip spec info to YAML {}", e),
             )
         })?;
@@ -1063,21 +1060,22 @@ impl Eip {
         log::info!("loading Eip spec from {}", file_path);
 
         if !Path::new(file_path).exists() {
-            return Err(Error::new(
-                ErrorKind::NotFound,
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
                 format!("file {} does not exists", file_path),
             ));
         }
 
         let f = File::open(file_path).map_err(|e| {
-            Error::new(
-                ErrorKind::Other,
+            io::Error::new(
+                io::ErrorKind::Other,
                 format!("failed to open {} ({})", file_path, e),
             )
         })?;
 
-        serde_yaml::from_reader(f)
-            .map_err(|e| Error::new(ErrorKind::InvalidInput, format!("invalid YAML: {}", e)))
+        serde_yaml::from_reader(f).map_err(|e| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid YAML: {}", e))
+        })
     }
 }
 

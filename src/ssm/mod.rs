@@ -1,7 +1,4 @@
-use crate::errors::{
-    Error::{Other, API},
-    Result,
-};
+use crate::errors::{Error, Result};
 use aws_sdk_ssm::{types::CommandInvocationStatus, Client};
 use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
@@ -67,9 +64,9 @@ impl Manager {
             let out = match ret {
                 Ok(v) => v,
                 Err(e) => {
-                    return Err(API {
+                    return Err(Error::API {
                         message: format!("failed get_command_invocation {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
             };
@@ -84,9 +81,9 @@ impl Manager {
             if desired_status.ne(&CommandInvocationStatus::Failed)
                 && current_status.eq(&CommandInvocationStatus::Failed)
             {
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("command invocation failed"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
 
@@ -97,15 +94,15 @@ impl Manager {
             cnt += 1;
         }
 
-        Err(Other {
+        Err(Error::Other {
             message: format!("failed to get command invocation {} in time", command_id),
-            is_retryable: true,
+            retryable: true,
         })
     }
 }
 
 #[inline]
-pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),

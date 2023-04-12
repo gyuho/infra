@@ -1,11 +1,11 @@
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::{self, Error, ErrorKind, Write},
+    io::{self, Write},
     path::Path,
 };
 
-use crate::errors::{Error::API, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_cloudwatch::{types::MetricDatum, Client as MetricsClient};
 use aws_sdk_cloudwatchlogs::{
     operation::{create_log_group::CreateLogGroupError, delete_log_group::DeleteLogGroupError},
@@ -77,9 +77,9 @@ impl Manager {
                     log::info!("successfully post metrics");
                 }
                 Err(e) => {
-                    return Err(API {
+                    return Err(Error::API {
                         message: format!("failed put_metric_data {:?}", e),
-                        is_retryable: is_metrics_error_retryable(&e),
+                        retryable: is_err_retryable_put_metrics_data(&e),
                     });
                 }
             };
@@ -104,9 +104,9 @@ impl Manager {
                         log::info!("successfully post {} metrics in batch", batch_n);
                     }
                     Err(e) => {
-                        return Err(API {
+                        return Err(Error::API {
                             message: format!("failed put_metric_data {:?}", e),
-                            is_retryable: is_metrics_error_retryable(&e),
+                            retryable: is_err_retryable_put_metrics_data(&e),
                         });
                     }
                 }
@@ -130,10 +130,10 @@ impl Manager {
         let already_created = match ret {
             Ok(_) => false,
             Err(e) => {
-                if !is_logs_error_create_log_group_already_exists(&e) {
-                    return Err(API {
+                if !is_err_already_exists_create_log_group(&e) {
+                    return Err(Error::API {
                         message: format!("failed create_log_group {:?}", e),
-                        is_retryable: is_logs_error_retryable(&e),
+                        retryable: is_err_retryable_create_log_group(&e),
                     });
                 }
                 log::warn!("log_group already exists ({})", e);
@@ -160,7 +160,7 @@ impl Manager {
             Ok(_) => true,
             Err(e) => {
                 let mut ignore_err: bool = false;
-                if is_logs_error_delete_log_group_does_not_exist(&e) {
+                if is_err_does_not_exist_delete_log_group(&e) {
                     log::warn!(
                         "delete_log_group failed; '{}' does not exist ({}",
                         log_group_name,
@@ -169,9 +169,9 @@ impl Manager {
                     ignore_err = true
                 }
                 if !ignore_err {
-                    return Err(API {
+                    return Err(Error::API {
                         message: format!("failed delete_log_group {:?}", e),
-                        is_retryable: is_logs_error_retryable(&e),
+                        retryable: is_err_retryable_create_log_group(&e),
                     });
                 }
                 false
@@ -185,7 +185,7 @@ impl Manager {
 }
 
 #[inline]
-pub fn is_metrics_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable_put_metrics_data<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -194,7 +194,7 @@ pub fn is_metrics_error_retryable<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-pub fn is_logs_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable_create_log_group<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -203,7 +203,7 @@ pub fn is_logs_error_retryable<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-fn is_logs_error_create_log_group_already_exists(e: &SdkError<CreateLogGroupError>) -> bool {
+fn is_err_already_exists_create_log_group(e: &SdkError<CreateLogGroupError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_resource_already_exists_exception(),
         _ => false,
@@ -211,7 +211,7 @@ fn is_logs_error_create_log_group_already_exists(e: &SdkError<CreateLogGroupErro
 }
 
 #[inline]
-fn is_logs_error_delete_log_group_does_not_exist(e: &SdkError<DeleteLogGroupError>) -> bool {
+fn is_err_does_not_exist_delete_log_group(e: &SdkError<DeleteLogGroupError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_resource_not_found_exception(),
         _ => false,
@@ -657,8 +657,8 @@ impl Config {
     pub fn encode_json(&self) -> io::Result<String> {
         match serde_json::to_string(&self) {
             Ok(s) => Ok(s),
-            Err(e) => Err(Error::new(
-                ErrorKind::Other,
+            Err(e) => Err(io::Error::new(
+                io::ErrorKind::Other,
                 format!("failed to serialize Config to YAML {}", e),
             )),
         }
@@ -676,8 +676,8 @@ impl Config {
         let d = match ret {
             Ok(d) => d,
             Err(e) => {
-                return Err(Error::new(
-                    ErrorKind::Other,
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
                     format!("failed to serialize Config to YAML {}", e),
                 ));
             }
@@ -693,20 +693,21 @@ impl Config {
         log::info!("loading CloudWatch config from {}", file_path);
 
         if !Path::new(file_path).exists() {
-            return Err(Error::new(
-                ErrorKind::NotFound,
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
                 format!("file {} does not exists", file_path),
             ));
         }
 
         let f = File::open(&file_path).map_err(|e| {
-            Error::new(
-                ErrorKind::Other,
+            io::Error::new(
+                io::ErrorKind::Other,
                 format!("failed to open {} ({})", file_path, e),
             )
         })?;
-        serde_json::from_reader(f)
-            .map_err(|e| Error::new(ErrorKind::InvalidInput, format!("invalid JSON: {}", e)))
+        serde_json::from_reader(f).map_err(|e| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid JSON: {}", e))
+        })
     }
 
     /// Validates the configuration.

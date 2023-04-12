@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::errors::{Error::API, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_acmpca::{
     operation::delete_certificate_authority::DeleteCertificateAuthorityError,
     types::{
@@ -68,9 +68,9 @@ impl Manager {
         let resp = match ret {
             Ok(v) => v,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed create_certificate_authority {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -93,17 +93,17 @@ impl Manager {
         match ret {
             Ok(_) => log::info!("successfully deleted the private CA"),
             Err(e) => {
-                if is_error_not_found_delete_certificate_authority(&e) {
+                if is_err_not_found_delete_certificate_authority(&e) {
                     log::warn!(
                         "private CA '{arn}' not found thus no need to delete ({})",
                         e
                     );
                     return Ok(());
                 }
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed delete_certificate_authority {:?}", e),
-                    is_retryable: is_error_retryable(&e)
-                        || is_error_retryable_delete_certificate_authority(&e),
+                    retryable: is_err_retryable(&e)
+                        || is_err_retryable_delete_certificate_authority(&e),
                 });
             }
         };
@@ -123,9 +123,9 @@ impl Manager {
         let resp = match ret {
             Ok(v) => v,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed describe_certificate_authority {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -164,9 +164,9 @@ impl Manager {
         let resp = match ret {
             Ok(v) => v,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed issue_certificate {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -177,7 +177,7 @@ impl Manager {
 }
 
 #[inline]
-pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -186,7 +186,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-pub fn is_error_retryable_delete_certificate_authority(
+pub fn is_err_retryable_delete_certificate_authority(
     e: &SdkError<DeleteCertificateAuthorityError>,
 ) -> bool {
     match e {
@@ -196,7 +196,7 @@ pub fn is_error_retryable_delete_certificate_authority(
 }
 
 #[inline]
-pub fn is_error_not_found_delete_certificate_authority(
+pub fn is_err_not_found_delete_certificate_authority(
     e: &SdkError<DeleteCertificateAuthorityError>,
 ) -> bool {
     match e {

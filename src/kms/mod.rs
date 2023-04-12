@@ -6,10 +6,7 @@ use std::{
     io::Write,
 };
 
-use crate::errors::{
-    Error::{Other, API},
-    Result,
-};
+use crate::errors::{Error, Result};
 use aws_config::retry::ProvideErrorKind;
 use aws_sdk_kms::{
     operation::{
@@ -94,17 +91,17 @@ impl Manager {
             }
         }
 
-        let resp = req.send().await.map_err(|e| API {
+        let resp = req.send().await.map_err(|e| Error::API {
             message: format!("failed create_key {:?}", e),
-            is_retryable: is_error_retryable(&e) || is_error_retryable_create_key(&e),
+            retryable: is_err_retryable(&e) || is_err_retryable_create_key(&e),
         })?;
 
         let meta = match resp.key_metadata() {
             Some(v) => v,
             None => {
-                return Err(Other {
+                return Err(Error::Other {
                     message: String::from("unexpected empty key metadata"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -140,9 +137,9 @@ impl Manager {
             .operations(GrantOperation::DescribeKey)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed create_grant {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_create_grant(&e),
+                retryable: is_err_retryable(&e) || is_err_retryable_create_grant(&e),
             })?;
 
         let grant_id = out.grant_id().unwrap().to_string();
@@ -174,9 +171,9 @@ impl Manager {
             .operations(GrantOperation::GetPublicKey)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed create_grant {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_create_grant(&e),
+                retryable: is_err_retryable(&e) || is_err_retryable_create_grant(&e),
             })?;
 
         let grant_id = out.grant_id().unwrap().to_string();
@@ -197,9 +194,9 @@ impl Manager {
             .grant_id(grant_id)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed revoke_grant {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_revoke_grant(&e),
+                retryable: is_err_retryable(&e) || is_err_retryable_revoke_grant(&e),
             })?;
 
         Ok(())
@@ -214,9 +211,9 @@ impl Manager {
             .key_id(key_arn)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed describe_key {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_describe_key(&e),
+                retryable: is_err_retryable(&e) || is_err_retryable_describe_key(&e),
             })?;
 
         let key_id = desc.key_metadata().unwrap().key_id().unwrap().to_string();
@@ -238,9 +235,9 @@ impl Manager {
             .key_id(key_arn)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed get_public_key {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_get_public_key(&e),
+                retryable: is_err_retryable(&e) || is_err_retryable_get_public_key(&e),
             })?;
 
         Ok(out)
@@ -291,15 +288,15 @@ impl Manager {
 
         // ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html
         let sign_output = builder.send().await.map_err(|e| {
-            let is_retryable = is_error_retryable(&e) || is_error_retryable_sign(&e);
-            if !is_retryable {
+            let retryable = is_err_retryable(&e) || is_err_retryable_sign(&e);
+            if !retryable {
                 log::warn!("non-retryable sign error {}", explain_sign_error(&e));
             } else {
                 log::warn!("retryable sign error {}", explain_sign_error(&e));
             }
-            API {
+            Error::API {
                 message: e.to_string(),
-                is_retryable,
+                retryable,
             }
         })?;
 
@@ -312,9 +309,9 @@ impl Manager {
             return Ok(Vec::from(sig));
         }
 
-        return Err(API {
+        return Err(Error::API {
             message: String::from("signature blob not found"),
-            is_retryable: false,
+            retryable: false,
         });
     }
 
@@ -339,18 +336,18 @@ impl Manager {
             Ok(_) => true,
             Err(e) => {
                 let mut ignore_err: bool = false;
-                if is_error_schedule_key_deletion_does_not_exist(&e) {
+                if is_err_does_not_exist_schedule_key_deletion(&e) {
                     log::warn!("KMS CMK '{key_arn}' does not exist");
                     ignore_err = true
                 }
-                if is_error_schedule_key_deletion_already_scheduled(&e) {
+                if is_err_schedule_key_deletion_already_scheduled(&e) {
                     log::warn!("KMS CMK '{key_arn}' already scheduled for deletion");
                     ignore_err = true
                 }
                 if !ignore_err {
-                    return Err(API {
+                    return Err(Error::API {
                         message: format!("failed schedule_key_deletion {:?}", e),
-                        is_retryable: is_error_retryable(&e),
+                        retryable: is_err_retryable(&e),
                     });
                 }
                 false
@@ -388,17 +385,17 @@ impl Manager {
             .encryption_algorithm(key_spec)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed encrypt {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_encrypt(&e),
+                retryable: is_err_retryable(&e) || is_err_retryable_encrypt(&e),
             })?;
 
         let ciphertext = match resp.ciphertext_blob() {
             Some(v) => v,
             None => {
-                return Err(API {
+                return Err(Error::API {
                     message: String::from("EncryptOutput.ciphertext_blob not found"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -435,17 +432,17 @@ impl Manager {
             .encryption_algorithm(key_spec)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed decrypt {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_decrypt(&e),
+                retryable: is_err_retryable(&e) || is_err_retryable_decrypt(&e),
             })?;
 
         let plaintext = match resp.plaintext() {
             Some(v) => v,
             None => {
-                return Err(API {
+                return Err(Error::API {
                     message: String::from("DecryptOutput.plaintext not found"),
-                    is_retryable: false,
+                    retryable: false,
                 });
             }
         };
@@ -467,18 +464,18 @@ impl Manager {
         dst_file: &str,
     ) -> Result<()> {
         log::info!("encrypting file {} to {}", src_file, dst_file);
-        let d = fs::read(src_file).map_err(|e| Other {
+        let d = fs::read(src_file).map_err(|e| Error::Other {
             message: format!("failed read {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
         let ciphertext = self.encrypt(key_id, spec, d).await?;
-        let mut f = File::create(dst_file).map_err(|e| Other {
+        let mut f = File::create(dst_file).map_err(|e| Error::Other {
             message: format!("failed File::create {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
-        f.write_all(&ciphertext).map_err(|e| Other {
+        f.write_all(&ciphertext).map_err(|e| Error::Other {
             message: format!("failed File::write_all {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })
     }
 
@@ -491,18 +488,18 @@ impl Manager {
         dst_file: &str,
     ) -> Result<()> {
         log::info!("decrypting file {} to {}", src_file, dst_file);
-        let d = fs::read(src_file).map_err(|e| Other {
+        let d = fs::read(src_file).map_err(|e| Error::Other {
             message: format!("failed read {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
         let plaintext = self.decrypt(key_id, spec, d).await?;
-        let mut f = File::create(dst_file).map_err(|e| Other {
+        let mut f = File::create(dst_file).map_err(|e| Error::Other {
             message: format!("failed File::create {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
-        f.write_all(&plaintext).map_err(|e| Other {
+        f.write_all(&plaintext).map_err(|e| Error::Other {
             message: format!("failed File::write_all {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })
     }
 
@@ -524,9 +521,9 @@ impl Manager {
             .key_spec(dek_spec)
             .send()
             .await
-            .map_err(|e| API {
+            .map_err(|e| Error::API {
                 message: format!("failed generate_data_key {:?}", e),
-                is_retryable: is_error_retryable(&e) || is_error_retryable_generate_data_key(&e),
+                retryable: is_err_retryable(&e) || is_err_retryable_generate_data_key(&e),
             })?;
 
         let cipher = resp.ciphertext_blob().unwrap();
@@ -556,7 +553,7 @@ impl Key {
 }
 
 #[inline]
-pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -565,7 +562,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-pub fn is_error_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
+pub fn is_err_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
@@ -575,7 +572,7 @@ pub fn is_error_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
 }
 
 #[inline]
-pub fn is_error_retryable_create_grant(e: &SdkError<CreateGrantError>) -> bool {
+pub fn is_err_retryable_create_grant(e: &SdkError<CreateGrantError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
@@ -585,7 +582,7 @@ pub fn is_error_retryable_create_grant(e: &SdkError<CreateGrantError>) -> bool {
 }
 
 #[inline]
-pub fn is_error_retryable_revoke_grant(e: &SdkError<RevokeGrantError>) -> bool {
+pub fn is_err_retryable_revoke_grant(e: &SdkError<RevokeGrantError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
@@ -595,7 +592,7 @@ pub fn is_error_retryable_revoke_grant(e: &SdkError<RevokeGrantError>) -> bool {
 }
 
 #[inline]
-pub fn is_error_retryable_describe_key(e: &SdkError<DescribeKeyError>) -> bool {
+pub fn is_err_retryable_describe_key(e: &SdkError<DescribeKeyError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
@@ -606,7 +603,7 @@ pub fn is_error_retryable_describe_key(e: &SdkError<DescribeKeyError>) -> bool {
 
 /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html>
 #[inline]
-pub fn is_error_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> bool {
+pub fn is_err_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -618,7 +615,7 @@ pub fn is_error_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> boo
 }
 
 #[inline]
-pub fn is_error_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) -> bool {
+pub fn is_err_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -630,7 +627,7 @@ pub fn is_error_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) 
 }
 
 #[inline]
-pub fn is_error_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
+pub fn is_err_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -642,7 +639,7 @@ pub fn is_error_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
 }
 
 #[inline]
-pub fn is_error_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
+pub fn is_err_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -654,7 +651,7 @@ pub fn is_error_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
 }
 
 #[inline]
-fn is_error_schedule_key_deletion_does_not_exist(e: &SdkError<ScheduleKeyDeletionError>) -> bool {
+fn is_err_does_not_exist_schedule_key_deletion(e: &SdkError<ScheduleKeyDeletionError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found_exception(),
         _ => false,
@@ -662,9 +659,7 @@ fn is_error_schedule_key_deletion_does_not_exist(e: &SdkError<ScheduleKeyDeletio
 }
 
 #[inline]
-fn is_error_schedule_key_deletion_already_scheduled(
-    e: &SdkError<ScheduleKeyDeletionError>,
-) -> bool {
+fn is_err_schedule_key_deletion_already_scheduled(e: &SdkError<ScheduleKeyDeletionError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
@@ -676,7 +671,7 @@ fn is_error_schedule_key_deletion_already_scheduled(
 
 /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-SigningAlgorithm>
 #[inline]
-pub fn is_error_retryable_sign(e: &SdkError<SignError>) -> bool {
+pub fn is_err_retryable_sign(e: &SdkError<SignError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()

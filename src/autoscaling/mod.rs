@@ -1,4 +1,4 @@
-use crate::errors::{Error::API, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_autoscaling::{operation::set_instance_health::SetInstanceHealthError, Client};
 use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
@@ -35,10 +35,9 @@ impl Manager {
         let resp = match ret {
             Ok(v) => v,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed set_instance_health {:?}", e),
-                    is_retryable: is_error_retryable(&e)
-                        || is_error_retryable_set_instance_health(&e),
+                    retryable: is_err_retryable(&e) || is_err_retryable_set_instance_health(&e),
                 });
             }
         };
@@ -54,7 +53,7 @@ impl Manager {
 }
 
 #[inline]
-pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -63,7 +62,7 @@ pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-pub fn is_error_retryable_set_instance_health(e: &SdkError<SetInstanceHealthError>) -> bool {
+pub fn is_err_retryable_set_instance_health(e: &SdkError<SetInstanceHealthError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_resource_contention_fault(),
         _ => false,

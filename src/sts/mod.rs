@@ -1,4 +1,4 @@
-use crate::errors::{Error::API, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_sts::Client;
 use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
@@ -26,9 +26,9 @@ impl Manager {
         let resp = match ret {
             Ok(v) => v,
             Err(e) => {
-                return Err(API {
+                return Err(Error::API {
                     message: format!("failed get_caller_identity {:?}", e),
-                    is_retryable: is_error_retryable(&e),
+                    retryable: is_err_retryable(&e),
                 });
             }
         };
@@ -61,7 +61,7 @@ impl Identity {
 }
 
 #[inline]
-pub fn is_error_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),

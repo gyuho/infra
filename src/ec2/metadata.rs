@@ -1,7 +1,4 @@
-use crate::errors::{
-    Error::{Other, API},
-    Result,
-};
+use crate::errors::{Error, Result};
 use chrono::{DateTime, Utc};
 use reqwest::ClientBuilder;
 use serde::{Deserialize, Serialize};
@@ -40,12 +37,12 @@ pub async fn fetch_availability_zone() -> Result<String> {
 /// ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/prepare-for-interruptions.html
 pub async fn fetch_spot_instance_action() -> Result<InstanceAction> {
     let resp = fetch_metadata_by_path("spot/instance-action").await?;
-    serde_json::from_slice(resp.as_bytes()).map_err(|e| Other {
+    serde_json::from_slice(resp.as_bytes()).map_err(|e| Error::Other {
         message: format!(
             "failed to parse spot/instance-action response '{}' {:?}",
             resp, e
         ),
-        is_retryable: false,
+        retryable: false,
     })
 }
 
@@ -85,30 +82,30 @@ pub async fn fetch_metadata_by_path(path: &str) -> Result<String> {
         .timeout(Duration::from_secs(15))
         .connection_verbose(true)
         .build()
-        .map_err(|e| API {
+        .map_err(|e| Error::API {
             message: format!("failed ClientBuilder build {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
     let resp = cli
         .get(&uri)
         .header("X-aws-ec2-metadata-token", token)
         .send()
         .await
-        .map_err(|e| API {
+        .map_err(|e| Error::API {
             message: format!("failed to build GET meta-data/{} {:?}", path, e),
-            is_retryable: false,
+            retryable: false,
         })?;
-    let out = resp.bytes().await.map_err(|e| API {
+    let out = resp.bytes().await.map_err(|e| Error::API {
         message: format!("failed to read bytes {:?}", e),
-        is_retryable: false,
+        retryable: false,
     })?;
     let out: Vec<u8> = out.into();
 
     match String::from_utf8(out) {
         Ok(text) => Ok(text),
-        Err(e) => Err(API {
+        Err(e) => Err(Error::API {
             message: format!("GET meta-data/{} failed String::from_utf8 ({})", path, e),
-            is_retryable: false,
+            retryable: false,
         }),
     }
 }
@@ -129,30 +126,30 @@ async fn fetch_token() -> Result<String> {
         .timeout(Duration::from_secs(15))
         .connection_verbose(true)
         .build()
-        .map_err(|e| API {
+        .map_err(|e| Error::API {
             message: format!("failed ClientBuilder build {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
     let resp = cli
         .put(IMDS_V2_SESSION_TOKEN_URI)
         .header("X-aws-ec2-metadata-token-ttl-seconds", "21600")
         .send()
         .await
-        .map_err(|e| API {
+        .map_err(|e| Error::API {
             message: format!("failed to build PUT api/token {:?}", e),
-            is_retryable: false,
+            retryable: false,
         })?;
-    let out = resp.bytes().await.map_err(|e| API {
+    let out = resp.bytes().await.map_err(|e| Error::API {
         message: format!("failed to read bytes {:?}", e),
-        is_retryable: false,
+        retryable: false,
     })?;
     let out: Vec<u8> = out.into();
 
     match String::from_utf8(out) {
         Ok(text) => Ok(text),
-        Err(e) => Err(API {
+        Err(e) => Err(Error::API {
             message: format!("GET token failed String::from_utf8 ({})", e),
-            is_retryable: false,
+            retryable: false,
         }),
     }
 }
