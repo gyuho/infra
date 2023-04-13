@@ -13,9 +13,7 @@ async fn main() {
     println!();
     println!();
     log::info!("creating AWS S3 resources!");
-    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None)
-        .await
-        .unwrap();
+    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None).await;
     log::info!("region {:?}", shared_config.region().unwrap());
     let cw_manager = cloudwatch::Manager::new(&shared_config);
     let log_group_name = random_manager::secure_string(15);

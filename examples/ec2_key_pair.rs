@@ -11,7 +11,7 @@ async fn main() {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    let shared_config = aws_manager::load_config(None, None).await.unwrap();
+    let shared_config = aws_manager::load_config(None, None).await;
     log::info!("region {:?}", shared_config.region().unwrap());
     let ec2_manager = ec2::Manager::new(&shared_config);
 
