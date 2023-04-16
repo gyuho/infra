@@ -109,8 +109,15 @@ impl Manager {
     }
 
     /// Sends a message to an FIFO queue.
+    /// Every message must have a unique MessageDeduplicationId,
+    /// or its FIFO must set "QueueAttributeName::ContentBasedDeduplication" to "true".
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html>
-    pub async fn send_msg_fifo(&self, queue_url: &str, msg_group_id: &str) -> Result<()> {
+    pub async fn send_msg_fifo(
+        &self,
+        queue_url: &str,
+        msg_group_id: &str,
+        _msg_dedup_id: &str,
+    ) -> Result<()> {
         log::info!("sending msg to '{queue_url}' with group id '{msg_group_id}'");
 
         // TODO
