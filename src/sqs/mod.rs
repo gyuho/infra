@@ -110,6 +110,7 @@ impl Manager {
 pub fn is_err_retryable_delete_queue(e: &SdkError<DeleteQueueError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
+            // TODO: handle this...
             log::info!("message {}", err.err().message().unwrap());
             false
         }
