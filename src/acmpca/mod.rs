@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::errors::{Error, Result};
+use crate::errors::{self, Error, Result};
 use aws_sdk_acmpca::{
     operation::delete_certificate_authority::DeleteCertificateAuthorityError,
     types::{
@@ -70,7 +70,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed create_certificate_authority {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -102,7 +102,7 @@ impl Manager {
                 }
                 return Err(Error::API {
                     message: format!("failed delete_certificate_authority {:?}", e),
-                    retryable: is_err_retryable(&e)
+                    retryable: errors::is_sdk_err_retryable(&e)
                         || is_err_retryable_delete_certificate_authority(&e),
                 });
             }
@@ -125,7 +125,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_certificate_authority {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -166,22 +166,13 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed issue_certificate {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
 
         let cert_arn = resp.certificate_arn().unwrap();
         Ok(cert_arn.to_string())
-    }
-}
-
-#[inline]
-pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
-    match e {
-        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
-        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
-        _ => false,
     }
 }
 

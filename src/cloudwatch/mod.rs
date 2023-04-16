@@ -5,7 +5,7 @@ use std::{
     path::Path,
 };
 
-use crate::errors::{Error, Result};
+use crate::errors::{self, Error, Result};
 use aws_sdk_cloudwatch::{types::MetricDatum, Client as MetricsClient};
 use aws_sdk_cloudwatchlogs::{
     operation::{create_log_group::CreateLogGroupError, delete_log_group::DeleteLogGroupError},
@@ -79,7 +79,8 @@ impl Manager {
                 Err(e) => {
                     return Err(Error::API {
                         message: format!("failed put_metric_data {:?}", e),
-                        retryable: is_err_retryable_put_metrics_data(&e),
+                        retryable: errors::is_sdk_err_retryable(&e)
+                            || is_err_retryable_put_metrics_data(&e),
                     });
                 }
             };
@@ -106,7 +107,8 @@ impl Manager {
                     Err(e) => {
                         return Err(Error::API {
                             message: format!("failed put_metric_data {:?}", e),
-                            retryable: is_err_retryable_put_metrics_data(&e),
+                            retryable: errors::is_sdk_err_retryable(&e)
+                                || is_err_retryable_put_metrics_data(&e),
                         });
                     }
                 }
@@ -133,7 +135,8 @@ impl Manager {
                 if !is_err_already_exists_create_log_group(&e) {
                     return Err(Error::API {
                         message: format!("failed create_log_group {:?}", e),
-                        retryable: is_err_retryable_create_log_group(&e),
+                        retryable: errors::is_sdk_err_retryable(&e)
+                            || is_err_retryable_create_log_group(&e),
                     });
                 }
                 log::warn!("log_group already exists ({})", e);
@@ -171,7 +174,8 @@ impl Manager {
                 if !ignore_err {
                     return Err(Error::API {
                         message: format!("failed delete_log_group {:?}", e),
-                        retryable: is_err_retryable_create_log_group(&e),
+                        retryable: errors::is_sdk_err_retryable(&e)
+                            || is_err_retryable_create_log_group(&e),
                     });
                 }
                 false

@@ -1,4 +1,4 @@
-use crate::errors::{Error, Result};
+use crate::errors::{self, Error, Result};
 use aws_sdk_autoscaling::{operation::set_instance_health::SetInstanceHealthError, Client};
 use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
@@ -37,7 +37,8 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed set_instance_health {:?}", e),
-                    retryable: is_err_retryable(&e) || is_err_retryable_set_instance_health(&e),
+                    retryable: errors::is_sdk_err_retryable(&e)
+                        || is_err_retryable_set_instance_health(&e),
                 });
             }
         };
@@ -49,15 +50,6 @@ impl Manager {
             resp
         );
         Ok(())
-    }
-}
-
-#[inline]
-pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
-    match e {
-        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
-        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
-        _ => false,
     }
 }
 

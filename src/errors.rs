@@ -1,3 +1,4 @@
+use aws_smithy_client::SdkError;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -28,5 +29,14 @@ impl Error {
         match self {
             Error::API { retryable, .. } | Error::Other { retryable, .. } => *retryable,
         }
+    }
+}
+
+#[inline]
+pub fn is_sdk_err_retryable<E>(e: &SdkError<E>) -> bool {
+    match e {
+        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
+        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
+        _ => false,
     }
 }

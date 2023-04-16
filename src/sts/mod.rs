@@ -1,6 +1,5 @@
-use crate::errors::{Error, Result};
+use crate::errors::{self, Error, Result};
 use aws_sdk_sts::Client;
-use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use serde::{Deserialize, Serialize};
 
@@ -22,13 +21,12 @@ impl Manager {
     /// Queries the AWS caller identity from the default AWS configuration.
     pub async fn get_identity(&self) -> Result<Identity> {
         log::info!("fetching STS caller identity");
-        let ret = self.cli.get_caller_identity().send().await;
-        let resp = match ret {
+        let resp = match self.cli.get_caller_identity().send().await {
             Ok(v) => v,
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed get_caller_identity {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -57,14 +55,5 @@ impl Identity {
             role_arn: String::from(role_arn),
             user_id: String::from(user_id),
         }
-    }
-}
-
-#[inline]
-pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
-    match e {
-        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
-        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
-        _ => false,
     }
 }

@@ -8,7 +8,7 @@ use std::{
     path::Path,
 };
 
-use crate::errors::{Error, Result};
+use crate::errors::{self, Error, Result};
 use aws_sdk_ec2::{
     operation::delete_key_pair::DeleteKeyPairError,
     types::{
@@ -258,7 +258,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed create_key_pair {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -302,7 +302,7 @@ impl Manager {
                 if !is_err_does_not_exist_delete_key_pair(&e) {
                     return Err(Error::API {
                         message: format!("failed delete_key_pair {:?}", e),
-                        retryable: is_err_retryable(&e),
+                        retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
                 log::warn!("key already deleted ({})", e);
@@ -327,7 +327,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_volumes {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -582,7 +582,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_instances {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -650,7 +650,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_instances {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -697,7 +697,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed allocate_address {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -734,7 +734,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed associate_address {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -767,7 +767,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_addresses {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -809,7 +809,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_addresses {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -877,7 +877,7 @@ impl Manager {
                 Err(e) => {
                     return Err(Error::API {
                         message: format!("failed describe_addresses {:?}", e),
-                        retryable: is_err_retryable(&e),
+                        retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
             };
@@ -1003,15 +1003,6 @@ impl Droplet {
             public_ipv4,
             block_device_mappings,
         }
-    }
-}
-
-#[inline]
-pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
-    match e {
-        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
-        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
-        _ => false,
     }
 }
 

@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use crate::errors::{Error, Result};
+use crate::errors::{self, Error, Result};
 use aws_sdk_s3::{
     operation::{
         create_bucket::CreateBucketError, delete_bucket::DeleteBucketError,
@@ -64,7 +64,7 @@ impl Manager {
                 if !is_err_already_exists_bucket(&e) {
                     return Err(Error::API {
                         message: format!("failed create_bucket {:?}", e),
-                        retryable: is_err_retryable(&e),
+                        retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
                 log::warn!(
@@ -94,7 +94,7 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed put_public_access_block {}", e),
-                retryable: is_err_retryable(&e),
+                retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
         let algo = ServerSideEncryption::Aes256;
@@ -115,7 +115,7 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed put_bucket_encryption {}", e),
-                retryable: is_err_retryable(&e),
+                retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
         Ok(())
@@ -135,7 +135,7 @@ impl Manager {
                 if !is_err_does_not_exist_bucket(&e) {
                     return Err(Error::API {
                         message: format!("failed delete_bucket {:?}", e),
-                        retryable: is_err_retryable(&e),
+                        retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
                 log::warn!("bucket already deleted or does not exist ({})", e);
@@ -184,7 +184,7 @@ impl Manager {
                 Err(e) => {
                     return Err(Error::API {
                         message: format!("failed delete_bucket {:?}", e),
-                        retryable: is_err_retryable(&e),
+                        retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
             };
@@ -235,7 +235,7 @@ impl Manager {
                 Err(e) => {
                     return Err(Error::API {
                         message: format!("failed list_objects_v2 {:?}", e),
-                        retryable: is_err_retryable(&e),
+                        retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
             };
@@ -298,7 +298,10 @@ impl Manager {
     ///
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
-    /// ref. https://tokio.rs/tokio/tutorial/spawning
+    ///
+    /// TODO: write with lifecycle
+    ///
+    /// ref. <https://tokio.rs/tokio/tutorial/spawning>
     pub async fn put_object(&self, file_path: &str, s3_bucket: &str, s3_key: &str) -> Result<()> {
         if !Path::new(file_path).exists() {
             return Err(Error::Other {
@@ -336,7 +339,7 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed put_object {}", e),
-                retryable: is_err_retryable(&e),
+                retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
         Ok(())
@@ -361,7 +364,7 @@ impl Manager {
             log::warn!("failed to head {s3_key} {}", e);
             return Err(Error::API {
                 message: format!("failed head_object {}", e),
-                retryable: is_err_retryable(e),
+                retryable: errors::is_sdk_err_retryable(&e),
             });
         }
 
@@ -403,7 +406,7 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed head_object {}", e),
-                retryable: is_err_retryable(&e),
+                retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
         log::info!(
@@ -422,7 +425,7 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed get_object {}", e),
-                retryable: is_err_retryable(&e),
+                retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
         // ref. https://docs.rs/tokio-stream/latest/tokio_stream/
@@ -447,15 +450,6 @@ impl Manager {
         })?;
 
         Ok(())
-    }
-}
-
-#[inline]
-pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
-    match e {
-        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
-        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
-        _ => false,
     }
 }
 

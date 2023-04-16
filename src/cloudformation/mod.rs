@@ -1,4 +1,4 @@
-use crate::errors::{Error, Result};
+use crate::errors::{self, Error, Result};
 use aws_sdk_cloudformation::{
     operation::{delete_stack::DeleteStackError, describe_stacks::DescribeStacksError},
     types::{Capability, OnFailure, Output, Parameter, StackStatus, Tag},
@@ -51,7 +51,7 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed create_stack {:?}", e),
-                    retryable: is_err_retryable(&e),
+                    retryable: errors::is_sdk_err_retryable(&e),
                 });
             }
         };
@@ -77,7 +77,7 @@ impl Manager {
                 if !is_err_does_not_exist_delete_stack(&e) {
                     return Err(Error::API {
                         message: format!("failed schedule_key_deletion {:?}", e),
-                        retryable: is_err_retryable(&e),
+                        retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
                 log::warn!("stack already deleted so returning DeleteComplete status (original error '{}')", e);
@@ -150,7 +150,7 @@ impl Manager {
                     }
                     return Err(Error::API {
                         message: format!("failed describe_stacks {:?}", e),
-                        retryable: is_err_retryable(&e),
+                        retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
             };
@@ -265,15 +265,6 @@ impl Stack {
             status,
             outputs,
         }
-    }
-}
-
-#[inline]
-pub fn is_err_retryable<E>(e: &SdkError<E>) -> bool {
-    match e {
-        SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
-        SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
-        _ => false,
     }
 }
 
