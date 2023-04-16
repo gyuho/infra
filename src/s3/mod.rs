@@ -5,12 +5,15 @@ use aws_sdk_s3::{
     operation::{
         create_bucket::CreateBucketError, delete_bucket::DeleteBucketError,
         head_object::HeadObjectError,
+        put_bucket_lifecycle_configuration::PutBucketLifecycleConfigurationError,
     },
     primitives::ByteStream,
     types::{
-        BucketCannedAcl, BucketLocationConstraint, CreateBucketConfiguration, Delete, Object,
-        ObjectCannedAcl, ObjectIdentifier, PublicAccessBlockConfiguration, ServerSideEncryption,
-        ServerSideEncryptionByDefault, ServerSideEncryptionConfiguration, ServerSideEncryptionRule,
+        BucketCannedAcl, BucketLifecycleConfiguration, BucketLocationConstraint,
+        CreateBucketConfiguration, Delete, ExpirationStatus, LifecycleExpiration, LifecycleRule,
+        LifecycleRuleFilter, Object, ObjectCannedAcl, ObjectIdentifier,
+        PublicAccessBlockConfiguration, ServerSideEncryption, ServerSideEncryptionByDefault,
+        ServerSideEncryptionConfiguration, ServerSideEncryptionRule,
     },
     Client,
 };
@@ -118,6 +121,65 @@ impl Manager {
                 retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
+        Ok(())
+    }
+
+    /// Put object expire configuration on the bucket.
+    /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketLifecycleConfiguration.html>
+    /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleRule.html>
+    /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleExpiration.html>
+    pub async fn put_bucket_object_expire_configuration(
+        &self,
+        s3_bucket: &str,
+        days: i32,
+        prefixes: Vec<String>,
+    ) -> Result<()> {
+        log::info!("put bucket object expire configuration for '{s3_bucket}' in {days} days with prefixes '{:?}'", prefixes);
+
+        let lifecycle = if !prefixes.is_empty() {
+            let mut rules = Vec::new();
+            for pfx in prefixes {
+                rules.push(
+                    // ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleRule.html>
+                    LifecycleRule::builder()
+                        // ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleRuleFilter.html>
+                        .filter(LifecycleRuleFilter::Prefix(pfx.to_owned()))
+                        .expiration(LifecycleExpiration::builder().days(days).build())
+                        .status(ExpirationStatus::Enabled) // If 'Enabled', the rule is currently being applied.
+                        .build(),
+                );
+            }
+            BucketLifecycleConfiguration::builder()
+                .set_rules(Some(rules))
+                .build()
+        } else {
+            BucketLifecycleConfiguration::builder()
+                .rules(
+                    LifecycleRule::builder()
+                        .expiration(LifecycleExpiration::builder().days(days).build())
+                        .status(ExpirationStatus::Enabled) // If 'Enabled', the rule is currently being applied.
+                        .build(),
+                )
+                .build()
+        };
+
+        // ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketLifecycleConfiguration.html>
+        let _ = self
+            .cli
+            .put_bucket_lifecycle_configuration()
+            .bucket(s3_bucket)
+            .lifecycle_configuration(lifecycle)
+            .send()
+            .await
+            .map_err(|e| Error::API {
+                message: format!(
+                    "failed put_bucket_lifecycle_configuration '{}'",
+                    explain_put_bucket_lifecycle_configuration_error(&e)
+                ),
+                retryable: errors::is_sdk_err_retryable(&e),
+            })?;
+
+        log::info!("successfullhy updated bucket lifecycle configuration");
         Ok(())
     }
 
@@ -298,12 +360,12 @@ impl Manager {
     ///
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
-    ///
-    /// TODO: write with lifecycle
-    ///
     /// ref. <https://tokio.rs/tokio/tutorial/spawning>
+    ///
+    /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html>
     pub async fn put_object(&self, file_path: &str, s3_bucket: &str, s3_key: &str) -> Result<()> {
-        if !Path::new(file_path).exists() {
+        let file = Path::new(file_path);
+        if !file.exists() {
             return Err(Error::Other {
                 message: format!("file path {} does not exist", file_path),
                 retryable: false,
@@ -316,14 +378,14 @@ impl Manager {
         })?;
         let size = meta.len() as f64;
         log::info!(
-            "starting put_object '{}' (size {}) to 's3://{}/{}'",
+            "put '{}' (size {}) to 's3://{}/{}'",
             file_path,
             human_readable::bytes(size),
             s3_bucket,
             s3_key
         );
 
-        let byte_stream = ByteStream::from_path(Path::new(file_path))
+        let byte_stream = ByteStream::from_path(file)
             .await
             .map_err(|e| Error::Other {
                 message: format!("failed ByteStream::from_file {}", e),
@@ -479,6 +541,20 @@ fn is_err_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found(),
         _ => false,
+    }
+}
+
+#[inline]
+pub fn explain_put_bucket_lifecycle_configuration_error(
+    e: &SdkError<PutBucketLifecycleConfigurationError>,
+) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "put_bucket_lifecycle_configuration [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
     }
 }
 

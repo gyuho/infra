@@ -37,7 +37,7 @@ impl Manager {
             });
         }
 
-        let resp = match self
+        let resp = self
             .cli
             .create_queue()
             .queue_name(name)
@@ -63,15 +63,10 @@ impl Manager {
             .tags("Name", name)
             .send()
             .await
-        {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(Error::API {
-                    message: format!("failed create_queue {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
-                });
-            }
-        };
+            .map_err(|e| Error::API {
+                message: format!("failed create_queue {:?}", e),
+                retryable: errors::is_sdk_err_retryable(&e),
+            })?;
 
         if let Some(queue_url) = resp.queue_url() {
             log::info!("created a FIFO queue '{queue_url}");
@@ -88,21 +83,22 @@ impl Manager {
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteQueue.html>
     pub async fn delete(&self, queue_url: &str) -> Result<()> {
         log::info!("deleting a queue '{queue_url}'");
-        match self.cli.delete_queue().queue_url(queue_url).send().await {
-            Ok(_) => {
-                log::info!("successfully deleted '{queue_url}'");
-                Ok(())
-            }
-
-            Err(e) => {
+        self.cli
+            .delete_queue()
+            .queue_url(queue_url)
+            .send()
+            .await
+            .map_err(|e| {
                 log::warn!("failed to delete queue {:?}", e);
-                Err(Error::API {
+                Error::API {
                     message: format!("failed delete_queue {:?}", e),
                     retryable: errors::is_sdk_err_retryable(&e)
                         || is_err_retryable_delete_queue(&e),
-                })
-            }
-        }
+                }
+            })?;
+
+        log::info!("successfully deleted '{queue_url}'");
+        Ok(())
     }
 }
 

@@ -44,6 +44,15 @@ async fn main() {
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
+    s3_manager
+        .put_bucket_object_expire_configuration(&bucket, 3, vec!["sub-dir/".to_string()])
+        .await
+        .unwrap();
+
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(2)).await;
     let contents = vec![7; 50 * 1024 * 1024];
     let mut upload_file = tempfile::NamedTempFile::new().unwrap();
     upload_file.write_all(&contents.to_vec()).unwrap();
