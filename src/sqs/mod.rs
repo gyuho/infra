@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::errors::{self, Error, Result};
 use aws_sdk_sqs::{
     error::ProvideErrorMetadata,
@@ -29,6 +31,7 @@ impl Manager {
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html>
     pub async fn create_fifo(&self, name: &str) -> Result<String> {
         log::info!("creating a FIFO queue '{name}'");
+
         if name.len() > 80 {
             return Err(Error::Other {
                 message: format!("queue name '{name}' exceeds >80"),
@@ -90,6 +93,7 @@ impl Manager {
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteQueue.html>
     pub async fn delete(&self, queue_url: &str) -> Result<()> {
         log::info!("deleting a queue '{queue_url}'");
+
         self.cli
             .delete_queue()
             .queue_url(queue_url)
@@ -111,14 +115,71 @@ impl Manager {
     /// Sends a message to an FIFO queue.
     /// Every message must have a unique MessageDeduplicationId,
     /// or its FIFO must set "QueueAttributeName::ContentBasedDeduplication" to "true".
+    /// It returns the message Id.    
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html>
-    pub async fn send_msg_fifo(
+    /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagededuplicationid-property.html>
+    /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-message-metadata.html#sqs-message-attributes>
+    pub async fn send_msg_to_fifo(
         &self,
         queue_url: &str,
         msg_group_id: &str,
-        _msg_dedup_id: &str,
+        msg_dedup_id: &str,
+        _msg_attributes: Option<HashMap<String, String>>,
+        msg: Vec<u8>,
+    ) -> Result<String> {
+        log::info!("sending msg to FIFO '{queue_url}' with group id '{msg_group_id}'");
+
+        if msg_dedup_id.len() > 128 {
+            return Err(Error::Other {
+                message: format!("message duduplication id exceeds '{msg_dedup_id}' exceeds >128"),
+                retryable: false,
+            });
+        }
+        if msg.len() > 262144 {
+            return Err(Error::Other {
+                message: format!("message length exceeds '{msg_dedup_id}' exceeds >256 KiB"),
+                retryable: false,
+            });
+        }
+
+        // TODO
+
+        Ok(String::new())
+    }
+
+    /// Receives messages from the queue.
+    /// Use the receipt handle to delete message(s) from the queue,
+    /// not the message Id.
+    /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Message.html>
+    /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html>
+    pub async fn recv_msgs(
+        &self,
+        queue_url: &str,
+        msg_group_id: &str,
+        visibility_seconds: i32,
+        max_msgs: i32,
     ) -> Result<()> {
-        log::info!("sending msg to '{queue_url}' with group id '{msg_group_id}'");
+        log::info!("receiving msg from '{queue_url}' with group id '{msg_group_id}' and visibility seconds '{visibility_seconds}'");
+
+        if max_msgs > 10 {
+            return Err(Error::Other {
+                message: format!("MaxNumberOfMessages '{max_msgs}' exceeds >10"),
+                retryable: false,
+            });
+        }
+
+        // TODO
+
+        Ok(())
+    }
+
+    /// Deletes a message from the queue with the receipt Id.
+    /// Use the receipt handle to delete message(s) from the queue,
+    /// not the message Id.
+    /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Message.html>
+    /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessage.html>
+    pub async fn delete_msg(&self, queue_url: &str, msg_receipt_handle: &str) -> Result<()> {
+        log::info!("deleting msg from '{queue_url}' with receipt id '{msg_receipt_handle}'");
 
         // TODO
 
