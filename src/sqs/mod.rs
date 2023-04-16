@@ -1,6 +1,12 @@
 use crate::errors::{self, Error, Result};
-use aws_sdk_acmpca::error::ProvideErrorMetadata;
-use aws_sdk_sqs::{operation::delete_queue::DeleteQueueError, types::QueueAttributeName, Client};
+use aws_sdk_sqs::{
+    error::ProvideErrorMetadata,
+    {
+        operation::{create_queue::CreateQueueError, delete_queue::DeleteQueueError},
+        types::QueueAttributeName,
+        Client,
+    },
+};
 use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 
@@ -56,6 +62,7 @@ impl Manager {
             .attributes(QueueAttributeName::FifoQueue, "true")
             .attributes(QueueAttributeName::SqsManagedSseEnabled, "true")
             .attributes(QueueAttributeName::DeduplicationScope, "messageGroup")
+            .attributes(QueueAttributeName::ContentBasedDeduplication, "true")
             .attributes(QueueAttributeName::FifoThroughputLimit, "perMessageGroupId")
             //
             // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html>
@@ -64,7 +71,7 @@ impl Manager {
             .send()
             .await
             .map_err(|e| Error::API {
-                message: format!("failed create_queue {:?}", e),
+                message: format!("failed create_queue '{}'", explain_create_queue_error(&e)),
                 retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
@@ -99,6 +106,28 @@ impl Manager {
 
         log::info!("successfully deleted '{queue_url}'");
         Ok(())
+    }
+
+    /// Sends a message to an FIFO queue.
+    /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html>
+    pub async fn send_msg_fifo(&self, queue_url: &str, msg_group_id: &str) -> Result<()> {
+        log::info!("sending msg to '{queue_url}' with group id '{msg_group_id}'");
+
+        // TODO
+
+        Ok(())
+    }
+}
+
+#[inline]
+pub fn explain_create_queue_error(e: &SdkError<CreateQueueError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "create_queue [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
     }
 }
 

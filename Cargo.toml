@@ -72,7 +72,7 @@ default = [
     # "ec2",
     # "kms",
     # "s3",
-    # "sqs",
+    "sqs",
     # "ssm",
     # "sts",
 ]
@@ -177,7 +177,7 @@ required-features = ["s3"]
 
 [[example]]
 name = "sqs"
-required-features = ["sqs"]
+required-features = ["sqs", "random-manager"]
 
 [[example]]
 name = "sts"
