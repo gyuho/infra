@@ -5,7 +5,7 @@ use aws_sdk_sqs::{
     error::ProvideErrorMetadata,
     {
         operation::{create_queue::CreateQueueError, delete_queue::DeleteQueueError},
-        types::QueueAttributeName,
+        types::{Message, MessageAttributeValue, QueueAttributeName},
         Client,
     },
 };
@@ -113,9 +113,12 @@ impl Manager {
     }
 
     /// Sends a message to an FIFO queue.
-    /// Every message must have a unique MessageDeduplicationId,
-    /// or its FIFO must set "QueueAttributeName::ContentBasedDeduplication" to "true".
-    /// It returns the message Id.    
+    ///
+    /// Every message must have a unique MessageDeduplicationId.
+    /// If empty, the FIFO must set "QueueAttributeName::ContentBasedDeduplication" to "true".
+    ///
+    /// It returns a message Id.
+    ///
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html>
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagededuplicationid-property.html>
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-message-metadata.html#sqs-message-attributes>
@@ -123,43 +126,82 @@ impl Manager {
         &self,
         queue_url: &str,
         msg_group_id: &str,
-        msg_dedup_id: &str,
-        _msg_attributes: Option<HashMap<String, String>>,
-        msg: Vec<u8>,
+        msg_dedup_id: Option<String>,
+        msg_attributes: Option<HashMap<String, MessageAttributeValue>>,
+        msg_body: &str,
     ) -> Result<String> {
         log::info!("sending msg to FIFO '{queue_url}' with group id '{msg_group_id}'");
 
-        if msg_dedup_id.len() > 128 {
-            return Err(Error::Other {
-                message: format!("message duduplication id exceeds '{msg_dedup_id}' exceeds >128"),
-                retryable: false,
-            });
+        if let Some(id) = &msg_dedup_id {
+            if id.len() > 128 {
+                return Err(Error::Other {
+                    message: format!("message duduplication id exceeds '{id}' exceeds >128"),
+                    retryable: false,
+                });
+            }
         }
-        if msg.len() > 262144 {
+        if msg_body.len() > 262144 {
             return Err(Error::Other {
-                message: format!("message length exceeds '{msg_dedup_id}' exceeds >256 KiB"),
+                message: "message length exceeds exceeds >256 KiB".to_string(),
                 retryable: false,
             });
         }
 
-        // TODO
+        let mut req = self
+            .cli
+            .send_message()
+            .queue_url(queue_url)
+            .message_group_id(msg_group_id)
+            .message_body(msg_body);
 
-        Ok(String::new())
+        // Every message must have a unique MessageDeduplicationId.
+        // If empty, the FIFO must set "QueueAttributeName::ContentBasedDeduplication" to "true".
+        // If you aren't able to provide a MessageDeduplicationId
+        // and you enable ContentBasedDeduplication for your queue,
+        // Amazon SQS uses a SHA-256 hash to generate the MessageDeduplicationId
+        // using the body of the message (but not the attributes of the message).
+        // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SendMessage.html>
+        if let Some(id) = &msg_dedup_id {
+            req = req.message_deduplication_id(id);
+        }
+        if let Some(attrs) = &msg_attributes {
+            for (k, v) in attrs.iter() {
+                req = req.message_attributes(k, v.clone());
+            }
+        }
+
+        let resp = req.send().await.map_err(|e| {
+            log::warn!("failed to send msg {:?}", e);
+            Error::API {
+                message: format!("failed send_message {:?}", e),
+                retryable: errors::is_sdk_err_retryable(&e),
+            }
+        })?;
+
+        if let Some(msg_id) = resp.message_id() {
+            Ok(msg_id.to_string())
+        } else {
+            Err(Error::API {
+                message: "empty message Id from send_message".to_string(),
+                retryable: true,
+            })
+        }
     }
 
-    /// Receives messages from the queue.
-    /// Use the receipt handle to delete message(s) from the queue,
-    /// not the message Id.
+    /// Receives messages from the queue, and returns the list of messages.
+    /// When you delete later, make sure to use the receipt handle.
+    ///
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Message.html>
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html>
     pub async fn recv_msgs(
         &self,
         queue_url: &str,
-        msg_group_id: &str,
         visibility_seconds: i32,
         max_msgs: i32,
-    ) -> Result<()> {
-        log::info!("receiving msg from '{queue_url}' with group id '{msg_group_id}' and visibility seconds '{visibility_seconds}'");
+    ) -> Result<Vec<Message>> {
+        log::info!(
+            "receiving msg from '{queue_url}' with visibility seconds '{visibility_seconds}'"
+        );
 
         if max_msgs > 10 {
             return Err(Error::Other {
@@ -168,9 +210,27 @@ impl Manager {
             });
         }
 
-        // TODO
+        let resp = self
+            .cli
+            .receive_message()
+            .queue_url(queue_url)
+            .attribute_names(QueueAttributeName::FifoQueue) // make it configurable
+            .visibility_timeout(visibility_seconds)
+            .max_number_of_messages(max_msgs)
+            .send()
+            .await
+            .map_err(|e| Error::API {
+                message: format!("failed receive_message {:?}", e),
+                retryable: errors::is_sdk_err_retryable(&e),
+            })?;
 
-        Ok(())
+        if let Some(msgs) = resp.messages() {
+            log::info!("received {} messages", msgs.len());
+            Ok(msgs.to_vec())
+        } else {
+            log::info!("received zero message");
+            Ok(Vec::new())
+        }
     }
 
     /// Deletes a message from the queue with the receipt Id.
@@ -181,21 +241,19 @@ impl Manager {
     pub async fn delete_msg(&self, queue_url: &str, msg_receipt_handle: &str) -> Result<()> {
         log::info!("deleting msg from '{queue_url}' with receipt id '{msg_receipt_handle}'");
 
-        // TODO
+        let _ = self
+            .cli
+            .delete_message()
+            .queue_url(queue_url)
+            .receipt_handle(msg_receipt_handle)
+            .send()
+            .await
+            .map_err(|e| Error::API {
+                message: format!("failed delete_message {:?}", e),
+                retryable: errors::is_sdk_err_retryable(&e),
+            })?;
 
         Ok(())
-    }
-}
-
-#[inline]
-pub fn explain_create_queue_error(e: &SdkError<CreateQueueError>) -> String {
-    match e {
-        SdkError::ServiceError(err) => format!(
-            "create_queue [code '{:?}', message '{:?}']",
-            err.err().meta().code(),
-            err.err().meta().message(),
-        ),
-        _ => e.to_string(),
     }
 }
 
@@ -208,5 +266,17 @@ pub fn is_err_retryable_delete_queue(e: &SdkError<DeleteQueueError>) -> bool {
             false
         }
         _ => false,
+    }
+}
+
+#[inline]
+pub fn explain_create_queue_error(e: &SdkError<CreateQueueError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "create_queue [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
     }
 }
