@@ -32,8 +32,13 @@ impl Manager {
 
     /// Creates a FIFO SQS queue.
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html>
-    pub async fn create_fifo(&self, name: &str, visibility_seconds: i32) -> Result<String> {
-        log::info!("creating a FIFO queue '{name}' with visibility seconds '{visibility_seconds}'");
+    pub async fn create_fifo(
+        &self,
+        name: &str,
+        msg_visibility_timeout_seconds: i32,
+        msg_retention_period_days: i32,
+    ) -> Result<String> {
+        log::info!("creating a FIFO queue '{name}' with visibility seconds '{msg_visibility_timeout_seconds}', retention period  days '{msg_retention_period_days}'");
 
         if name.len() > 80 {
             return Err(Error::Other {
@@ -51,16 +56,30 @@ impl Manager {
 
         // The default visibility timeout for a message is 30 seconds. The minimum is 0 seconds. The maximum is 12 hours.
         // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html>
-        let vs = if visibility_seconds <= 0 {
+        let vs = if msg_visibility_timeout_seconds <= 0 {
             log::warn!("visibility seconds default to 30");
             "30".to_string()
-        } else if visibility_seconds > 43200 {
+        } else if msg_visibility_timeout_seconds > 43200 {
             log::warn!(
-                "visibility seconds '{visibility_seconds}' enforced to 12-hour (max allowed)"
+                "visibility seconds '{msg_visibility_timeout_seconds}' enforced to 12-hour (max allowed)"
             );
             "43200".to_string()
         } else {
-            format!("{visibility_seconds}").to_string()
+            format!("{msg_visibility_timeout_seconds}").to_string()
+        };
+
+        // default 4 days, max 14 days
+        let rs = if msg_retention_period_days < 4 {
+            log::warn!("retention period days default to 4");
+            "345600".to_string()
+        } else if msg_retention_period_days > 14 {
+            log::warn!(
+                "retention period days '{msg_retention_period_days}' enforced to 14-day (max allowed)"
+            );
+            "1209600".to_string()
+        } else {
+            let sec = msg_retention_period_days * 24 * 60 * 60;
+            format!("{sec}").to_string()
         };
 
         let resp = self
@@ -68,7 +87,7 @@ impl Manager {
             .create_queue()
             .queue_name(name)
             .attributes(QueueAttributeName::MaximumMessageSize, "262144") // 256-KiB
-            .attributes(QueueAttributeName::MessageRetentionPeriod, "345600") // 4-day in seconds
+            .attributes(QueueAttributeName::MessageRetentionPeriod, rs)
             //
             // 30-second; prevent other consumers from processing the message again
             // When a consumer receives and processes a message from a queue, the message remains in the queue.
@@ -209,18 +228,18 @@ impl Manager {
     /// Receives messages from the queue, and returns the list of messages.
     /// When you delete later, make sure to use the receipt handle.
     ///
-    /// If `visibility_seconds` is zero, the overall visibility timeout for the queue is used for the returned messages.
+    /// If `msg_visibility_timeout_seconds` is zero, the overall visibility timeout for the queue is used for the returned messages.
     ///
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Message.html>
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html>
     pub async fn recv_msgs(
         &self,
         queue_url: &str,
-        visibility_seconds: i32,
+        msg_visibility_timeout_seconds: i32,
         max_msgs: i32,
     ) -> Result<Vec<Message>> {
         log::info!(
-            "receiving msg from '{queue_url}' with visibility seconds '{visibility_seconds}'"
+            "receiving msg from '{queue_url}' with visibility seconds '{msg_visibility_timeout_seconds}'"
         );
 
         if max_msgs > 10 {
@@ -232,18 +251,18 @@ impl Manager {
 
         // The default visibility timeout for a message is 30 seconds. The minimum is 0 seconds. The maximum is 12 hours.
         // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html>
-        if visibility_seconds <= 0 {
+        if msg_visibility_timeout_seconds <= 0 {
             return Err(Error::Other {
                 message: format!(
-                    "visibility second minimum is 0 second, got '{visibility_seconds}'"
+                    "visibility second minimum is 0 second, got '{msg_visibility_timeout_seconds}'"
                 ),
                 retryable: false,
             });
         }
-        if visibility_seconds > 43200 {
+        if msg_visibility_timeout_seconds > 43200 {
             return Err(Error::Other {
                 message: format!(
-                    "visibility second maximum is 12-hour (43200-sec), got '{visibility_seconds}'"
+                    "visibility second maximum is 12-hour (43200-sec), got '{msg_visibility_timeout_seconds}'"
                 ),
                 retryable: false,
             });
@@ -254,7 +273,7 @@ impl Manager {
             .receive_message()
             .queue_url(queue_url)
             .attribute_names(QueueAttributeName::FifoQueue) // make it configurable
-            .visibility_timeout(visibility_seconds)
+            .visibility_timeout(msg_visibility_timeout_seconds)
             .max_number_of_messages(max_msgs)
             .send()
             .await

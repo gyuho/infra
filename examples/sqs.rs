@@ -13,8 +13,8 @@ async fn main() {
     log::info!("region {:?}", shared_config.region().unwrap());
     let sqs_manager = sqs::Manager::new(&shared_config);
 
-    let name = format!("{}.fifo", random_manager::secure_string(10));
-    let queue_url = sqs_manager.create_fifo(&name, 30).await.unwrap();
+    let queue_name = format!("{}.fifo", random_manager::secure_string(10));
+    let queue_url = sqs_manager.create_fifo(&queue_name, 30, 1).await.unwrap();
 
     sleep(Duration::from_secs(10)).await;
     let msg_group_id = random_manager::secure_string(32);
