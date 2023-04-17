@@ -6,7 +6,8 @@ use aws_sdk_sqs::{
     {
         operation::{
             create_queue::CreateQueueError, delete_message::DeleteMessageError,
-            delete_queue::DeleteQueueError,
+            delete_queue::DeleteQueueError, get_queue_attributes::GetQueueAttributesError,
+            receive_message::ReceiveMessageError, send_message::SendMessageError,
         },
         types::{Message, MessageAttributeValue, QueueAttributeName},
         Client,
@@ -34,22 +35,22 @@ impl Manager {
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html>
     pub async fn create_fifo(
         &self,
-        name: &str,
+        queue_name: &str,
         msg_visibility_timeout_seconds: i32,
         msg_retention_period_days: i32,
     ) -> Result<String> {
-        log::info!("creating a FIFO queue '{name}' with visibility seconds '{msg_visibility_timeout_seconds}', retention period  days '{msg_retention_period_days}'");
+        log::info!("creating a FIFO queue '{queue_name}' with visibility seconds '{msg_visibility_timeout_seconds}', retention period  days '{msg_retention_period_days}'");
 
-        if name.len() > 80 {
+        if queue_name.len() > 80 {
             return Err(Error::Other {
-                message: format!("queue name '{name}' exceeds >80"),
+                message: format!("queue name '{queue_name}' exceeds >80"),
                 retryable: false,
             });
         }
         // FIFO queue name must end with the .fifo suffix.
-        if !name.ends_with(".fifo") {
+        if !queue_name.ends_with(".fifo") {
             return Err(Error::Other {
-                message: format!("queue name '{name}' does not end with .fifo"),
+                message: format!("queue name '{queue_name}' does not end with .fifo"),
                 retryable: false,
             });
         }
@@ -85,7 +86,7 @@ impl Manager {
         let resp = self
             .cli
             .create_queue()
-            .queue_name(name)
+            .queue_name(queue_name)
             .attributes(QueueAttributeName::MaximumMessageSize, "262144") // 256-KiB
             //
             // The default retention period is 4 days. The retention period has a range of 60 seconds to 1,209,600 seconds (14 days).
@@ -109,7 +110,7 @@ impl Manager {
             //
             // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-server-side-encryption.html>
             .attributes(QueueAttributeName::SqsManagedSseEnabled, "true")
-            .tags("Name", name)
+            .tags("Name", queue_name)
             .send()
             .await
             .map_err(|e| Error::API {
@@ -133,22 +134,66 @@ impl Manager {
     pub async fn delete(&self, queue_url: &str) -> Result<()> {
         log::info!("deleting a queue '{queue_url}'");
 
-        self.cli
-            .delete_queue()
+        match self.cli.delete_queue().queue_url(queue_url).send().await {
+            Ok(_) => {
+                log::info!("successfully deleted '{queue_url}'");
+            }
+            Err(e) => {
+                if !is_err_does_not_exist_delete_queue(&e) {
+                    return Err(Error::API {
+                        message: format!("failed delete_queue '{}'", explain_err_delete_queue(&e)),
+                        retryable: errors::is_sdk_err_retryable(&e),
+                    });
+                }
+                log::warn!(
+                    "queue already deleted or does not exist '{}'",
+                    explain_err_delete_queue(&e)
+                );
+            }
+        };
+
+        Ok(())
+    }
+
+    /// Gets the queue attributes.
+    /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_GetQueueAttributes.html>
+    pub async fn get_attributes(
+        &self,
+        queue_url: &str,
+    ) -> Result<HashMap<QueueAttributeName, String>> {
+        log::info!("getting the queue attributes '{queue_url}'");
+
+        let resp = self
+            .cli
+            .get_queue_attributes()
             .queue_url(queue_url)
+            .attribute_names(QueueAttributeName::All)
             .send()
             .await
-            .map_err(|e| {
-                log::warn!("failed to delete queue {:?}", e);
-                Error::API {
-                    message: format!("failed delete_queue {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e)
-                        || is_err_retryable_delete_queue(&e),
-                }
+            .map_err(|e| Error::API {
+                message: format!(
+                    "failed get_queue_attributes '{}'",
+                    explain_err_get_queue_attributes(&e)
+                ),
+                retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
-        log::info!("successfully deleted '{queue_url}'");
-        Ok(())
+        if let Some(attr) = resp.attributes() {
+            if let Some(v) = attr.get(&QueueAttributeName::ApproximateNumberOfMessages) {
+                log::info!("queue '{queue_url}' has approximate '{v}' messages remaining");
+                Ok(attr.clone())
+            } else {
+                Err(Error::API {
+                    message: "no QueueAttributeName::ApproximateNumberOfMessages found in get_queue_attributes".to_string(),
+                    retryable: false,
+                })
+            }
+        } else {
+            Err(Error::API {
+                message: "empty queue attribute".to_string(),
+                retryable: false,
+            })
+        }
     }
 
     /// Sends a message to an FIFO queue.
@@ -209,12 +254,9 @@ impl Manager {
             }
         }
 
-        let resp = req.send().await.map_err(|e| {
-            log::warn!("failed to send msg {:?}", e);
-            Error::API {
-                message: format!("failed send_message {:?}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
-            }
+        let resp = req.send().await.map_err(|e| Error::API {
+            message: format!("failed send_message '{}'", explain_err_send_message(&e)),
+            retryable: errors::is_sdk_err_retryable(&e),
         })?;
 
         if let Some(msg_id) = resp.message_id() {
@@ -281,7 +323,10 @@ impl Manager {
             .send()
             .await
             .map_err(|e| Error::API {
-                message: format!("failed receive_message {:?}", e),
+                message: format!(
+                    "failed receive_message '{}'",
+                    explain_err_receive_message(&e)
+                ),
                 retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
@@ -302,41 +347,117 @@ impl Manager {
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Message.html>
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessage.html>
     pub async fn delete_msg(&self, queue_url: &str, msg_receipt_handle: &str) -> Result<()> {
-        log::info!("deleting msg from '{queue_url}' with receipt id '{msg_receipt_handle}'");
+        log::info!("deleting msg receipt '{msg_receipt_handle}' from '{queue_url}'");
 
-        let _ = self
+        match self
             .cli
             .delete_message()
             .queue_url(queue_url)
             .receipt_handle(msg_receipt_handle)
             .send()
             .await
-            .map_err(|e| Error::API {
-                message: format!("failed delete_message '{}'", explain_err_delete_message(&e)),
-                retryable: errors::is_sdk_err_retryable(&e),
-            })?;
+        {
+            Ok(_) => {
+                log::info!(
+                    "successfully deleted msg receipt '{msg_receipt_handle}' from '{queue_url}'"
+                );
+            }
+            Err(e) => {
+                if !is_err_does_not_exist_delete_message(&e) {
+                    return Err(Error::API {
+                        message: format!(
+                            "failed delete_message '{}'",
+                            explain_err_delete_message(&e)
+                        ),
+                        retryable: errors::is_sdk_err_retryable(&e),
+                    });
+                }
+                log::warn!(
+                    "message already deleted or does not exist '{}'",
+                    explain_err_delete_message(&e)
+                );
+            }
+        };
 
         Ok(())
     }
 }
 
 #[inline]
-pub fn is_err_retryable_delete_queue(e: &SdkError<DeleteQueueError>) -> bool {
+fn explain_err_create_queue(e: &SdkError<CreateQueueError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "create_queue [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
+    }
+}
+
+#[inline]
+fn explain_err_delete_queue(e: &SdkError<DeleteQueueError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "delete_queue [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
+    }
+}
+
+/// Handle:
+/// ErrorMetadata { code: Some(\"AWS.SimpleQueueService.NonExistentQueue\"), message: Some(\"The specified queue does not exist for this wsdl version.\")
+#[inline]
+fn is_err_does_not_exist_delete_queue(e: &SdkError<DeleteQueueError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
-            // TODO: handle this...
-            log::info!("message {}", err.err().message().unwrap());
-            false
+            let code_match = if let Some(code) = err.err().code() {
+                code.contains("NonExistentQueue")
+            } else {
+                false
+            };
+            let msg_match = if let Some(msg) = err.err().message() {
+                msg.contains("does not exist")
+            } else {
+                false
+            };
+            code_match && msg_match
         }
         _ => false,
     }
 }
 
 #[inline]
-pub fn explain_err_create_queue(e: &SdkError<CreateQueueError>) -> String {
+fn explain_err_get_queue_attributes(e: &SdkError<GetQueueAttributesError>) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
-            "create_queue [code '{:?}', message '{:?}']",
+            "get_queue_attributes [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
+    }
+}
+
+#[inline]
+fn explain_err_send_message(e: &SdkError<SendMessageError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "send_message [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
+    }
+}
+
+#[inline]
+fn explain_err_receive_message(e: &SdkError<ReceiveMessageError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "receive_message [code '{:?}', message '{:?}']",
             err.err().meta().code(),
             err.err().meta().message(),
         ),
@@ -353,5 +474,27 @@ pub fn explain_err_delete_message(e: &SdkError<DeleteMessageError>) -> String {
             err.err().meta().message(),
         ),
         _ => e.to_string(),
+    }
+}
+
+/// Handle:
+/// delete_message [code 'Some(\"InvalidParameterValue\")', message 'Some(\"Value ... for parameter ReceiptHandle is invalid. Reason: The receipt handle has expired.\")
+#[inline]
+fn is_err_does_not_exist_delete_message(e: &SdkError<DeleteMessageError>) -> bool {
+    match e {
+        SdkError::ServiceError(err) => {
+            let code_match = if let Some(code) = err.err().code() {
+                code.contains("InvalidParameterValue")
+            } else {
+                false
+            };
+            let msg_match = if let Some(msg) = err.err().message() {
+                msg.contains("ReceiptHandle is invalid")
+            } else {
+                false
+            };
+            code_match && msg_match
+        }
+        _ => false,
     }
 }

@@ -33,15 +33,63 @@ async fn main() {
             .unwrap();
     }
 
+    println!();
+    println!();
     sleep(Duration::from_secs(5)).await;
+    let attr = sqs_manager.get_attributes(&queue_url).await.unwrap();
+    for (k, v) in attr.iter() {
+        log::info!("attribute '{:?}' = '{}'", k, v);
+    }
+
+    println!();
+    println!();
+    sleep(Duration::from_secs(5)).await;
+    let mut receipt_handles = Vec::new();
     let msgs = sqs_manager.recv_msgs(&queue_url, 10, 3).await.unwrap();
     for msg in &msgs {
         log::info!("message {:?}", msg);
+        receipt_handles.push(msg.receipt_handle().unwrap().to_string());
     }
 
+    println!();
+    println!();
+    sleep(Duration::from_secs(5)).await;
+    let attr = sqs_manager.get_attributes(&queue_url).await.unwrap();
+    for (k, v) in attr.iter() {
+        log::info!("attribute '{:?}' = '{}'", k, v);
+    }
+
+    println!();
+    println!();
+    sleep(Duration::from_secs(5)).await;
+    for receipt_handle in &receipt_handles {
+        sqs_manager
+            .delete_msg(&queue_url, &receipt_handle)
+            .await
+            .unwrap();
+
+        // second delete should succeed if not exists
+        sqs_manager
+            .delete_msg(&queue_url, &receipt_handle)
+            .await
+            .unwrap();
+    }
+
+    println!();
+    println!();
+    sleep(Duration::from_secs(5)).await;
+    let attr = sqs_manager.get_attributes(&queue_url).await.unwrap();
+    for (k, v) in attr.iter() {
+        log::info!("attribute '{:?}' = '{}'", k, v);
+    }
+
+    println!();
+    println!();
     sleep(Duration::from_secs(5)).await;
     sqs_manager.delete(&queue_url).await.unwrap();
 
+    println!();
+    println!();
     sleep(Duration::from_secs(5)).await;
     sqs_manager.delete(&queue_url).await.unwrap();
 }

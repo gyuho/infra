@@ -619,7 +619,7 @@ pub fn is_err_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) ->
 }
 
 #[inline]
-pub fn is_err_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
+fn is_err_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -631,7 +631,7 @@ pub fn is_err_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
 }
 
 #[inline]
-pub fn is_err_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
+fn is_err_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()

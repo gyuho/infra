@@ -189,7 +189,7 @@ impl Manager {
 }
 
 #[inline]
-pub fn is_err_retryable_put_metrics_data<E>(e: &SdkError<E>) -> bool {
+fn is_err_retryable_put_metrics_data<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -198,7 +198,7 @@ pub fn is_err_retryable_put_metrics_data<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-pub fn is_err_retryable_create_log_group<E>(e: &SdkError<E>) -> bool {
+fn is_err_retryable_create_log_group<E>(e: &SdkError<E>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),

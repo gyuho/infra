@@ -54,7 +54,7 @@ impl Manager {
 }
 
 #[inline]
-pub fn is_err_retryable_set_instance_health(e: &SdkError<SetInstanceHealthError>) -> bool {
+fn is_err_retryable_set_instance_health(e: &SdkError<SetInstanceHealthError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_resource_contention_fault(),
         _ => false,

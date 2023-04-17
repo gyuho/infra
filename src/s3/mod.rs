@@ -4,7 +4,7 @@ use crate::errors::{self, Error, Result};
 use aws_sdk_s3::{
     operation::{
         create_bucket::CreateBucketError, delete_bucket::DeleteBucketError,
-        head_object::HeadObjectError,
+        delete_objects::DeleteObjectsError, head_object::HeadObjectError,
         put_bucket_lifecycle_configuration::PutBucketLifecycleConfigurationError,
     },
     primitives::ByteStream,
@@ -64,7 +64,7 @@ impl Manager {
         let already_created = match ret {
             Ok(_) => false,
             Err(e) => {
-                if !is_err_already_exists_bucket(&e) {
+                if !is_err_already_exists_create_bucket(&e) {
                     return Err(Error::API {
                         message: format!("failed create_bucket {:?}", e),
                         retryable: errors::is_sdk_err_retryable(&e),
@@ -190,20 +190,26 @@ impl Manager {
             s3_bucket,
             self.region
         );
-        let ret = self.cli.delete_bucket().bucket(s3_bucket).send().await;
-        match ret {
-            Ok(_) => {}
+        match self.cli.delete_bucket().bucket(s3_bucket).send().await {
+            Ok(_) => {
+                log::info!("successfully deleted S3 bucket '{}'", s3_bucket);
+            }
             Err(e) => {
-                if !is_err_does_not_exist_bucket(&e) {
+                if !is_err_does_not_exist_delete_bucket(&e) {
                     return Err(Error::API {
-                        message: format!("failed delete_bucket {:?}", e),
+                        message: format!(
+                            "failed delete_bucket '{}'",
+                            explain_err_delete_bucket(&e)
+                        ),
                         retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
-                log::warn!("bucket already deleted or does not exist ({})", e);
+                log::warn!(
+                    "bucket already deleted or does not exist '{}'",
+                    explain_err_delete_bucket(&e)
+                );
             }
         };
-        log::info!("deleted S3 bucket '{}'", s3_bucket);
 
         Ok(())
     }
@@ -245,7 +251,10 @@ impl Manager {
                 Ok(_) => {}
                 Err(e) => {
                     return Err(Error::API {
-                        message: format!("failed delete_bucket {:?}", e),
+                        message: format!(
+                            "failed delete_objects '{}'",
+                            explain_err_delete_objects(&e)
+                        ),
                         retryable: errors::is_sdk_err_retryable(&e),
                     });
                 }
@@ -516,7 +525,7 @@ impl Manager {
 }
 
 #[inline]
-fn is_err_already_exists_bucket(e: &SdkError<CreateBucketError>) -> bool {
+fn is_err_already_exists_create_bucket(e: &SdkError<CreateBucketError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_bucket_already_exists() || err.err().is_bucket_already_owned_by_you()
@@ -526,7 +535,19 @@ fn is_err_already_exists_bucket(e: &SdkError<CreateBucketError>) -> bool {
 }
 
 #[inline]
-fn is_err_does_not_exist_bucket(e: &SdkError<DeleteBucketError>) -> bool {
+fn explain_err_delete_bucket(e: &SdkError<DeleteBucketError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "delete_bucket [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
+    }
+}
+
+#[inline]
+fn is_err_does_not_exist_delete_bucket(e: &SdkError<DeleteBucketError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
@@ -541,6 +562,18 @@ fn is_err_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found(),
         _ => false,
+    }
+}
+
+#[inline]
+fn explain_err_delete_objects(e: &SdkError<DeleteObjectsError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "delete_objects [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
     }
 }
 
