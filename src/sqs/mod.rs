@@ -87,6 +87,9 @@ impl Manager {
             .create_queue()
             .queue_name(name)
             .attributes(QueueAttributeName::MaximumMessageSize, "262144") // 256-KiB
+            //
+            // The default retention period is 4 days. The retention period has a range of 60 seconds to 1,209,600 seconds (14 days).
+            // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SetQueueAttributes.html>
             .attributes(QueueAttributeName::MessageRetentionPeriod, rs)
             //
             // 30-second; prevent other consumers from processing the message again
