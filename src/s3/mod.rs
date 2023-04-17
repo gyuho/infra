@@ -174,7 +174,7 @@ impl Manager {
             .map_err(|e| Error::API {
                 message: format!(
                     "failed put_bucket_lifecycle_configuration '{}'",
-                    explain_put_bucket_lifecycle_configuration_error(&e)
+                    explain_err_put_bucket_lifecycle_configuration(&e)
                 ),
                 retryable: errors::is_sdk_err_retryable(&e),
             })?;
@@ -545,7 +545,7 @@ fn is_err_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
 }
 
 #[inline]
-pub fn explain_put_bucket_lifecycle_configuration_error(
+pub fn explain_err_put_bucket_lifecycle_configuration(
     e: &SdkError<PutBucketLifecycleConfigurationError>,
 ) -> String {
     match e {

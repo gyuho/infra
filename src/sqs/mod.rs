@@ -4,7 +4,10 @@ use crate::errors::{self, Error, Result};
 use aws_sdk_sqs::{
     error::ProvideErrorMetadata,
     {
-        operation::{create_queue::CreateQueueError, delete_queue::DeleteQueueError},
+        operation::{
+            create_queue::CreateQueueError, delete_message::DeleteMessageError,
+            delete_queue::DeleteQueueError,
+        },
         types::{Message, MessageAttributeValue, QueueAttributeName},
         Client,
     },
@@ -29,8 +32,8 @@ impl Manager {
 
     /// Creates a FIFO SQS queue.
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_CreateQueue.html>
-    pub async fn create_fifo(&self, name: &str) -> Result<String> {
-        log::info!("creating a FIFO queue '{name}'");
+    pub async fn create_fifo(&self, name: &str, visibility_seconds: i32) -> Result<String> {
+        log::info!("creating a FIFO queue '{name}' with visibility seconds '{visibility_seconds}'");
 
         if name.len() > 80 {
             return Err(Error::Other {
@@ -46,6 +49,20 @@ impl Manager {
             });
         }
 
+        // The default visibility timeout for a message is 30 seconds. The minimum is 0 seconds. The maximum is 12 hours.
+        // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html>
+        let vs = if visibility_seconds <= 0 {
+            log::warn!("visibility seconds default to 30");
+            "30".to_string()
+        } else if visibility_seconds > 43200 {
+            log::warn!(
+                "visibility seconds '{visibility_seconds}' enforced to 12-hour (max allowed)"
+            );
+            "43200".to_string()
+        } else {
+            format!("{visibility_seconds}").to_string()
+        };
+
         let resp = self
             .cli
             .create_queue()
@@ -59,7 +76,7 @@ impl Manager {
             // Because Amazon SQS is a distributed system, there's no guarantee that the consumer actually receives the message.
             // Thus, the consumer must delete the message from the queue after receiving and processing it.
             // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html>
-            .attributes(QueueAttributeName::VisibilityTimeout, "30")
+            .attributes(QueueAttributeName::VisibilityTimeout, vs)
             //
             // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/high-throughput-fifo.html>
             .attributes(QueueAttributeName::FifoQueue, "true")
@@ -74,7 +91,7 @@ impl Manager {
             .send()
             .await
             .map_err(|e| Error::API {
-                message: format!("failed create_queue '{}'", explain_create_queue_error(&e)),
+                message: format!("failed create_queue '{}'", explain_err_create_queue(&e)),
                 retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
@@ -179,6 +196,7 @@ impl Manager {
         })?;
 
         if let Some(msg_id) = resp.message_id() {
+            log::info!("successfully sent message with id '{msg_id}'");
             Ok(msg_id.to_string())
         } else {
             Err(Error::API {
@@ -190,6 +208,8 @@ impl Manager {
 
     /// Receives messages from the queue, and returns the list of messages.
     /// When you delete later, make sure to use the receipt handle.
+    ///
+    /// If `visibility_seconds` is zero, the overall visibility timeout for the queue is used for the returned messages.
     ///
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Message.html>
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html>
@@ -210,6 +230,25 @@ impl Manager {
             });
         }
 
+        // The default visibility timeout for a message is 30 seconds. The minimum is 0 seconds. The maximum is 12 hours.
+        // ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html>
+        if visibility_seconds <= 0 {
+            return Err(Error::Other {
+                message: format!(
+                    "visibility second minimum is 0 second, got '{visibility_seconds}'"
+                ),
+                retryable: false,
+            });
+        }
+        if visibility_seconds > 43200 {
+            return Err(Error::Other {
+                message: format!(
+                    "visibility second maximum is 12-hour (43200-sec), got '{visibility_seconds}'"
+                ),
+                retryable: false,
+            });
+        }
+
         let resp = self
             .cli
             .receive_message()
@@ -225,7 +264,10 @@ impl Manager {
             })?;
 
         if let Some(msgs) = resp.messages() {
-            log::info!("received {} messages", msgs.len());
+            log::info!(
+                "received {} messages (requested max messages {max_msgs})",
+                msgs.len()
+            );
             Ok(msgs.to_vec())
         } else {
             log::info!("received zero message");
@@ -234,8 +276,7 @@ impl Manager {
     }
 
     /// Deletes a message from the queue with the receipt Id.
-    /// Use the receipt handle to delete message(s) from the queue,
-    /// not the message Id.
+    /// Use the receipt handle to delete message(s) from the queue, not the message Id.
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Message.html>
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessage.html>
     pub async fn delete_msg(&self, queue_url: &str, msg_receipt_handle: &str) -> Result<()> {
@@ -249,7 +290,7 @@ impl Manager {
             .send()
             .await
             .map_err(|e| Error::API {
-                message: format!("failed delete_message {:?}", e),
+                message: format!("failed delete_message '{}'", explain_err_delete_message(&e)),
                 retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
@@ -270,10 +311,22 @@ pub fn is_err_retryable_delete_queue(e: &SdkError<DeleteQueueError>) -> bool {
 }
 
 #[inline]
-pub fn explain_create_queue_error(e: &SdkError<CreateQueueError>) -> String {
+pub fn explain_err_create_queue(e: &SdkError<CreateQueueError>) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "create_queue [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
+    }
+}
+
+#[inline]
+pub fn explain_err_delete_message(e: &SdkError<DeleteMessageError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "delete_message [code '{:?}', message '{:?}']",
             err.err().meta().code(),
             err.err().meta().message(),
         ),

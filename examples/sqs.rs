@@ -14,10 +14,28 @@ async fn main() {
     let sqs_manager = sqs::Manager::new(&shared_config);
 
     let name = format!("{}.fifo", random_manager::secure_string(10));
-    let queue_arn = sqs_manager.create_fifo(&name).await.unwrap();
+    let queue_url = sqs_manager.create_fifo(&name, 30).await.unwrap();
 
-    sleep(Duration::from_secs(60)).await;
+    sleep(Duration::from_secs(10)).await;
+    let msg_group_id = random_manager::secure_string(32);
+    let msg_dedup_id = random_manager::secure_string(32);
+    for _ in 0..3 {
+        let msg_body = random_manager::secure_string(100);
+        let _ = sqs_manager
+            .send_msg_to_fifo(&queue_url, &msg_group_id, &msg_dedup_id, None, &msg_body)
+            .await
+            .unwrap();
+    }
 
-    sqs_manager.delete(&queue_arn).await.unwrap();
-    sqs_manager.delete(&queue_arn).await.unwrap();
+    sleep(Duration::from_secs(5)).await;
+    let msgs = sqs_manager.recv_msgs(&queue_url, 10, 3).await.unwrap();
+    for msg in &msgs {
+        log::info!("message {:?}", msg);
+    }
+
+    sleep(Duration::from_secs(5)).await;
+    sqs_manager.delete(&queue_url).await.unwrap();
+
+    sleep(Duration::from_secs(5)).await;
+    sqs_manager.delete(&queue_url).await.unwrap();
 }

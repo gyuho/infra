@@ -290,9 +290,9 @@ impl Manager {
         let sign_output = builder.send().await.map_err(|e| {
             let retryable = errors::is_sdk_err_retryable(&e) || is_err_retryable_sign(&e);
             if !retryable {
-                log::warn!("non-retryable sign error {}", explain_sign_error(&e));
+                log::warn!("non-retryable sign error {}", explain_err_sign(&e));
             } else {
-                log::warn!("retryable sign error {}", explain_sign_error(&e));
+                log::warn!("retryable sign error {}", explain_err_sign(&e));
             }
             Error::API {
                 message: e.to_string(),
@@ -676,7 +676,7 @@ pub fn is_err_retryable_sign(e: &SdkError<SignError>) -> bool {
 
 /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-SigningAlgorithm>
 #[inline]
-pub fn explain_sign_error(e: &SdkError<SignError>) -> String {
+pub fn explain_err_sign(e: &SdkError<SignError>) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "sign service error [code '{:?}', kind '{:?}', meta '{:?}']",
