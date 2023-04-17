@@ -72,7 +72,7 @@ default = [
     # "ec2",
     # "kms",
     # "s3",
-    "sqs",
+    # "sqs",
     # "ssm",
     # "sts",
 ]

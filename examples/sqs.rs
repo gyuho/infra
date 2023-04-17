@@ -1,7 +1,7 @@
 use aws_manager::{self, sqs};
 use tokio::time::{sleep, Duration};
 
-/// cargo run --example sqs --features="sqs"
+/// cargo run --example sqs --features="sqs random-manager"
 #[tokio::main]
 async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
@@ -18,11 +18,17 @@ async fn main() {
 
     sleep(Duration::from_secs(10)).await;
     let msg_group_id = random_manager::secure_string(32);
-    let msg_dedup_id = random_manager::secure_string(32);
     for _ in 0..3 {
         let msg_body = random_manager::secure_string(100);
+        let msg_dedup_id = random_manager::secure_string(32);
         let _ = sqs_manager
-            .send_msg_to_fifo(&queue_url, &msg_group_id, &msg_dedup_id, None, &msg_body)
+            .send_msg_to_fifo(
+                &queue_url,
+                &msg_group_id,
+                Some(msg_dedup_id),
+                None,
+                &msg_body,
+            )
             .await
             .unwrap();
     }
