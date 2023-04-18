@@ -425,14 +425,14 @@ impl Manager {
             .send()
             .await
         {
-            Ok(resp) => resp,
+            Ok(out) => out,
             Err(e) => {
                 if is_err_head_not_found(&e) {
                     log::info!("{s3_key} not found");
                     return Ok((None, false));
                 }
 
-                log::warn!("failed to head {s3_key} {}", e);
+                log::warn!("failed to head {s3_key}: {}", explain_err_head_object(&e));
                 return Err(Error::API {
                     message: format!("failed head_object {}", e),
                     retryable: errors::is_sdk_err_retryable(&e),
@@ -447,7 +447,6 @@ impl Manager {
             head_output.content_type().unwrap(),
             human_readable::bytes(head_output.content_length() as f64),
         );
-
         Ok((Some(head_output), true))
     }
 
@@ -663,6 +662,18 @@ fn is_err_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found(),
         _ => false,
+    }
+}
+
+#[inline]
+fn explain_err_head_object(e: &SdkError<HeadObjectError>) -> String {
+    match e {
+        SdkError::ServiceError(err) => format!(
+            "head_object [code '{:?}', message '{:?}']",
+            err.err().meta().code(),
+            err.err().meta().message(),
+        ),
+        _ => e.to_string(),
     }
 }
 

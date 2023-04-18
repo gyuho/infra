@@ -71,7 +71,7 @@ default = [
     # "cloudwatch",
     # "ec2",
     # "kms",
-    # "s3",
+    "s3",
     # "sqs",
     # "ssm",
     # "sts",
