@@ -397,7 +397,10 @@ impl<'k> Manager<'k> {
     /// The encryption uses AES 256.
     pub async fn compress_seal(&self, src_file: &str, dst_file: &str) -> Result<()> {
         log::info!("compress-seal: compressing the file '{}'", src_file);
-        let compressed_path = random_manager::tmp_path(10, None).unwrap();
+        let compressed_path = random_manager::tmp_path(10, None).map_err(|e| Error::Other {
+            message: format!("failed random_manager::tmp_path {}", e),
+            retryable: false,
+        })?;
         compress_manager::pack_file(&src_file.to_string(), &compressed_path, Encoder::Zstd(3))
             .map_err(|e| Error::Other {
                 message: format!("failed compression {}", e),
@@ -420,7 +423,10 @@ impl<'k> Manager<'k> {
             "unseal-decompress: unsealing the encrypted file '{}'",
             src_file
         );
-        let unsealed_path = random_manager::tmp_path(10, None).unwrap();
+        let unsealed_path = random_manager::tmp_path(10, None).map_err(|e| Error::Other {
+            message: format!("failed random_manager::tmp_path {}", e),
+            retryable: false,
+        })?;
         self.unseal_aes_256_file(src_file, &unsealed_path).await?;
 
         log::info!("unseal-decompress: decompressing the file '{}'", src_file);
@@ -446,20 +452,17 @@ impl<'k> Manager<'k> {
             source_file_path
         );
 
-        let tmp_compressed_sealed_path = random_manager::tmp_path(10, None).unwrap();
-        self.compress_seal(source_file_path, &tmp_compressed_sealed_path)
-            .await?;
+        let tmp_path = random_manager::tmp_path(10, None).map_err(|e| Error::Other {
+            message: format!("failed random_manager::tmp_path {}", e),
+            retryable: false,
+        })?;
+        self.compress_seal(source_file_path, &tmp_path).await?;
 
-        log::info!(
-            "compress-seal-put-object: upload object '{}'",
-            tmp_compressed_sealed_path
-        );
-        s3_manager
-            .put_object(&tmp_compressed_sealed_path, s3_bucket, s3_key)
-            .await?;
+        log::info!("compress-seal-put-object: upload object '{}'", tmp_path);
+        s3_manager.put_object(&tmp_path, s3_bucket, s3_key).await?;
 
-        fs::remove_file(tmp_compressed_sealed_path).map_err(|e| Error::Other {
-            message: format!("failed remove_file tmp_compressed_sealed_path: {}", e),
+        fs::remove_file(tmp_path).map_err(|e| Error::Other {
+            message: format!("failed to remove temp file: {}", e),
             retryable: false,
         })
     }
@@ -479,26 +482,27 @@ impl<'k> Manager<'k> {
             s3_key
         );
 
-        let tmp_downloaded_path = random_manager::tmp_path(10, None).unwrap();
-        let exists = s3_manager
-            .get_object(s3_bucket, s3_key, &tmp_downloaded_path)
-            .await?;
+        let tmp_path = random_manager::tmp_path(10, None).map_err(|e| Error::Other {
+            message: format!("failed random_manager::tmp_path {}", e),
+            retryable: false,
+        })?;
+        let exists = s3_manager.get_object(s3_bucket, s3_key, &tmp_path).await?;
         if !exists {
             return Err(Error::Other {
-                message: "s3 file not found",
+                message: "s3 file not found".to_string(),
                 retryable: false,
             });
         }
 
         log::info!(
             "get-object-unseal-decompress: unseal and decompress '{}'",
-            tmp_downloaded_path
+            tmp_path
         );
-        self.unseal_decompress(&tmp_downloaded_path, download_file_path)
+        self.unseal_decompress(&tmp_path, download_file_path)
             .await?;
 
-        fs::remove_file(tmp_downloaded_path).map_err(|e| Error::Other {
-            message: format!("failed remove_file tmp_downloaded_path: {}", e),
+        fs::remove_file(tmp_path).map_err(|e| Error::Other {
+            message: format!("failed to remove temp file: {}", e),
             retryable: false,
         })
     }

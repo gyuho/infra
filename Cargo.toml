@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.26.7" # https://crates.io/crates/aws-manager/versions
+version = "0.26.8" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.68"
