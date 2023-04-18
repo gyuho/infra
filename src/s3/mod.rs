@@ -3,8 +3,10 @@ use std::{fs, path::Path};
 use crate::errors::{self, Error, Result};
 use aws_sdk_s3::{
     operation::{
-        create_bucket::CreateBucketError, delete_bucket::DeleteBucketError,
-        delete_objects::DeleteObjectsError, head_object::HeadObjectError,
+        create_bucket::CreateBucketError,
+        delete_bucket::DeleteBucketError,
+        delete_objects::DeleteObjectsError,
+        head_object::{HeadObjectError, HeadObjectOutput},
         put_bucket_lifecycle_configuration::PutBucketLifecycleConfigurationError,
     },
     primitives::ByteStream,
@@ -39,11 +41,7 @@ impl Manager {
 
     /// Creates a S3 bucket.
     pub async fn create_bucket(&self, s3_bucket: &str) -> Result<()> {
-        log::info!(
-            "creating S3 bucket '{}' in region {}",
-            s3_bucket,
-            self.region
-        );
+        log::info!("creating bucket '{s3_bucket}' in region {}", self.region);
 
         let mut req = self
             .cli
@@ -80,9 +78,9 @@ impl Manager {
         if already_created {
             return Ok(());
         }
-        log::info!("created S3 bucket '{}'", s3_bucket);
+        log::info!("created bucket '{s3_bucket}'");
 
-        log::info!("setting S3 bucket public_access_block configuration to private");
+        log::info!("setting bucket public_access_block configuration to private");
         let public_access_block_cfg = PublicAccessBlockConfiguration::builder()
             .block_public_acls(true)
             .block_public_policy(true)
@@ -185,14 +183,10 @@ impl Manager {
 
     /// Deletes a S3 bucket.
     pub async fn delete_bucket(&self, s3_bucket: &str) -> Result<()> {
-        log::info!(
-            "deleting S3 bucket '{}' in region {}",
-            s3_bucket,
-            self.region
-        );
+        log::info!("deleting bucket '{s3_bucket}' in region {}", self.region);
         match self.cli.delete_bucket().bucket(s3_bucket).send().await {
             Ok(_) => {
-                log::info!("successfully deleted S3 bucket '{}'", s3_bucket);
+                log::info!("successfully deleted bucket '{s3_bucket}'");
             }
             Err(e) => {
                 if !is_err_does_not_exist_delete_bucket(&e) {
@@ -223,8 +217,7 @@ impl Manager {
     /// ref. https://tokio.rs/tokio/tutorial/spawning
     pub async fn delete_objects(&self, s3_bucket: &str, prefix: Option<&str>) -> Result<()> {
         log::info!(
-            "deleting objects S3 bucket '{}' in region {} (prefix {:?})",
-            s3_bucket,
+            "deleting objects in bucket '{s3_bucket}' in region {} (prefix {:?})",
             self.region,
             prefix,
         );
@@ -259,7 +252,7 @@ impl Manager {
                     });
                 }
             };
-            log::info!("deleted {} objets in S3 bucket '{}'", n, s3_bucket);
+            log::info!("deleted {} objets in bucket '{s3_bucket}'", n);
         } else {
             log::info!("nothing to delete; skipping...");
         }
@@ -340,9 +333,8 @@ impl Manager {
 
         if objects.len() > 1 {
             log::info!(
-                "sorting {} objects in bucket {} with prefix {:?}",
+                "sorting {} objects in bucket {s3_bucket} with prefix {:?}",
                 objects.len(),
-                s3_bucket,
                 pfx
             );
             objects.sort_by(|a, b| {
@@ -376,7 +368,7 @@ impl Manager {
         let file = Path::new(file_path);
         if !file.exists() {
             return Err(Error::Other {
-                message: format!("file path {} does not exist", file_path),
+                message: format!("file path '{file_path}' does not exist"),
                 retryable: false,
             });
         }
@@ -387,8 +379,7 @@ impl Manager {
         })?;
         let size = meta.len() as f64;
         log::info!(
-            "put '{}' (size {}) to 's3://{}/{}'",
-            file_path,
+            "put '{file_path}' (size {}) to 's3://{}/{}'",
             human_readable::bytes(size),
             s3_bucket,
             s3_key
@@ -417,29 +408,34 @@ impl Manager {
     }
 
     /// Returns "true" if the file exists.
-    pub async fn exists(&self, s3_bucket: &str, s3_key: &str) -> Result<bool> {
-        let res = self
+    pub async fn exists(
+        &self,
+        s3_bucket: &str,
+        s3_key: &str,
+    ) -> Result<(Option<HeadObjectOutput>, bool)> {
+        let head_output = match self
             .cli
             .head_object()
             .bucket(s3_bucket.to_string())
             .key(s3_key.to_string())
             .send()
-            .await;
+            .await
+        {
+            Ok(resp) => resp,
+            Err(e) => {
+                if is_err_head_not_found(&e) {
+                    log::info!("{s3_key} not found");
+                    return Ok((None, false));
+                }
 
-        if let Some(e) = res.as_ref().err() {
-            if is_err_head_not_found(e) {
-                log::info!("{s3_key} not found");
-                return Ok(false);
+                log::warn!("failed to head {s3_key} {}", e);
+                return Err(Error::API {
+                    message: format!("failed head_object {}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
             }
+        };
 
-            log::warn!("failed to head {s3_key} {}", e);
-            return Err(Error::API {
-                message: format!("failed head_object {}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
-            });
-        }
-
-        let head_output = res.unwrap();
         log::info!(
             "head object exists 's3://{}/{}' (content type '{}', size {})",
             s3_bucket,
@@ -448,7 +444,7 @@ impl Manager {
             human_readable::bytes(head_output.content_length() as f64),
         );
 
-        Ok(true)
+        Ok((Some(head_output), true))
     }
 
     /// Downloads an object from a S3 bucket using stream.
@@ -460,33 +456,23 @@ impl Manager {
     /// "If a single piece of data must be accessible from more than one task
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
-    pub async fn get_object(&self, s3_bucket: &str, s3_key: &str, file_path: &str) -> Result<()> {
+    ///
+    /// Returns "true" if the file exists and got downloaded successfully.
+    pub async fn get_object(&self, s3_bucket: &str, s3_key: &str, file_path: &str) -> Result<bool> {
         if Path::new(file_path).exists() {
             return Err(Error::Other {
-                message: format!("file path {} already exists", file_path),
+                message: format!("file path '{file_path}' already exists"),
                 retryable: false,
             });
         }
 
-        let head_output = self
-            .cli
-            .head_object()
-            .bucket(s3_bucket.to_string())
-            .key(s3_key.to_string())
-            .send()
-            .await
-            .map_err(|e| Error::API {
-                message: format!("failed head_object {}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
-            })?;
+        log::info!("checking if the s3 object '{s3_key}' exists before downloading");
+        let (_, exists) = self.exists(s3_bucket, s3_key).await?;
+        if !exists {
+            log::warn!("s3 file '{s3_key}' does not exist in the bucket {s3_bucket}");
+            return Ok(false);
+        }
 
-        log::info!(
-            "starting get_object 's3://{}/{}' (content type '{}', size {})",
-            s3_bucket,
-            s3_key,
-            head_output.content_type().unwrap(),
-            human_readable::bytes(head_output.content_length() as f64),
-        );
         let mut output = self
             .cli
             .get_object()
@@ -520,7 +506,7 @@ impl Manager {
             retryable: false,
         })?;
 
-        Ok(())
+        Ok(true)
     }
 }
 

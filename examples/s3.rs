@@ -22,30 +22,30 @@ async fn main() {
     println!();
     println!();
     println!();
-    let bucket = format!(
-        "aws-manager-examples-tests-{}",
-        random_manager::secure_string(5).to_lowercase()
+    let s3_bucket = format!(
+        "aws-manager-example-{}",
+        random_manager::secure_string(10).to_lowercase()
     );
-    s3_manager.delete_bucket(&bucket).await.unwrap(); // error should be ignored if it does not exist
+    s3_manager.delete_bucket(&s3_bucket).await.unwrap(); // error should be ignored if it does not exist
 
     println!();
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
-    s3_manager.create_bucket(&bucket).await.unwrap();
+    s3_manager.create_bucket(&s3_bucket).await.unwrap();
 
     println!();
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
-    s3_manager.create_bucket(&bucket).await.unwrap();
+    s3_manager.create_bucket(&s3_bucket).await.unwrap();
 
     println!();
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
     s3_manager
-        .put_bucket_object_expire_configuration(&bucket, 3, vec!["sub-dir/".to_string()])
+        .put_bucket_object_expire_configuration(&s3_bucket, 3, vec!["sub-dir/".to_string()])
         .await
         .unwrap();
 
@@ -59,10 +59,21 @@ async fn main() {
     let upload_path = upload_file.path().to_str().unwrap().to_string();
     let s3_key = "sub-dir/aaa.txt".to_string();
     s3_manager
-        .put_object(&upload_path, &bucket, &s3_key)
+        .put_object(&upload_path, &s3_bucket, &s3_key)
         .await
         .unwrap();
-    s3_manager.exists(&bucket, &s3_key).await.unwrap();
+    let (head_object, exists) = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();
+    assert!(head_object.is_some());
+    assert!(exists);
+    let exists = s3_manager
+        .get_object(
+            &s3_bucket,
+            &random_manager::secure_string(10),
+            &random_manager::secure_string(10),
+        )
+        .await
+        .unwrap();
+    assert!(!exists);
 
     println!();
     println!();
@@ -70,7 +81,7 @@ async fn main() {
     sleep(Duration::from_secs(2)).await;
     let download_path = random_manager::tmp_path(10, None).unwrap();
     s3_manager
-        .get_object(&bucket, &s3_key, &download_path)
+        .get_object(&s3_bucket, &s3_key, &download_path)
         .await
         .unwrap();
     let download_contents = fs::read(download_path).unwrap();
@@ -82,7 +93,7 @@ async fn main() {
     println!();
     sleep(Duration::from_secs(2)).await;
     let objects = s3_manager
-        .list_objects(&bucket, Some(String::from("sub-dir/").as_str()))
+        .list_objects(&s3_bucket, Some(String::from("sub-dir/").as_str()))
         .await
         .unwrap();
     for obj in objects.iter() {
@@ -93,11 +104,11 @@ async fn main() {
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
-    s3_manager.delete_objects(&bucket, None).await.unwrap();
+    s3_manager.delete_objects(&s3_bucket, None).await.unwrap();
 
     println!();
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
-    s3_manager.delete_bucket(&bucket).await.unwrap();
+    s3_manager.delete_bucket(&s3_bucket).await.unwrap();
 }
