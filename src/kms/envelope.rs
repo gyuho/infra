@@ -480,9 +480,15 @@ impl<'k> Manager<'k> {
         );
 
         let tmp_downloaded_path = random_manager::tmp_path(10, None).unwrap();
-        s3_manager
+        let exists = s3_manager
             .get_object(s3_bucket, s3_key, &tmp_downloaded_path)
             .await?;
+        if !exists {
+            return Err(Error::Other {
+                message: "s3 file not found",
+                retryable: false,
+            });
+        }
 
         log::info!(
             "get-object-unseal-decompress: unseal and decompress '{}'",
