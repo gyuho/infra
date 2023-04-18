@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{os::unix::fs::PermissionsExt, path::Path};
 
 use crate::errors::{self, Error, Result};
 use aws_sdk_s3::{
@@ -21,7 +21,11 @@ use aws_sdk_s3::{
 };
 use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
-use tokio::{fs::File, io::AsyncWriteExt};
+use tokio::{
+    fs::{self, File},
+    io::AsyncWriteExt,
+    time::{sleep, Duration},
+};
 use tokio_stream::StreamExt;
 
 /// Implements AWS S3 manager.
@@ -373,7 +377,7 @@ impl Manager {
             });
         }
 
-        let meta = fs::metadata(file_path).map_err(|e| Error::Other {
+        let meta = fs::metadata(file_path).await.map_err(|e| Error::Other {
             message: format!("failed metadata {}", e),
             retryable: false,
         })?;
@@ -503,6 +507,103 @@ impl Manager {
         }
         file.flush().await.map_err(|e| Error::Other {
             message: format!("failed File.flush {}", e),
+            retryable: false,
+        })?;
+
+        Ok(true)
+    }
+
+    /// Returns "true" if successfully downloaded, or skipped to not overwrite.
+    /// Returns "false" if not exists.
+    pub async fn download_executable_with_retries(
+        &self,
+        s3_bucket: &str,
+        source_s3_path: &str,
+        target_file_path: &str,
+        overwrite: bool,
+    ) -> Result<bool> {
+        log::info!("downloading '{source_s3_path}' in bucket '{s3_bucket}' to executable '{target_file_path}' (overwrite {overwrite})");
+        let need_download = if Path::new(target_file_path).exists() {
+            if overwrite {
+                log::warn!(
+                    "'{target_file_path}' already exists but overwrite true thus need download"
+                );
+                true
+            } else {
+                log::warn!(
+                    "'{target_file_path}' already exists and overwrite false thus no need download"
+                );
+                false
+            }
+        } else {
+            log::warn!("'{target_file_path}' does not exist thus need download");
+            true
+        };
+
+        if !need_download {
+            log::info!("skipped download");
+            return Ok(true);
+        }
+
+        let tmp_path = random_manager::tmp_path(15, None).map_err(|e| Error::API {
+            message: format!("failed random_manager::tmp_path {}", e),
+            retryable: false,
+        })?;
+
+        let mut success = false;
+        for round in 0..20 {
+            log::info!("[ROUND {round}] get_object for '{source_s3_path}'");
+
+            match self.get_object(s3_bucket, source_s3_path, &tmp_path).await {
+                Ok(found) => {
+                    if found {
+                        success = true;
+                        break;
+                    }
+                    log::warn!("'{source_s3_path}' does not exist");
+                    return Ok(false);
+                }
+                Err(e) => {
+                    if e.retryable() {
+                        log::warn!("retriable s3 error '{}'", e);
+                        sleep(Duration::from_secs((round + 1) * 5)).await;
+                        continue;
+                    };
+
+                    return Err(e);
+                }
+            };
+        }
+        if !success {
+            return Err(Error::API {
+                message: "failed get_object after retries".to_string(),
+                retryable: false,
+            });
+        }
+
+        log::info!("successfully downloaded to a temporary file '{tmp_path}'");
+        {
+            let f = File::open(&tmp_path).await.map_err(|e| Error::API {
+                message: format!("failed File::open {}", e),
+                retryable: false,
+            })?;
+            f.set_permissions(PermissionsExt::from_mode(0o777))
+                .await
+                .map_err(|e| Error::API {
+                    message: format!("failed File::set_permissions {}", e),
+                    retryable: false,
+                })?;
+        }
+
+        log::info!("copying '{tmp_path}' to '{target_file_path}'");
+        fs::copy(&tmp_path, &target_file_path)
+            .await
+            .map_err(|e| Error::API {
+                message: format!("failed fs::copy {}", e),
+                retryable: false,
+            })?;
+        fs::remove_file(&tmp_path).await.map_err(|e| Error::API {
+            message: format!("failed fs::remove_file {}", e),
             retryable: false,
         })?;
 

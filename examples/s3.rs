@@ -84,9 +84,17 @@ async fn main() {
         .get_object(&s3_bucket, &s3_key, &download_path)
         .await
         .unwrap();
-    let download_contents = fs::read(download_path).unwrap();
+    let download_contents = fs::read(&download_path).unwrap();
     assert_eq!(contents.to_vec().len(), download_contents.len());
     assert_eq!(contents.to_vec(), download_contents);
+    assert!(s3_manager
+        .download_executable_with_retries(&s3_bucket, &s3_key, &download_path, false,)
+        .await
+        .unwrap());
+    assert!(s3_manager
+        .download_executable_with_retries(&s3_bucket, &s3_key, &download_path, true,)
+        .await
+        .unwrap());
 
     println!();
     println!();
