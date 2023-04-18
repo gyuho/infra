@@ -665,6 +665,7 @@ fn is_err_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
     }
 }
 
+/// TODO: handle "code" and "message" None if the object does not exist
 #[inline]
 fn explain_err_head_object(e: &SdkError<HeadObjectError>) -> String {
     match e {
