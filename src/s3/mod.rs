@@ -596,12 +596,26 @@ impl Manager {
         }
 
         log::info!("copying '{tmp_path}' to '{target_file_path}'");
-        fs::copy(&tmp_path, &target_file_path)
-            .await
-            .map_err(|e| Error::API {
-                message: format!("failed fs::copy {}", e),
-                retryable: false,
-            })?;
+        match fs::copy(&tmp_path, &target_file_path).await {
+            Ok(_) => log::info!("successfully copied file"),
+            Err(e) => {
+                // mask the error
+                // Os { code: 26, kind: ExecutableFileBusy, message: "Text file busy" }
+                if !e.to_string().to_lowercase().contains("text file busy") {
+                    return Err(Error::Other {
+                        message: format!("failed fs::copy {}", e),
+                        retryable: false,
+                    });
+                }
+
+                log::warn!("failed copy due to file being used '{}'", e);
+                return Err(Error::Other {
+                    message: format!("failed fs::copy {}", e),
+                    retryable: true,
+                });
+            }
+        }
+
         fs::remove_file(&tmp_path).await.map_err(|e| Error::API {
             message: format!("failed fs::remove_file {}", e),
             retryable: false,
