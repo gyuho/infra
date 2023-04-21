@@ -457,12 +457,8 @@ impl Manager {
         Ok(())
     }
 
-    /// Returns "true" if the file exists.
-    pub async fn exists(
-        &self,
-        s3_bucket: &str,
-        s3_key: &str,
-    ) -> Result<(Option<HeadObjectOutput>, bool)> {
+    /// Returns "None" if the S3 file does not exist.
+    pub async fn exists(&self, s3_bucket: &str, s3_key: &str) -> Result<Option<HeadObjectOutput>> {
         let head_output = match self
             .cli
             .head_object()
@@ -475,7 +471,7 @@ impl Manager {
             Err(e) => {
                 if is_err_head_not_found(&e) {
                     log::info!("{s3_key} not found");
-                    return Ok((None, false));
+                    return Ok(None);
                 }
 
                 log::warn!("failed to head {s3_key}: {}", explain_err_head_object(&e));
@@ -493,7 +489,7 @@ impl Manager {
             head_output.content_type().unwrap(),
             human_readable::bytes(head_output.content_length() as f64),
         );
-        Ok((Some(head_output), true))
+        Ok(Some(head_output))
     }
 
     /// Downloads an object from a S3 bucket using stream.
@@ -516,8 +512,8 @@ impl Manager {
         }
 
         log::info!("checking if the s3 object '{s3_key}' exists before downloading");
-        let (_, exists) = self.exists(s3_bucket, s3_key).await?;
-        if !exists {
+        let head_object = self.exists(s3_bucket, s3_key).await?;
+        if head_object.is_none() {
             log::warn!("s3 file '{s3_key}' does not exist in the bucket {s3_bucket}");
             return Ok(false);
         }

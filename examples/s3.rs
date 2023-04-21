@@ -70,8 +70,7 @@ async fn main() {
         )
         .await
         .unwrap();
-    let (head_object, exists) = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();
-    assert!(exists);
+    let head_object = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();
     assert!(head_object.is_some());
     println!("head object: {:?}", head_object.clone().unwrap());
     assert!(head_object
@@ -108,8 +107,7 @@ async fn main() {
         .put_object_with_metadata(&file_path, &s3_bucket, &s3_key, Some(metadata))
         .await
         .unwrap();
-    let (head_object, exists) = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();
-    assert!(exists);
+    let head_object = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();
     assert!(head_object.is_some());
     println!("head object: {:?}", head_object.clone().unwrap());
     assert!(head_object
