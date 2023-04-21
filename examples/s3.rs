@@ -1,4 +1,4 @@
-use std::{fs, io::Write};
+use std::{collections::HashMap, fs, io::Write};
 
 use aws_manager::{self, s3};
 use tokio::time::{sleep, Duration};
@@ -44,8 +44,11 @@ async fn main() {
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
+    let mut days_to_pfxs = HashMap::new();
+    days_to_pfxs.insert(3, vec!["sub-dir-3day/".to_string()]);
+    days_to_pfxs.insert(10, vec!["sub-dir-10day/".to_string()]);
     s3_manager
-        .put_bucket_object_expire_configuration(&s3_bucket, 3, vec!["sub-dir/".to_string()])
+        .put_bucket_object_expire_configuration(&s3_bucket, days_to_pfxs)
         .await
         .unwrap();
 

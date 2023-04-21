@@ -1,4 +1,7 @@
-use std::{os::unix::fs::PermissionsExt, path::Path};
+use std::{
+    collections::HashMap,
+    {os::unix::fs::PermissionsExt, path::Path},
+};
 
 use crate::errors::{self, Error, Result};
 use aws_sdk_s3::{
@@ -133,37 +136,36 @@ impl Manager {
     pub async fn put_bucket_object_expire_configuration(
         &self,
         s3_bucket: &str,
-        days: i32,
-        prefixes: Vec<String>,
+        days_to_prefixes: HashMap<i32, Vec<String>>,
     ) -> Result<()> {
-        log::info!("put bucket object expire configuration for '{s3_bucket}' in {days} days with prefixes '{:?}'", prefixes);
+        if days_to_prefixes.is_empty() {
+            return Err(Error::Other {
+                message: "empty prefixes".to_string(),
+                retryable: false,
+            });
+        }
 
-        let lifecycle = if !prefixes.is_empty() {
-            let mut rules = Vec::new();
-            for pfx in prefixes {
+        log::info!(
+            "put bucket object expire configuration for '{s3_bucket}' with prefixes '{:?}'",
+            days_to_prefixes
+        );
+        let mut rules = Vec::new();
+        for (days, pfxs) in days_to_prefixes.iter() {
+            for pfx in pfxs {
                 rules.push(
                     // ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleRule.html>
                     LifecycleRule::builder()
                         // ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_LifecycleRuleFilter.html>
                         .filter(LifecycleRuleFilter::Prefix(pfx.to_owned()))
-                        .expiration(LifecycleExpiration::builder().days(days).build())
+                        .expiration(LifecycleExpiration::builder().days(days.to_owned()).build())
                         .status(ExpirationStatus::Enabled) // If 'Enabled', the rule is currently being applied.
                         .build(),
                 );
             }
-            BucketLifecycleConfiguration::builder()
-                .set_rules(Some(rules))
-                .build()
-        } else {
-            BucketLifecycleConfiguration::builder()
-                .rules(
-                    LifecycleRule::builder()
-                        .expiration(LifecycleExpiration::builder().days(days).build())
-                        .status(ExpirationStatus::Enabled) // If 'Enabled', the rule is currently being applied.
-                        .build(),
-                )
-                .build()
-        };
+        }
+        let lifecycle = BucketLifecycleConfiguration::builder()
+            .set_rules(Some(rules))
+            .build();
 
         // ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketLifecycleConfiguration.html>
         let _ = self
