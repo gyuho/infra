@@ -371,6 +371,20 @@ impl Manager {
     ///
     /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html>
     pub async fn put_object(&self, file_path: &str, s3_bucket: &str, s3_key: &str) -> Result<()> {
+        self.put_object_with_metadata(file_path, s3_bucket, s3_key, None)
+            .await
+    }
+
+    /// Writes an object with the metadata.
+    /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html>
+    /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html>
+    pub async fn put_object_with_metadata(
+        &self,
+        file_path: &str,
+        s3_bucket: &str,
+        s3_key: &str,
+        metadata: Option<HashMap<String, String>>,
+    ) -> Result<()> {
         let file = Path::new(file_path);
         if !file.exists() {
             return Err(Error::Other {
@@ -380,7 +394,7 @@ impl Manager {
         }
 
         let meta = fs::metadata(file_path).await.map_err(|e| Error::Other {
-            message: format!("failed metadata {}", e),
+            message: format!("failed fs::metadata {}", e),
             retryable: false,
         })?;
         let size = meta.len() as f64;
@@ -397,18 +411,48 @@ impl Manager {
                 message: format!("failed ByteStream::from_file {}", e),
                 retryable: false,
             })?;
-        self.cli
+
+        let mut req = self
+            .cli
             .put_object()
             .bucket(s3_bucket.to_string())
             .key(s3_key.to_string())
             .body(byte_stream)
-            .acl(ObjectCannedAcl::Private)
-            .send()
-            .await
-            .map_err(|e| Error::API {
-                message: format!("failed put_object {}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
-            })?;
+            .acl(ObjectCannedAcl::Private);
+        if let Some(md) = &metadata {
+            for (k, v) in md {
+                // "user-defined metadata names must begin with x-amz-meta- to distinguish them from other HTTP headers"
+                // ref. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html>
+                if !k.starts_with("x-amz-meta-") {
+                    return Err(Error::Other {
+                        message: format!(
+                            "user-defined metadata key '{}' is missing the prefix 'x-amz-meta-'",
+                            k
+                        ),
+                        retryable: false,
+                    });
+                }
+
+                // "user-defined metadata is limited to 2 KB in size"
+                // ref. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html>
+                if v.len() > 2048 {
+                    return Err(Error::Other {
+                        message: format!(
+                            "user-defined metadata value is {}-byte, exceeds 2 KiB limit",
+                            v.len()
+                        ),
+                        retryable: false,
+                    });
+                }
+
+                req = req.metadata(k, v);
+            }
+        }
+
+        req.send().await.map_err(|e| Error::API {
+            message: format!("failed put_object {}", e),
+            retryable: errors::is_sdk_err_retryable(&e),
+        })?;
 
         Ok(())
     }

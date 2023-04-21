@@ -61,13 +61,34 @@ async fn main() {
     upload_file.write_all(&contents.to_vec()).unwrap();
     let upload_path = upload_file.path().to_str().unwrap().to_string();
     let s3_key = "sub-dir/aaa.txt".to_string();
+    let mut metadata = HashMap::new();
+    let request_id = random_manager::secure_string(300);
+    metadata.insert("x-amz-meta-request-id".to_string(), request_id.clone());
     s3_manager
-        .put_object(&upload_path, &s3_bucket, &s3_key)
+        .put_object_with_metadata(&upload_path, &s3_bucket, &s3_key, Some(metadata))
         .await
         .unwrap();
     let (head_object, exists) = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();
-    assert!(head_object.is_some());
     assert!(exists);
+    assert!(head_object.is_some());
+    println!("head object: {:?}", head_object.clone().unwrap());
+    assert!(head_object
+        .clone()
+        .unwrap()
+        .metadata()
+        .unwrap()
+        .contains_key("x-amz-meta-request-id"));
+    assert_eq!(
+        head_object
+            .clone()
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .get("x-amz-meta-request-id")
+            .unwrap()
+            .to_string(),
+        request_id
+    );
     let exists = s3_manager
         .get_object(
             &s3_bucket,
