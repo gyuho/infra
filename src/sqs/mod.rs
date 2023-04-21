@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::errors::{self, Error, Result};
 use aws_sdk_sqs::{
@@ -274,6 +274,7 @@ impl Manager {
     /// When you delete later, make sure to use the receipt handle.
     ///
     /// If `msg_visibility_timeout_seconds` is zero, the overall visibility timeout for the queue is used for the returned messages.
+    /// To return all of the attributes, specify "All" or ".*" in your request.
     ///
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Message.html>
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_ReceiveMessage.html>
@@ -282,6 +283,7 @@ impl Manager {
         queue_url: &str,
         msg_visibility_timeout_seconds: i32,
         max_msgs: i32,
+        msg_attribute_names: Option<BTreeSet<String>>,
     ) -> Result<Vec<Message>> {
         log::info!(
             "receiving msg from '{queue_url}' with visibility seconds '{msg_visibility_timeout_seconds}'"
@@ -313,22 +315,25 @@ impl Manager {
             });
         }
 
-        let resp = self
+        let mut req = self
             .cli
             .receive_message()
             .queue_url(queue_url)
-            .attribute_names(QueueAttributeName::FifoQueue) // make it configurable
             .visibility_timeout(msg_visibility_timeout_seconds)
-            .max_number_of_messages(max_msgs)
-            .send()
-            .await
-            .map_err(|e| Error::API {
-                message: format!(
-                    "failed receive_message '{}'",
-                    explain_err_receive_message(&e)
-                ),
-                retryable: errors::is_sdk_err_retryable(&e),
-            })?;
+            .max_number_of_messages(max_msgs);
+        if let Some(attrs) = &msg_attribute_names {
+            for attr in attrs {
+                req = req.message_attribute_names(attr.to_owned());
+            }
+        };
+
+        let resp = req.send().await.map_err(|e| Error::API {
+            message: format!(
+                "failed receive_message '{}'",
+                explain_err_receive_message(&e)
+            ),
+            retryable: errors::is_sdk_err_retryable(&e),
+        })?;
 
         if let Some(msgs) = resp.messages() {
             log::info!(
