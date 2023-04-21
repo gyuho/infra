@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs, io::Write};
 
 use aws_manager::{self, s3};
+use aws_sdk_s3::primitives::ByteStream;
 use tokio::time::{sleep, Duration};
 
 /// cargo run --example s3 --features="s3"
@@ -56,16 +57,55 @@ async fn main() {
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
-    let contents = vec![7; 50 * 1024 * 1024];
-    let mut upload_file = tempfile::NamedTempFile::new().unwrap();
-    upload_file.write_all(&contents.to_vec()).unwrap();
-    let upload_path = upload_file.path().to_str().unwrap().to_string();
-    let s3_key = "sub-dir/aaa.txt".to_string();
+    let s3_key = format!("sub-dir/{}.txt", random_manager::secure_string(10));
     let mut metadata = HashMap::new();
     let request_id = random_manager::secure_string(300);
     metadata.insert("x-amz-meta-request-id".to_string(), request_id.clone());
     s3_manager
-        .put_object_with_metadata(&upload_path, &s3_bucket, &s3_key, Some(metadata))
+        .put_byte_stream_with_metadata(
+            ByteStream::from(vec![7; 50 * 1024]),
+            &s3_bucket,
+            &s3_key,
+            Some(metadata),
+        )
+        .await
+        .unwrap();
+    let (head_object, exists) = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();
+    assert!(exists);
+    assert!(head_object.is_some());
+    println!("head object: {:?}", head_object.clone().unwrap());
+    assert!(head_object
+        .clone()
+        .unwrap()
+        .metadata()
+        .unwrap()
+        .contains_key("x-amz-meta-request-id"));
+    assert_eq!(
+        head_object
+            .clone()
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .get("x-amz-meta-request-id")
+            .unwrap()
+            .to_string(),
+        request_id
+    );
+
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(2)).await;
+    let contents = vec![7; 50 * 1024 * 1024];
+    let mut upload_file = tempfile::NamedTempFile::new().unwrap();
+    upload_file.write_all(&contents.to_vec()).unwrap();
+    let file_path = upload_file.path().to_str().unwrap().to_string();
+    let s3_key = format!("sub-dir/{}.txt", random_manager::secure_string(10));
+    let mut metadata = HashMap::new();
+    let request_id = random_manager::secure_string(300);
+    metadata.insert("x-amz-meta-request-id".to_string(), request_id.clone());
+    s3_manager
+        .put_object_with_metadata(&file_path, &s3_bucket, &s3_key, Some(metadata))
         .await
         .unwrap();
     let (head_object, exists) = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();

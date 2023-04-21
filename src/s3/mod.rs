@@ -385,32 +385,32 @@ impl Manager {
         s3_key: &str,
         metadata: Option<HashMap<String, String>>,
     ) -> Result<()> {
-        let file = Path::new(file_path);
-        if !file.exists() {
-            return Err(Error::Other {
-                message: format!("file path '{file_path}' does not exist"),
-                retryable: false,
-            });
-        }
-
-        let meta = fs::metadata(file_path).await.map_err(|e| Error::Other {
-            message: format!("failed fs::metadata {}", e),
-            retryable: false,
-        })?;
-        let size = meta.len() as f64;
+        let (size, byte_stream) = read_file_to_byte_stream(file_path).await?;
         log::info!(
-            "put '{file_path}' (size {}) to 's3://{}/{}'",
+            "put object '{file_path}' (size {}) to 's3://{}/{}'",
             human_readable::bytes(size),
             s3_bucket,
             s3_key
         );
-
-        let byte_stream = ByteStream::from_path(file)
+        self.put_byte_stream_with_metadata(byte_stream, s3_bucket, s3_key, metadata)
             .await
-            .map_err(|e| Error::Other {
-                message: format!("failed ByteStream::from_file {}", e),
-                retryable: false,
-            })?;
+    }
+
+    /// Writes a byte stream with the metadata.
+    /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html>
+    /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html>
+    pub async fn put_byte_stream_with_metadata(
+        &self,
+        byte_stream: ByteStream,
+        s3_bucket: &str,
+        s3_key: &str,
+        metadata: Option<HashMap<String, String>>,
+    ) -> Result<()> {
+        log::info!(
+            "put_byte_stream_with_metadata to 's3://{}/{}'",
+            s3_bucket,
+            s3_key
+        );
 
         let mut req = self
             .cli
@@ -668,6 +668,30 @@ impl Manager {
 
         Ok(true)
     }
+}
+
+async fn read_file_to_byte_stream(file_path: &str) -> Result<(f64, ByteStream)> {
+    let file = Path::new(file_path);
+    if !file.exists() {
+        return Err(Error::Other {
+            message: format!("file path '{file_path}' does not exist"),
+            retryable: false,
+        });
+    }
+
+    let meta = fs::metadata(file_path).await.map_err(|e| Error::Other {
+        message: format!("failed fs::metadata {}", e),
+        retryable: false,
+    })?;
+
+    let size = meta.len() as f64;
+    let byte_stream = ByteStream::from_path(file)
+        .await
+        .map_err(|e| Error::Other {
+            message: format!("failed ByteStream::from_file {}", e),
+            retryable: false,
+        })?;
+    Ok((size, byte_stream))
 }
 
 #[inline]
