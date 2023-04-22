@@ -27,7 +27,7 @@ use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
-    time::{sleep, Duration},
+    time::{sleep, Duration, Instant},
 };
 use tokio_stream::StreamExt;
 
@@ -457,6 +457,63 @@ impl Manager {
         Ok(())
     }
 
+    pub async fn put_bytes_with_metadata_with_retries(
+        &self,
+        b: Vec<u8>,
+        s3_bucket: &str,
+        s3_key: &str,
+        metadata: Option<HashMap<String, String>>,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<()> {
+        log::info!(
+            "put_byte_stream_with_metadata_with_retries '{s3_bucket}' '{s3_key}' exists with timeout {:?} and interval {:?}",
+            timeout,
+            interval,
+        );
+
+        let start = Instant::now();
+        let mut cnt: u128 = 0;
+        loop {
+            let elapsed = start.elapsed();
+            if elapsed.gt(&timeout) {
+                return Err(Error::API {
+                    message: "put_byte_with_metadata_with_retries not complete in time".to_string(),
+                    retryable: true,
+                });
+            }
+
+            let itv = {
+                if cnt == 0 {
+                    // first poll with no wait
+                    Duration::from_secs(1)
+                } else {
+                    interval
+                }
+            };
+            sleep(itv).await;
+
+            match self
+                .put_byte_stream_with_metadata(
+                    ByteStream::from(b.clone()),
+                    s3_bucket,
+                    s3_key,
+                    metadata.clone(),
+                )
+                .await
+            {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    if !e.retryable() {
+                        return Err(e);
+                    }
+                }
+            }
+
+            cnt += 1;
+        }
+    }
+
     /// Returns "None" if the S3 file does not exist.
     pub async fn exists(&self, s3_bucket: &str, s3_key: &str) -> Result<Option<HeadObjectOutput>> {
         let head_output = match self
@@ -490,6 +547,53 @@ impl Manager {
             human_readable::bytes(head_output.content_length() as f64),
         );
         Ok(Some(head_output))
+    }
+
+    pub async fn exists_with_retries(
+        &self,
+        s3_bucket: &str,
+        s3_key: &str,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<Option<HeadObjectOutput>> {
+        log::info!(
+            "exists_with_retries '{s3_bucket}' '{s3_key}' exists with timeout {:?} and interval {:?}",
+            timeout,
+            interval,
+        );
+
+        let start = Instant::now();
+        let mut cnt: u128 = 0;
+        loop {
+            let elapsed = start.elapsed();
+            if elapsed.gt(&timeout) {
+                return Err(Error::API {
+                    message: "exists_with_retries not complete in time".to_string(),
+                    retryable: true,
+                });
+            }
+
+            let itv = {
+                if cnt == 0 {
+                    // first poll with no wait
+                    Duration::from_secs(1)
+                } else {
+                    interval
+                }
+            };
+            sleep(itv).await;
+
+            match self.exists(s3_bucket, s3_key).await {
+                Ok(head) => return Ok(head),
+                Err(e) => {
+                    if !e.retryable() {
+                        return Err(e);
+                    }
+                }
+            }
+
+            cnt += 1;
+        }
     }
 
     /// Downloads an object from a S3 bucket using stream.

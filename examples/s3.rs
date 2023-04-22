@@ -66,11 +66,50 @@ async fn main() {
             ByteStream::from(vec![7; 50 * 1024]),
             &s3_bucket,
             &s3_key,
+            Some(metadata.clone()),
+        )
+        .await
+        .unwrap();
+    s3_manager
+        .put_bytes_with_metadata_with_retries(
+            vec![10; 50 * 1024],
+            &s3_bucket,
+            &s3_key,
             Some(metadata),
+            Duration::from_secs(10),
+            Duration::from_secs(1),
         )
         .await
         .unwrap();
     let head_object = s3_manager.exists(&s3_bucket, &s3_key).await.unwrap();
+    assert!(head_object.is_some());
+    println!("head object: {:?}", head_object.clone().unwrap());
+    assert!(head_object
+        .clone()
+        .unwrap()
+        .metadata()
+        .unwrap()
+        .contains_key("x-amz-meta-request-id"));
+    assert_eq!(
+        head_object
+            .clone()
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .get("x-amz-meta-request-id")
+            .unwrap()
+            .to_string(),
+        request_id
+    );
+    let head_object = s3_manager
+        .exists_with_retries(
+            &s3_bucket,
+            &s3_key,
+            Duration::from_secs(10),
+            Duration::from_secs(1),
+        )
+        .await
+        .unwrap();
     assert!(head_object.is_some());
     println!("head object: {:?}", head_object.clone().unwrap());
     assert!(head_object
