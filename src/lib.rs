@@ -35,9 +35,14 @@ use aws_types::{region::Region, SdkConfig as AwsSdkConfig};
 use tokio::time::Duration;
 
 /// Loads an AWS config from default environments.
-pub async fn load_config(reg: Option<String>, operation_timeout: Option<Duration>) -> AwsSdkConfig {
-    log::info!("loading config with region {:?}", reg);
-    let regp = RegionProviderChain::first_try(reg.map(Region::new))
+pub async fn load_config(
+    region: Option<String>,
+    operation_timeout: Option<Duration>,
+) -> AwsSdkConfig {
+    log::info!("loading config with region {:?}", region);
+
+    // if region is None, it automatically detects iff it's running inside the EC2 instance
+    let regp = RegionProviderChain::first_try(region.map(Region::new))
         .or_default_provider()
         .or_else(Region::new("us-west-2"));
 
