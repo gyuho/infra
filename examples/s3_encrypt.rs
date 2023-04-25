@@ -31,7 +31,7 @@ async fn main() {
     println!();
     println!();
     let cmk = kms_manager
-        .create_symmetric_default_key("test key description")
+        .create_symmetric_default_key("test key description", false)
         .await
         .unwrap();
     let envelope_manager = Manager::new(

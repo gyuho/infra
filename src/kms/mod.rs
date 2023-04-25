@@ -71,9 +71,10 @@ impl Manager {
         key_spec: KeySpec,
         key_usage: KeyUsageType,
         tags: Option<HashMap<String, String>>,
+        multi_region: bool,
     ) -> Result<Key> {
         log::info!(
-            "creating KMS CMK key spec {:?}, key usage {:?}",
+            "creating KMS CMK key spec {:?}, key usage {:?}, multi-region '{multi_region}'",
             key_spec,
             key_usage
         );
@@ -89,6 +90,9 @@ impl Manager {
             for (k, v) in tags.iter() {
                 req = req.tags(Tag::builder().tag_key(k).tag_value(v).build());
             }
+        }
+        if multi_region {
+            req = req.multi_region(true);
         }
 
         let resp = req.send().await.map_err(|e| Error::API {
@@ -245,13 +249,18 @@ impl Manager {
 
     /// Creates a default symmetric AWS KMS CMK.
     /// ref. https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateKey.html
-    pub async fn create_symmetric_default_key(&self, name: &str) -> Result<Key> {
+    pub async fn create_symmetric_default_key(
+        &self,
+        name: &str,
+        multi_region: bool,
+    ) -> Result<Key> {
         let mut tags = HashMap::new();
         tags.insert(String::from("Name"), name.to_string());
         self.create_key(
             KeySpec::SymmetricDefault,
             KeyUsageType::EncryptDecrypt,
             Some(tags),
+            multi_region,
         )
         .await
     }

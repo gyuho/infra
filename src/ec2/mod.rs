@@ -635,6 +635,8 @@ impl Manager {
 
     /// Lists instances by the Auto Scaling Groups name.
     pub async fn list_asg(&self, asg_name: &str) -> Result<Vec<Droplet>> {
+        log::info!("listing asg '{asg_name}' for the region '{}'", self.region);
+
         let filter = Filter::builder()
             .set_name(Some(String::from("tag:aws:autoscaling:groupName")))
             .set_values(Some(vec![String::from(asg_name)]))

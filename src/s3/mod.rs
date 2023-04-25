@@ -223,7 +223,7 @@ impl Manager {
     /// ref. https://tokio.rs/tokio/tutorial/spawning
     pub async fn delete_objects(&self, s3_bucket: &str, prefix: Option<&str>) -> Result<()> {
         log::info!(
-            "deleting objects in bucket '{s3_bucket}' in region {} (prefix {:?})",
+            "deleting objects in bucket '{s3_bucket}' in region '{}' (prefix {:?})",
             self.region,
             prefix,
         );
@@ -289,7 +289,12 @@ impl Manager {
             }
         };
 
-        log::info!("listing bucket {} with prefix '{:?}'", s3_bucket, pfx);
+        log::info!(
+            "listing bucket '{}' in the region '{}' with prefix '{:?}'",
+            s3_bucket,
+            self.region,
+            pfx
+        );
         let mut objects: Vec<Object> = Vec::new();
         let mut token = String::new();
         loop {
@@ -407,9 +412,10 @@ impl Manager {
         metadata: Option<HashMap<String, String>>,
     ) -> Result<()> {
         log::info!(
-            "put_byte_stream_with_metadata to 's3://{}/{}'",
+            "put_byte_stream_with_metadata to 's3://{}/{}' (region '{}')",
             s3_bucket,
-            s3_key
+            s3_key,
+            self.region
         );
 
         let mut req = self

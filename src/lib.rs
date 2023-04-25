@@ -39,10 +39,10 @@ pub async fn load_config(
     region: Option<String>,
     operation_timeout: Option<Duration>,
 ) -> AwsSdkConfig {
-    log::info!("loading config with region {:?}", region);
+    log::info!("loading config for the region {:?}", region);
 
     // if region is None, it automatically detects iff it's running inside the EC2 instance
-    let regp = RegionProviderChain::first_try(region.map(Region::new))
+    let reg_provider = RegionProviderChain::first_try(region.map(Region::new))
         .or_default_provider()
         .or_else(Region::new("us-west-2"));
 
@@ -54,10 +54,9 @@ pub async fn load_config(
     }
     let timeout_cfg = builder.build();
 
-    let shared_config = aws_config::from_env()
-        .region(regp)
+    aws_config::from_env()
+        .region(reg_provider)
         .timeout_config(timeout_cfg)
         .load()
-        .await;
-    shared_config
+        .await
 }

@@ -36,7 +36,7 @@ async fn main() {
         .unwrap();
 
     let encrypt_key = kms_manager
-        .create_symmetric_default_key(&key_desc)
+        .create_symmetric_default_key(&key_desc, false)
         .await
         .unwrap();
 
