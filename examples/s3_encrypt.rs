@@ -73,7 +73,7 @@ async fn main() {
     println!();
     sleep(Duration::from_secs(2)).await;
     envelope_manager
-        .get_object_unseal_decompress(&s3_manager, &s3_bucket, &s3_key, &dst_file_path)
+        .get_object_unseal_decompress(&s3_manager, &s3_bucket, &s3_key, &dst_file_path, true)
         .await
         .unwrap();
 

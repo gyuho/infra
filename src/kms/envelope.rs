@@ -475,6 +475,7 @@ impl<'k> Manager<'k> {
         s3_bucket: &str,
         s3_key: &str,
         download_file_path: &str,
+        overwrite: bool,
     ) -> Result<()> {
         log::info!(
             "get-object-unseal-decompress: downloading object {}/{}",
@@ -486,7 +487,9 @@ impl<'k> Manager<'k> {
             message: format!("failed random_manager::tmp_path {}", e),
             retryable: false,
         })?;
-        let exists = s3_manager.get_object(s3_bucket, s3_key, &tmp_path).await?;
+        let exists = s3_manager
+            .get_object(s3_bucket, s3_key, &tmp_path, overwrite)
+            .await?;
         if !exists {
             return Err(Error::Other {
                 message: "s3 file not found".to_string(),

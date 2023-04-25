@@ -167,10 +167,25 @@ async fn main() {
         request_id
     );
     let exists = s3_manager
-        .get_object(
+        .get_object_with_retries(
             &s3_bucket,
             &random_manager::secure_string(10),
             &random_manager::secure_string(10),
+            true,
+            Duration::from_secs(30),
+            Duration::from_secs(1),
+        )
+        .await
+        .unwrap();
+    assert!(!exists);
+    let exists = s3_manager
+        .get_object_with_retries(
+            &s3_bucket,
+            &random_manager::secure_string(10),
+            &random_manager::secure_string(10),
+            false,
+            Duration::from_secs(30),
+            Duration::from_secs(1),
         )
         .await
         .unwrap();
@@ -182,18 +197,39 @@ async fn main() {
     sleep(Duration::from_secs(2)).await;
     let download_path = random_manager::tmp_path(10, None).unwrap();
     s3_manager
-        .get_object(&s3_bucket, &s3_key, &download_path)
+        .get_object_with_retries(
+            &s3_bucket,
+            &s3_key,
+            &download_path,
+            true,
+            Duration::from_secs(30),
+            Duration::from_secs(1),
+        )
         .await
         .unwrap();
     let download_contents = fs::read(&download_path).unwrap();
     assert_eq!(contents.to_vec().len(), download_contents.len());
     assert_eq!(contents.to_vec(), download_contents);
     assert!(s3_manager
-        .download_executable_with_retries(&s3_bucket, &s3_key, &download_path, false,)
+        .download_executable_with_retries(
+            &s3_bucket,
+            &s3_key,
+            &download_path,
+            false,
+            Duration::from_secs(30),
+            Duration::from_secs(1),
+        )
         .await
         .unwrap());
     assert!(s3_manager
-        .download_executable_with_retries(&s3_bucket, &s3_key, &download_path, true,)
+        .download_executable_with_retries(
+            &s3_bucket,
+            &s3_key,
+            &download_path,
+            true,
+            Duration::from_secs(30),
+            Duration::from_secs(1),
+        )
         .await
         .unwrap());
 

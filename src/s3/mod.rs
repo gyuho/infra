@@ -595,6 +595,7 @@ impl Manager {
                     if !e.retryable() {
                         return Err(e);
                     }
+                    log::warn!("retriable s3 error '{}'", e);
                 }
             }
 
@@ -612,14 +613,26 @@ impl Manager {
     /// concurrently, then it must be shared using synchronization primitives such as Arc."
     /// ref. https://tokio.rs/tokio/tutorial/spawning
     ///
-    /// Returns "true" if the file exists and got downloaded successfully.
-    pub async fn get_object(&self, s3_bucket: &str, s3_key: &str, file_path: &str) -> Result<bool> {
-        if Path::new(file_path).exists() {
-            return Err(Error::Other {
-                message: format!("file path '{file_path}' already exists"),
-                retryable: false,
-            });
-        }
+    /// Returns "true" if the file got downloaded successfully.
+    /// Returns "false" if the S3 file does not exist.
+    pub async fn get_object(
+        &self,
+        s3_bucket: &str,
+        s3_key: &str,
+        file_path: &str,
+        overwrite: bool,
+    ) -> Result<bool> {
+        let need_delete = if Path::new(file_path).exists() {
+            if !overwrite {
+                return Err(Error::Other {
+                    message: format!("file path '{file_path}' already exists and overwrite=false"),
+                    retryable: false,
+                });
+            }
+            true
+        } else {
+            false
+        };
 
         log::info!("checking if the s3 object '{s3_key}' exists before downloading");
         let head_object = self.exists(s3_bucket, s3_key).await?;
@@ -640,7 +653,14 @@ impl Manager {
                 retryable: errors::is_sdk_err_retryable(&e),
             })?;
 
-        // ref. https://docs.rs/tokio-stream/latest/tokio_stream/
+        if need_delete {
+            log::info!("removing file before creating a new one");
+            fs::remove_file(file_path).await.map_err(|e| Error::Other {
+                message: format!("failed fs::remove_file {}", e),
+                retryable: false,
+            })?;
+        }
+        // ref. <https://docs.rs/tokio-stream/latest/tokio_stream/>
         let mut file = File::create(file_path).await.map_err(|e| Error::Other {
             message: format!("failed File::create {}", e),
             retryable: false,
@@ -664,6 +684,70 @@ impl Manager {
         Ok(true)
     }
 
+    /// Downloads an object from a S3 bucket using stream.
+    ///
+    /// WARN: use stream! otherwise it can cause OOM -- don't do the following!
+    ///       "aws_smithy_http::byte_stream:ByteStream.collect" reads all the data into memory
+    ///       "File.write_all_buf(&mut bytes)" to write bytes
+    ///
+    /// "If a single piece of data must be accessible from more than one task
+    /// concurrently, then it must be shared using synchronization primitives such as Arc."
+    /// ref. https://tokio.rs/tokio/tutorial/spawning
+    ///
+    /// Returns "true" if the file exists and got downloaded successfully.
+    pub async fn get_object_with_retries(
+        &self,
+        s3_bucket: &str,
+        s3_key: &str,
+        file_path: &str,
+        overwrite: bool,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<bool> {
+        log::info!(
+            "get_object_with_retries '{s3_bucket}' '{s3_key}' exists with timeout {:?} and interval {:?}",
+            timeout,
+            interval,
+        );
+
+        let start = Instant::now();
+        let mut cnt: u128 = 0;
+        loop {
+            let elapsed = start.elapsed();
+            if elapsed.gt(&timeout) {
+                return Err(Error::API {
+                    message: "get_object_with_retries not complete in time".to_string(),
+                    retryable: true,
+                });
+            }
+
+            let itv = {
+                if cnt == 0 {
+                    // first poll with no wait
+                    Duration::from_secs(1)
+                } else {
+                    interval
+                }
+            };
+            sleep(itv).await;
+
+            match self
+                .get_object(s3_bucket, s3_key, file_path, overwrite)
+                .await
+            {
+                Ok(exists) => return Ok(exists),
+                Err(e) => {
+                    if !e.retryable() {
+                        return Err(e);
+                    }
+                    log::warn!("retriable s3 error '{}'", e);
+                }
+            }
+
+            cnt += 1;
+        }
+    }
+
     /// Returns "true" if successfully downloaded, or skipped to not overwrite.
     /// Returns "false" if not exists.
     pub async fn download_executable_with_retries(
@@ -672,6 +756,8 @@ impl Manager {
         source_s3_path: &str,
         target_file_path: &str,
         overwrite: bool,
+        timeout: Duration,
+        interval: Duration,
     ) -> Result<bool> {
         log::info!("downloading '{source_s3_path}' in bucket '{s3_bucket}' to executable '{target_file_path}' (overwrite {overwrite})");
         let need_download = if Path::new(target_file_path).exists() {
@@ -702,28 +788,53 @@ impl Manager {
         })?;
 
         let mut success = false;
-        for round in 0..20 {
-            log::info!("[ROUND {round}] get_object for '{source_s3_path}'");
 
-            match self.get_object(s3_bucket, source_s3_path, &tmp_path).await {
-                Ok(found) => {
-                    if found {
+        let start = Instant::now();
+        let mut cnt: u128 = 0;
+        loop {
+            let elapsed = start.elapsed();
+            if elapsed.gt(&timeout) {
+                return Err(Error::API {
+                    message: "get_object_with_retries not complete in time".to_string(),
+                    retryable: true,
+                });
+            }
+
+            let itv = {
+                if cnt == 0 {
+                    // first poll with no wait
+                    Duration::from_secs(1)
+                } else {
+                    interval
+                }
+            };
+            sleep(itv).await;
+
+            log::info!("[ROUND {cnt}] get_object for '{source_s3_path}'");
+
+            match self
+                .get_object(s3_bucket, source_s3_path, &tmp_path, overwrite)
+                .await
+            {
+                Ok(exists) => {
+                    if exists {
                         success = true;
                         break;
                     }
-                    log::warn!("'{source_s3_path}' does not exist");
-                    return Ok(false);
+                    return Ok(exists);
                 }
                 Err(e) => {
-                    if e.retryable() {
-                        log::warn!("retriable s3 error '{}'", e);
-                        sleep(Duration::from_secs((round + 1) * 5)).await;
-                        continue;
-                    };
-
-                    return Err(e);
+                    if !e.retryable() {
+                        return Err(e);
+                    }
+                    log::warn!("retriable s3 error '{}'", e);
                 }
-            };
+            }
+            if success {
+                break;
+            }
+
+            cnt += 1;
         }
         if !success {
             return Err(Error::API {
