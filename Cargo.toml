@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.26.17" # https://crates.io/crates/aws-manager/versions
+version = "0.26.18" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.69"
@@ -14,12 +14,12 @@ license = "Apache-2.0"
 
 [dependencies]
 aws-config = "0.55.1" # https://github.com/awslabs/aws-sdk-rust/releases
-aws-smithy-client = "0.55.1"
-aws-smithy-types = "0.55.1"
+aws-smithy-client = "0.55.2"
+aws-smithy-types = "0.55.2"
 aws-types = "0.55.1" # https://crates.io/crates/aws-types/versions
 log = "0.4.17"
 thiserror = "1.0.40"
-tokio = { version = "1.27.0", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
+tokio = { version = "1.28.0", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
 
 human-readable = { version = "0.0.1", optional = true }
 random-manager = { version = "0.0.5", optional = true } # https://crates.io/crates/random-manager/versions
@@ -34,7 +34,7 @@ aws-sdk-sts = { version = "0.26.0", optional = true } # https://crates.io/crates
 
 # [OPTIONAL] for "s3"
 aws-sdk-s3 = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
-tokio-stream = { version = "0.1.12", optional = true } # https://github.com/tokio-rs/tokio/tree/master/tokio-stream
+tokio-stream = { version = "0.1.14", optional = true } # https://github.com/tokio-rs/tokio/tree/master/tokio-stream
 
 # [OPTIONAL] for "cloudwatch"
 aws-sdk-cloudwatch = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
@@ -65,16 +65,16 @@ tokio-test = "0.4.2"
 
 [features]
 default = [
-    # "acmpca",
-    # "autoscaling",
-    # "cloudformation",
-    # "cloudwatch",
-    # "ec2",
-    # "kms",
-    # "s3",
-    # "sqs",
-    # "ssm",
-    # "sts",
+    "acmpca",
+    "autoscaling",
+    "cloudformation",
+    "cloudwatch",
+    "ec2",
+    "kms",
+    "s3",
+    "sqs",
+    "ssm",
+    "sts",
 ]
 
 acmpca = [
