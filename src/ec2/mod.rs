@@ -251,7 +251,10 @@ impl Manager {
             });
         }
 
-        log::info!("creating EC2 key-pair '{}'", key_name);
+        log::info!(
+            "creating EC2 key-pair '{key_name}' in region '{}'",
+            self.region
+        );
         let ret = self.cli.create_key_pair().key_name(key_name).send().await;
         let resp = match ret {
             Ok(v) => v,
@@ -294,7 +297,10 @@ impl Manager {
 
     /// Deletes the AWS EC2 key-pair.
     pub async fn delete_key_pair(&self, key_name: &str) -> Result<()> {
-        log::info!("deleting EC2 key-pair '{}'", key_name);
+        log::info!(
+            "deleting EC2 key-pair '{key_name}' in region '{}'",
+            self.region
+        );
         let ret = self.cli.delete_key_pair().key_name(key_name).send().await;
         match ret {
             Ok(_) => {}
@@ -315,7 +321,7 @@ impl Manager {
     /// Describes the EBS volumes by filters.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
     pub async fn describe_volumes(&self, filters: Option<Vec<Filter>>) -> Result<Vec<Volume>> {
-        log::info!("describing volumes...");
+        log::info!("describing volumes in region '{}'", self.region);
         let resp = match self
             .cli
             .describe_volumes()
@@ -338,7 +344,11 @@ impl Manager {
             Vec::new()
         };
 
-        log::info!("described {} volumes", volumes.len());
+        log::info!(
+            "described {} volumes in region '{}'",
+            volumes.len(),
+            self.region
+        );
         Ok(volumes)
     }
 
@@ -445,7 +455,11 @@ impl Manager {
         let mut filters: Vec<Filter> = vec![];
 
         if let Some(v) = ebs_volume_id {
-            log::info!("filtering volumes via volume Id {}", v);
+            log::info!(
+                "filtering volumes via volume Id '{}' in region '{}'",
+                v,
+                self.region
+            );
             filters.push(
                 Filter::builder()
                     .set_name(Some(String::from("volume-id")))
@@ -459,7 +473,11 @@ impl Manager {
         } else {
             format!("/dev/{}", ebs_device_name.clone()).to_string()
         };
-        log::info!("filtering volumes via EBS device name {}", device);
+        log::info!(
+            "filtering volumes via EBS device name '{}' in region '{}'",
+            device,
+            self.region
+        );
         filters.push(
             Filter::builder()
                 .set_name(Some(String::from("attachment.device")))

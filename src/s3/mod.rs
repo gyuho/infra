@@ -146,8 +146,8 @@ impl Manager {
         }
 
         log::info!(
-            "put bucket object expire configuration for '{s3_bucket}' with prefixes '{:?}'",
-            days_to_prefixes
+            "put bucket object expire configuration for '{s3_bucket}' with prefixes '{:?}' in region '{}'",
+            days_to_prefixes, self.region
         );
         let mut rules = Vec::new();
         for (days, pfxs) in days_to_prefixes.iter() {
@@ -189,7 +189,7 @@ impl Manager {
 
     /// Deletes a S3 bucket.
     pub async fn delete_bucket(&self, s3_bucket: &str) -> Result<()> {
-        log::info!("deleting bucket '{s3_bucket}' in region {}", self.region);
+        log::info!("deleting bucket '{s3_bucket}' in region '{}'", self.region);
         match self.cli.delete_bucket().bucket(s3_bucket).send().await {
             Ok(_) => {
                 log::info!("successfully deleted bucket '{s3_bucket}'");
@@ -290,8 +290,7 @@ impl Manager {
         };
 
         log::info!(
-            "listing bucket '{}' in the region '{}' with prefix '{:?}'",
-            s3_bucket,
+            "listing bucket '{s3_bucket}' in region '{}' with prefix '{:?}'",
             self.region,
             pfx
         );
@@ -392,10 +391,11 @@ impl Manager {
     ) -> Result<()> {
         let (size, byte_stream) = read_file_to_byte_stream(file_path).await?;
         log::info!(
-            "put object '{file_path}' (size {}) to 's3://{}/{}'",
+            "put object '{file_path}' (size {}) to 's3://{}/{}' (region '{}')",
             human_readable::bytes(size),
             s3_bucket,
-            s3_key
+            s3_key,
+            self.region
         );
         self.put_byte_stream_with_metadata(byte_stream, s3_bucket, s3_key, metadata)
             .await
@@ -473,7 +473,8 @@ impl Manager {
         interval: Duration,
     ) -> Result<()> {
         log::info!(
-            "put_byte_stream_with_metadata_with_retries '{s3_bucket}' '{s3_key}' exists with timeout {:?} and interval {:?}",
+            "put_byte_stream_with_metadata_with_retries '{s3_bucket}' '{s3_key}' in region '{}' exists with timeout {:?} and interval {:?}",
+            self.region,
             timeout,
             interval,
         );
@@ -759,7 +760,7 @@ impl Manager {
         timeout: Duration,
         interval: Duration,
     ) -> Result<bool> {
-        log::info!("downloading '{source_s3_path}' in bucket '{s3_bucket}' to executable '{target_file_path}' (overwrite {overwrite})");
+        log::info!("downloading '{source_s3_path}' in bucket '{s3_bucket}', region '{}' to executable '{target_file_path}' (overwrite {overwrite})", self.region);
         let need_download = if Path::new(target_file_path).exists() {
             if overwrite {
                 log::warn!(

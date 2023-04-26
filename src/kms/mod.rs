@@ -74,9 +74,10 @@ impl Manager {
         multi_region: bool,
     ) -> Result<Key> {
         log::info!(
-            "creating KMS CMK key spec {:?}, key usage {:?}, multi-region '{multi_region}'",
+            "creating KMS CMK key spec {:?}, key usage {:?}, multi-region '{multi_region}', region '{}'",
             key_spec,
-            key_usage
+            key_usage,
+            self.region
         );
         let mut req = self
             .cli
@@ -129,7 +130,7 @@ impl Manager {
         key_id: &str,
         grantee_principal: &str,
     ) -> Result<(String, String)> {
-        log::info!("creating KMS grant for encrypt and decrypt for the key '{key_id}' on the grantee '{grantee_principal}'");
+        log::info!("creating KMS grant for encrypt and decrypt for the key Id '{key_id}' on the grantee '{grantee_principal}' in region '{}'", self.region);
 
         let out = self
             .cli
@@ -162,7 +163,7 @@ impl Manager {
         key_id: &str,
         grantee_principal: &str,
     ) -> Result<(String, String)> {
-        log::info!("creating KMS grant for sign and reads for the key '{key_id}' on the grantee '{grantee_principal}'");
+        log::info!("creating KMS grant for sign and reads for the key '{key_id}' on the grantee '{grantee_principal}' in region '{}'", self.region);
 
         let out = self
             .cli
@@ -182,7 +183,10 @@ impl Manager {
 
         let grant_id = out.grant_id().unwrap().to_string();
         let grant_token = out.grant_token().unwrap().to_string();
-        log::info!("created grant Id {grant_id} and token {grant_token}");
+        log::info!(
+            "created grant Id '{grant_id}' and token '{grant_token}' in region '{}'",
+            self.region
+        );
 
         Ok((grant_id, grant_token))
     }
@@ -190,7 +194,10 @@ impl Manager {
     /// Revokes a KMS grant.
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_RevokeGrant.html>
     pub async fn revoke_grant(&self, key_id: &str, grant_id: &str) -> Result<()> {
-        log::info!("revoking KMS grant {grant_id} for {key_id}");
+        log::info!(
+            "revoking KMS grant '{grant_id}' for the key Id '{key_id}' in region '{}'",
+            self.region
+        );
 
         self.cli
             .revoke_grant()
@@ -208,7 +215,7 @@ impl Manager {
 
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_DescribeKey.html>
     pub async fn describe_key(&self, key_arn: &str) -> Result<(String, DescribeKeyOutput)> {
-        log::info!("describing KMS ARN {key_arn}");
+        log::info!("describing KMS ARN '{key_arn}' in region '{}'", self.region);
         let desc = self
             .cli
             .describe_key()
@@ -232,7 +239,10 @@ impl Manager {
 
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html>
     pub async fn get_public_key(&self, key_arn: &str) -> Result<GetPublicKeyOutput> {
-        log::info!("getting public key for KMS ARN {key_arn}");
+        log::info!(
+            "getting public key for KMS ARN '{key_arn}' in region '{}'",
+            self.region
+        );
         let out = self
             .cli
             .get_public_key()
@@ -275,9 +285,10 @@ impl Manager {
         grant_token: Option<String>,
     ) -> Result<Vec<u8>> {
         log::info!(
-            "secp256k1 signing {}-byte digest message with key Arn '{key_arn}' (grant token exists {})",
+            "secp256k1 signing {}-byte digest message with key Arn '{key_arn}' (grant token exists '{}', region '{}')",
             digest.len(),
-            grant_token.is_some()
+            grant_token.is_some(),
+            self.region
         );
 
         // DO NOT DO THIS -- fails with "Digest is invalid length for algorithm ECDSA_SHA_256"
@@ -332,7 +343,7 @@ impl Manager {
         key_arn: &str,
         pending_window_in_days: i32,
     ) -> Result<()> {
-        log::info!("scheduling to delete KMS CMK {key_arn} in {pending_window_in_days} days");
+        log::info!("scheduling to delete KMS key '{key_arn}' in {pending_window_in_days} days, in region '{}'", self.region);
         let ret = self
             .cli
             .schedule_key_deletion()
@@ -346,11 +357,11 @@ impl Manager {
             Err(e) => {
                 let mut ignore_err: bool = false;
                 if is_err_does_not_exist_schedule_key_deletion(&e) {
-                    log::warn!("KMS CMK '{key_arn}' does not exist");
+                    log::warn!("KMS key '{key_arn}' does not exist");
                     ignore_err = true
                 }
                 if is_err_schedule_key_deletion_already_scheduled(&e) {
-                    log::warn!("KMS CMK '{key_arn}' already scheduled for deletion");
+                    log::warn!("KMS key '{key_arn}' already scheduled for deletion");
                     ignore_err = true
                 }
                 if !ignore_err {
@@ -382,8 +393,9 @@ impl Manager {
         // default to "SYMMETRIC_DEFAULT"
         let key_spec = spec.unwrap_or(EncryptionAlgorithmSpec::SymmetricDefault);
         log::info!(
-            "encrypting data (plaintext size {})",
+            "encrypting data (plaintext size {}) in region '{}'",
             human_readable::bytes(plaintext.len() as f64),
+            self.region
         );
 
         let resp = self
@@ -429,8 +441,9 @@ impl Manager {
         // default to "SYMMETRIC_DEFAULT"
         let key_spec = spec.unwrap_or(EncryptionAlgorithmSpec::SymmetricDefault);
         log::info!(
-            "decrypting data (ciphertext size {})",
+            "decrypting data (ciphertext size {}) in region '{}'",
             human_readable::bytes(ciphertext.len() as f64),
+            self.region
         );
 
         let resp = self

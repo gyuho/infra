@@ -29,7 +29,8 @@ impl Manager {
         interval: Duration,
     ) -> Result<CommandInvocationStatus> {
         log::info!(
-            "polling invocation status for command '{command_id}' and instance id '{instance_id}' with desired status {:?} for timeout {:?} and interval {:?}",
+            "polling invocation status for command '{command_id}' and instance id '{instance_id}' in region '{}' with desired status {:?} for timeout {:?} and interval {:?}",
+            self.region,
             desired_status,
             timeout,
             interval,

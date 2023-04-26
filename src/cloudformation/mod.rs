@@ -34,7 +34,7 @@ impl Manager {
         tags: Option<Vec<Tag>>,
         parameters: Option<Vec<Parameter>>,
     ) -> Result<Stack> {
-        log::info!("creating stack '{}'", stack_name);
+        log::info!("creating stack '{stack_name}' in region '{}'", self.region);
         let ret = self
             .cli
             .create_stack()
@@ -69,7 +69,7 @@ impl Manager {
     /// Deletes a CloudFormation stack.
     /// The separate caller is expected to poll the status asynchronously.
     pub async fn delete_stack(&self, stack_name: &str) -> Result<Stack> {
-        log::info!("deleting stack '{}'", stack_name);
+        log::info!("deleting stack '{stack_name}' in region '{}'", self.region);
         let ret = self.cli.delete_stack().stack_name(stack_name).send().await;
         match ret {
             Ok(_) => {}
@@ -107,8 +107,8 @@ impl Manager {
         interval: Duration,
     ) -> Result<Stack> {
         log::info!(
-            "polling stack '{}' with desired status {:?} for timeout {:?} and interval {:?}",
-            stack_name,
+            "polling stack '{stack_name}' in region '{}' with desired status {:?} for timeout {:?} and interval {:?}",
+            self.region,
             desired_status,
             timeout,
             interval,
@@ -167,9 +167,10 @@ impl Manager {
             let current_id = stack.stack_id().unwrap();
             let current_stack_status = stack.stack_status().unwrap();
             log::info!(
-                "poll (current stack status {:?}, elapsed {:?})",
+                "poll (current stack status {:?}, elapsed {:?}, region '{}')",
                 current_stack_status,
-                elapsed
+                elapsed,
+                self.region
             );
 
             if desired_status.eq(&StackStatus::CreateComplete)

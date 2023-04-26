@@ -23,20 +23,17 @@ const BATCH_SIZE: usize = 950;
 /// Implements AWS CloudWatch manager.
 #[derive(Debug, Clone)]
 pub struct Manager {
-    #[allow(dead_code)]
-    shared_config: AwsSdkConfig,
-
+    pub region: String,
     metrics_cli: MetricsClient,
     logs_cli: LogsClient,
 }
 
 impl Manager {
     pub fn new(shared_config: &AwsSdkConfig) -> Self {
-        let cloned = shared_config.clone();
         let metrics_cli = MetricsClient::new(shared_config);
         let logs_cli = LogsClient::new(shared_config);
         Self {
-            shared_config: cloned,
+            region: shared_config.region().unwrap().to_string(),
             metrics_cli,
             logs_cli,
         }
@@ -63,7 +60,11 @@ impl Manager {
     /// ref. https://tokio.rs/tokio/tutorial/spawning
     pub async fn put_metric_data(&self, namespace: &str, data: Vec<MetricDatum>) -> Result<()> {
         let n = data.len();
-        log::info!("posting CloudWatch {} metrics in '{}'", n, namespace);
+        log::info!(
+            "posting CloudWatch {} metrics in the namespace '{namespace}', region '{}'",
+            n,
+            self.region
+        );
         if n <= BATCH_SIZE {
             let ret = self
                 .metrics_cli
@@ -122,7 +123,10 @@ impl Manager {
     /// Creates a CloudWatch log group.
     /// ref. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
     pub async fn create_log_group(&self, log_group_name: &str) -> Result<()> {
-        log::info!("creating CloudWatch log group '{}'", log_group_name);
+        log::info!(
+            "creating CloudWatch log group '{log_group_name}' in region '{}'",
+            self.region
+        );
         let ret = self
             .logs_cli
             .create_log_group()
@@ -152,7 +156,10 @@ impl Manager {
     /// Deletes a CloudWatch log group.
     /// ref. https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
     pub async fn delete_log_group(&self, log_group_name: &str) -> Result<()> {
-        log::info!("deleting CloudWatch log group '{}'", log_group_name);
+        log::info!(
+            "deleting CloudWatch log group '{log_group_name}' in region '{}'",
+            self.region
+        );
         let ret = self
             .logs_cli
             .delete_log_group()

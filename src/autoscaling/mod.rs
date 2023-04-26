@@ -21,9 +21,8 @@ impl Manager {
     /// Sets the instance health: "Healthy" or "Unhealthy".
     pub async fn set_instance_health(&self, instance_id: &str, status: &str) -> Result<()> {
         log::info!(
-            "setting instance health for '{}' with {}",
-            instance_id,
-            status
+            "setting instance health for '{instance_id}' with '{status}' in region '{}'",
+            self.region
         );
         let ret = self
             .cli

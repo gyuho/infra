@@ -39,7 +39,7 @@ impl Manager {
         msg_visibility_timeout_seconds: i32,
         msg_retention_period_days: i32,
     ) -> Result<String> {
-        log::info!("creating a FIFO queue '{queue_name}' with visibility seconds '{msg_visibility_timeout_seconds}', retention period  days '{msg_retention_period_days}'");
+        log::info!("creating a FIFO queue '{queue_name}' with visibility seconds '{msg_visibility_timeout_seconds}', retention period  days '{msg_retention_period_days}', region '{}'", self.region);
 
         if queue_name.len() > 80 {
             return Err(Error::Other {
@@ -132,7 +132,7 @@ impl Manager {
     /// Delete a queue.
     /// ref. <https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteQueue.html>
     pub async fn delete(&self, queue_url: &str) -> Result<()> {
-        log::info!("deleting a queue '{queue_url}'");
+        log::info!("deleting a queue '{queue_url}' in region '{}'", self.region);
 
         match self.cli.delete_queue().queue_url(queue_url).send().await {
             Ok(_) => {
@@ -161,7 +161,10 @@ impl Manager {
         &self,
         queue_url: &str,
     ) -> Result<HashMap<QueueAttributeName, String>> {
-        log::info!("getting the queue attributes '{queue_url}'");
+        log::info!(
+            "getting the queue attributes '{queue_url}' in region '{}'",
+            self.region
+        );
 
         let resp = self
             .cli
