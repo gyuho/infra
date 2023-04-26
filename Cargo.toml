@@ -65,16 +65,16 @@ tokio-test = "0.4.2"
 
 [features]
 default = [
-    "acmpca",
-    "autoscaling",
-    "cloudformation",
-    "cloudwatch",
-    "ec2",
-    "kms",
-    "s3",
-    "sqs",
-    "ssm",
-    "sts",
+    # "acmpca",
+    # "autoscaling",
+    # "cloudformation",
+    # "cloudwatch",
+    # "ec2",
+    # "kms",
+    # "s3",
+    # "sqs",
+    # "ssm",
+    # "sts",
 ]
 
 acmpca = [
