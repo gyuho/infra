@@ -33,6 +33,7 @@ aws-sdk-sts = { version = "0.26.0", optional = true } # https://crates.io/crates
 
 # [OPTIONAL] for "acmpca"
 aws-sdk-acmpca = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
+cert-manager = { version = "0.0.4", optional = true } # https://crates.io/crates/cert-manager
 
 # [OPTIONAL] for "s3"
 aws-sdk-s3 = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
@@ -81,6 +82,7 @@ default = [
 
 acmpca = [
     "aws-sdk-acmpca",
+    "cert-manager",
 ]
 autoscaling = [
     "aws-sdk-autoscaling",

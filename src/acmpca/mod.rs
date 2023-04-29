@@ -138,19 +138,19 @@ impl Manager {
     /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html>
     pub async fn issue_cert(
         &self,
-        ca: &str,
+        ca_arn: &str,
         valid_days: i64,
         csr_blob: aws_smithy_types::Blob,
     ) -> Result<String> {
         log::info!(
-            "issuing a new cert for the certificate authority '{ca}' with valid days {valid_days}"
+            "issuing a new cert for the certificate authority '{ca_arn}' with valid days {valid_days}"
         );
 
         // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#API_IssueCertificate_RequestSyntax>
         let ret = self
             .cli
             .issue_certificate()
-            .certificate_authority_arn(ca)
+            .certificate_authority_arn(ca_arn)
             .signing_algorithm(SigningAlgorithm::Sha256Withrsa)
             .csr(csr_blob)
             .validity(
