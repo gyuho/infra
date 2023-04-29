@@ -166,8 +166,8 @@ pub fn create_default_params() -> io::Result<CertificateParams> {
 }
 
 /// RUST_LOG=debug cargo test --all-features --lib -- acmpca::cert::x509::test_default_pem --exact --show-output
-#[test]
-fn test_default_pem() {
+#[tokio::test]
+async fn test_default_pem() {
     let _ = env_logger::builder()
         .filter_level(log::LevelFilter::Info)
         .is_test(true)
@@ -184,6 +184,7 @@ fn test_default_pem() {
     let cert_path = cert_path.as_os_str().to_str().unwrap();
     let mut cert_path = String::from(cert_path);
     cert_path.push_str(".cert");
+    let cert_path = random_manager::tmp_path(10, Some(".pem")).unwrap();
 
     generate_default_pem(&key_path, &cert_path).unwrap();
     load_pem(&key_path, &cert_path).unwrap();
@@ -198,6 +199,33 @@ fn test_default_pem() {
     let cert_contents = String::from_utf8(cert_contents.to_vec()).unwrap();
     log::info!("cert {}", cert_contents);
     log::info!("cert: {} bytes", cert_contents.len());
+
+    let openssl_args = vec![
+        "x509".to_string(),
+        "-in".to_string(),
+        cert_path.to_string(),
+        "-text".to_string(),
+        "-noout".to_string(),
+    ];
+    let openssl_cmd = tokio::process::Command::new("openssl")
+        .stderr(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .args(openssl_args)
+        .spawn()
+        .unwrap();
+    log::info!("spawned openssl with PID {}", openssl_cmd.id().unwrap());
+    let res = openssl_cmd.wait_with_output().await;
+    match res {
+        Ok(output) => {
+            log::info!(
+                "openssl output:\n{}\n",
+                String::from_utf8(output.stdout).unwrap()
+            )
+        }
+        Err(e) => {
+            log::warn!("failed to run openssl {}", e)
+        }
+    }
 
     let (key, cert) = load_pem_to_der(&key_path, &cert_path).unwrap();
     log::info!("loaded key: {:?}", key);
