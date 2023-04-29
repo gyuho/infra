@@ -25,7 +25,6 @@ human-readable = { version = "0.0.1", optional = true }
 random-manager = { version = "0.0.5", optional = true } # https://crates.io/crates/random-manager/versions
 serde = { version = "1.0.160", features = ["derive"], optional = true } # https://github.com/serde-rs/serde/releases
 
-aws-sdk-acmpca = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-autoscaling = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-cloudformation = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
 aws-sdk-sqs = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-sqs/versions
@@ -33,11 +32,7 @@ aws-sdk-ssm = { version = "0.26.0", optional = true } # https://crates.io/crates
 aws-sdk-sts = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-sts/versions
 
 # [OPTIONAL] for "acmpca"
-rand = { version = "0.8.5", optional = true }
-rcgen = { version = "0.10.0", optional = true } # https://github.com/est31/rcgen
-rsa = { version = "0.9.0", features = ["pem"], optional = true } # https://crates.io/crates/rsa
-rustls = { version = "0.21.0", optional = true } # https://github.com/rustls/rustls/tags
-rustls-pemfile = { version = "1.0.2", optional = true } # https://github.com/rustls/pemfile
+aws-sdk-acmpca = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 
 # [OPTIONAL] for "s3"
 aws-sdk-s3 = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
@@ -60,6 +55,7 @@ serde_yaml = { version = "0.9.21", optional = true } # https://github.com/dtolna
 aws-sdk-kms = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
 byteorder = { version = "1.4.3", optional = true } # https://github.com/briansmith/ring
 compress-manager = { version = "0.0.8", optional = true } # https://crates.io/crates/compress-manager/versions
+rand = { version = "0.8.5", optional = true }
 ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/ring
 
 [dev-dependencies]
@@ -86,11 +82,6 @@ default = [
 
 acmpca = [
     "aws-sdk-acmpca",
-    "rand",
-    "rcgen",
-    "rsa",
-    "rustls",
-    "rustls-pemfile"
 ]
 autoscaling = [
     "aws-sdk-autoscaling",
@@ -141,7 +132,6 @@ sts = [
     "aws-sdk-sts",
     "serde",
 ]
-
 
 [[example]]
 name = "acmpca"

@@ -1,5 +1,3 @@
-pub mod cert;
-
 use std::collections::HashMap;
 
 use crate::errors::{self, Error, Result};
