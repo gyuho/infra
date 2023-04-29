@@ -10,57 +10,10 @@ use rustls_pemfile::{read_one, Item};
 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
 use rsa::{pkcs1::LineEnding, pkcs8::EncodePrivateKey, RsaPrivateKey};
 
-/// Generates a X509 certificate pair and returns them in DER format.
-/// ref. <https://pkg.go.dev/github.com/ava-labs/avalanchego/staking#NewCertAndKeyBytes>
-pub fn generate_default_der() -> io::Result<(rustls::PrivateKey, rustls::Certificate)> {
-    log::info!("generating key and cert (DER format)");
-
-    let cert = Certificate::from_params(create_default_params()?).map_err(|e| {
-        Error::new(
-            ErrorKind::Other,
-            format!("failed to generate certificate {}", e),
-        )
-    })?;
-    let cert_der = cert
-        .serialize_der()
-        .map_err(|e| Error::new(ErrorKind::Other, format!("failed to serialize_pem {}", e)))?;
-    // ref. "crypto/tls.parsePrivateKey"
-    // ref. "crypto/x509.MarshalPKCS8PrivateKey"
-    let key_der = cert.serialize_private_key_der();
-
-    Ok((rustls::PrivateKey(key_der), rustls::Certificate(cert_der)))
-}
-
-/// Loads the TLS key and certificate from the DER-encoded files.
-pub fn load_der(
-    key_path: &str,
-    cert_path: &str,
-) -> io::Result<(rustls::PrivateKey, rustls::Certificate)> {
-    log::info!(
-        "loading DER from key path {} and cert {}",
-        key_path,
-        cert_path
-    );
-    let (key, cert) = fs::read(key_path).and_then(|x| Ok((x, fs::read(cert_path)?)))?;
-    Ok((rustls::PrivateKey(key), rustls::Certificate(cert)))
-}
-
-/// RUST_LOG=debug cargo test --all-features --lib -- key::cert::test_generate_default_der --exact --show-output
-#[test]
-fn test_generate_default_der() {
-    let _ = env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
-        .is_test(true)
-        .try_init();
-    let (key, cert) = generate_default_der().unwrap();
-    log::info!("key: {} bytes", key.0.len());
-    log::info!("cert: {} bytes", cert.0.len());
-}
-
 /// Generates a X509 certificate pair and writes them as PEM files.
 /// ref. <https://pkg.go.dev/github.com/ava-labs/avalanchego/staking#NewCertAndKeyBytes>
 ///
-/// See https://github.com/ava-labs/avalanche-ops/blob/ad1730ed193cf1cd5056f23d130c3defc897cab5/avalanche-types/src/cert.rs
+/// See https://github.com/ava-labs/avalanche-types/blob/ad1730ed193cf1cd5056f23d130c3defc897cab5/avalanche-types/src/cert.rs
 /// to use "openssl" crate.
 pub fn generate_default_pem(key_path: &str, cert_path: &str) -> io::Result<()> {
     log::info!(
@@ -130,6 +83,125 @@ pub fn load_pem(key_path: &str, cert_path: &str) -> io::Result<(Vec<u8>, Vec<u8>
     let cert_contents = read_vec(cert_path)?;
 
     Ok((key_contents, cert_contents))
+}
+
+/// Creates default certificate parameters.
+#[cfg(not(all(target_arch = "aarch64", target_os = "macos")))]
+pub fn create_default_params() -> io::Result<CertificateParams> {
+    let mut cert_params = CertificateParams::default();
+
+    // this fails peer IP verification (e.g., incorrect signature)
+    // cert_params.alg = &rcgen::PKCS_ECDSA_P384_SHA384;
+    //
+    // currently, "avalanchego" only signs the IP with "crypto.SHA256"
+    // ref. "avalanchego/network/ip_signer.go.newIPSigner"
+    // ref. "avalanchego/network/peer/ip.go UnsignedIP.Sign" with "crypto.SHA256"
+    //
+    // TODO: support sha384/512 signatures in avalanchego node
+    log::info!("generating PKCS_ECDSA_P256_SHA256 key");
+    cert_params.alg = &rcgen::PKCS_ECDSA_P256_SHA256;
+    let key_pair = KeyPair::generate(&rcgen::PKCS_ECDSA_P256_SHA256).map_err(|e| {
+        Error::new(
+            ErrorKind::Other,
+            format!("failed to generate key pair {}", e),
+        )
+    })?;
+    cert_params.key_pair = Some(key_pair);
+
+    cert_params.not_before = date_time_ymd(2023, 4, 25);
+    cert_params.not_after = date_time_ymd(5000, 1, 1);
+    cert_params.distinguished_name = DistinguishedName::new();
+    cert_params
+        .distinguished_name
+        .push(DnType::CountryName, "US");
+    cert_params
+        .distinguished_name
+        .push(DnType::StateOrProvinceName, "NY");
+    cert_params
+        .distinguished_name
+        .push(DnType::OrganizationName, "Test Org");
+    cert_params
+        .distinguished_name
+        .push(DnType::CommonName, "test common name");
+
+    Ok(cert_params)
+}
+
+/// Creates default certificate parameters.
+/// Use RSA for Apple M1.
+/// ref. <https://github.com/sfackler/rust-native-tls/issues/225>
+#[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+pub fn create_default_params() -> io::Result<CertificateParams> {
+    let mut cert_params = CertificateParams::default();
+
+    log::info!("generating PKCS_RSA_SHA256 key");
+    cert_params.alg = &rcgen::PKCS_RSA_SHA256;
+    let mut rng = rand::thread_rng();
+    let private_key = RsaPrivateKey::new(&mut rng, 2048)
+        .map_err(|e| Error::new(ErrorKind::Other, format!("failed to generate key {}", e)))?;
+    let key = private_key
+        .to_pkcs8_pem(LineEnding::CRLF)
+        .map_err(|e| Error::new(ErrorKind::Other, format!("failed to convert key {}", e)))?;
+    let key_pair = KeyPair::from_pem(&key)
+        .map_err(|e| Error::new(ErrorKind::Other, format!("failed to create key pair {}", e)))?;
+    cert_params.key_pair = Some(key_pair);
+
+    cert_params.not_before = date_time_ymd(2023, 4, 25);
+    cert_params.not_after = date_time_ymd(5000, 1, 1);
+    cert_params.distinguished_name = DistinguishedName::new();
+    cert_params
+        .distinguished_name
+        .push(DnType::CountryName, "US");
+    cert_params
+        .distinguished_name
+        .push(DnType::StateOrProvinceName, "NY");
+    cert_params
+        .distinguished_name
+        .push(DnType::OrganizationName, "Test Org");
+    cert_params
+        .distinguished_name
+        .push(DnType::CommonName, "test common name");
+
+    Ok(cert_params)
+}
+
+/// RUST_LOG=debug cargo test --all-features --lib -- acmpca::cert::x509::test_default_pem --exact --show-output
+#[test]
+fn test_default_pem() {
+    let _ = env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .is_test(true)
+        .try_init();
+
+    let tmp_dir = tempfile::tempdir().unwrap();
+
+    let key_path = tmp_dir.path().join(random_manager::secure_string(20));
+    let key_path = key_path.as_os_str().to_str().unwrap();
+    let mut key_path = String::from(key_path);
+    key_path.push_str(".key");
+
+    let cert_path = tmp_dir.path().join(random_manager::secure_string(20));
+    let cert_path = cert_path.as_os_str().to_str().unwrap();
+    let mut cert_path = String::from(cert_path);
+    cert_path.push_str(".cert");
+
+    generate_default_pem(&key_path, &cert_path).unwrap();
+    load_pem(&key_path, &cert_path).unwrap();
+
+    let key_contents = fs::read(&key_path).unwrap();
+    let key_contents = String::from_utf8(key_contents.to_vec()).unwrap();
+    log::info!("key {}", key_contents);
+    log::info!("key: {} bytes", key_contents.len());
+
+    // openssl x509 -in [cert_path] -text -noout
+    let cert_contents = fs::read(&cert_path).unwrap();
+    let cert_contents = String::from_utf8(cert_contents.to_vec()).unwrap();
+    log::info!("cert {}", cert_contents);
+    log::info!("cert: {} bytes", cert_contents.len());
+
+    let (key, cert) = load_pem_to_der(&key_path, &cert_path).unwrap();
+    log::info!("loaded key: {:?}", key);
+    log::info!("loaded cert: {:?}", cert);
 }
 
 /// Loads the TLS key and certificate from the PEM-encoded files, as DER.
@@ -260,6 +332,53 @@ pub fn load_pem_cert_to_der(cert_path: &str) -> io::Result<rustls::Certificate> 
     Ok(rustls::Certificate(cert_der))
 }
 
+/// Generates a X509 certificate pair and returns them in DER format.
+/// ref. <https://pkg.go.dev/github.com/ava-labs/avalanchego/staking#NewCertAndKeyBytes>
+pub fn generate_default_der() -> io::Result<(rustls::PrivateKey, rustls::Certificate)> {
+    log::info!("generating key and cert (DER format)");
+
+    let cert = Certificate::from_params(create_default_params()?).map_err(|e| {
+        Error::new(
+            ErrorKind::Other,
+            format!("failed to generate certificate {}", e),
+        )
+    })?;
+    let cert_der = cert
+        .serialize_der()
+        .map_err(|e| Error::new(ErrorKind::Other, format!("failed to serialize_pem {}", e)))?;
+    // ref. "crypto/tls.parsePrivateKey"
+    // ref. "crypto/x509.MarshalPKCS8PrivateKey"
+    let key_der = cert.serialize_private_key_der();
+
+    Ok((rustls::PrivateKey(key_der), rustls::Certificate(cert_der)))
+}
+
+/// Loads the TLS key and certificate from the DER-encoded files.
+pub fn load_der(
+    key_path: &str,
+    cert_path: &str,
+) -> io::Result<(rustls::PrivateKey, rustls::Certificate)> {
+    log::info!(
+        "loading DER from key path {} and cert {}",
+        key_path,
+        cert_path
+    );
+    let (key, cert) = fs::read(key_path).and_then(|x| Ok((x, fs::read(cert_path)?)))?;
+    Ok((rustls::PrivateKey(key), rustls::Certificate(cert)))
+}
+
+/// RUST_LOG=debug cargo test --all-features --lib -- acmpca::cert::x509::test_generate_default_der --exact --show-output
+#[test]
+fn test_generate_default_der() {
+    let _ = env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .is_test(true)
+        .try_init();
+    let (key, cert) = generate_default_der().unwrap();
+    log::info!("key: {} bytes", key.0.len());
+    log::info!("cert: {} bytes", cert.0.len());
+}
+
 /// ref. <https://doc.rust-lang.org/std/fs/fn.read.html>
 fn read_vec(p: &str) -> io::Result<Vec<u8>> {
     let mut f = File::open(p)?;
@@ -267,123 +386,4 @@ fn read_vec(p: &str) -> io::Result<Vec<u8>> {
     let mut buffer = vec![0; metadata.len() as usize];
     let _read_bytes = f.read(&mut buffer)?;
     Ok(buffer)
-}
-
-/// RUST_LOG=debug cargo test --all-features --lib -- acmpca::cert::x509::test_default_pem --exact --show-output
-#[test]
-fn test_default_pem() {
-    let _ = env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
-        .is_test(true)
-        .try_init();
-
-    let tmp_dir = tempfile::tempdir().unwrap();
-
-    let key_path = tmp_dir.path().join(random_manager::secure_string(20));
-    let key_path = key_path.as_os_str().to_str().unwrap();
-    let mut key_path = String::from(key_path);
-    key_path.push_str(".key");
-
-    let cert_path = tmp_dir.path().join(random_manager::secure_string(20));
-    let cert_path = cert_path.as_os_str().to_str().unwrap();
-    let mut cert_path = String::from(cert_path);
-    cert_path.push_str(".cert");
-
-    generate_default_pem(&key_path, &cert_path).unwrap();
-    load_pem(&key_path, &cert_path).unwrap();
-
-    let key_contents = fs::read(&key_path).unwrap();
-    let key_contents = String::from_utf8(key_contents.to_vec()).unwrap();
-    log::info!("key {}", key_contents);
-    log::info!("key: {} bytes", key_contents.len());
-
-    // openssl x509 -in [cert_path] -text -noout
-    let cert_contents = fs::read(&cert_path).unwrap();
-    let cert_contents = String::from_utf8(cert_contents.to_vec()).unwrap();
-    log::info!("cert {}", cert_contents);
-    log::info!("cert: {} bytes", cert_contents.len());
-
-    let (key, cert) = load_pem_to_der(&key_path, &cert_path).unwrap();
-    log::info!("loaded key: {:?}", key);
-    log::info!("loaded cert: {:?}", cert);
-}
-
-/// Creates default certificate parameters.
-#[cfg(not(all(target_arch = "aarch64", target_os = "macos")))]
-pub fn create_default_params() -> io::Result<CertificateParams> {
-    let mut cert_params = CertificateParams::default();
-
-    // this fails peer IP verification (e.g., incorrect signature)
-    // cert_params.alg = &rcgen::PKCS_ECDSA_P384_SHA384;
-    //
-    // currently, "avalanchego" only signs the IP with "crypto.SHA256"
-    // ref. "avalanchego/network/ip_signer.go.newIPSigner"
-    // ref. "avalanchego/network/peer/ip.go UnsignedIP.Sign" with "crypto.SHA256"
-    //
-    // TODO: support sha384/512 signatures in avalanchego node
-    log::info!("generating PKCS_ECDSA_P256_SHA256 key");
-    cert_params.alg = &rcgen::PKCS_ECDSA_P256_SHA256;
-    let key_pair = KeyPair::generate(&rcgen::PKCS_ECDSA_P256_SHA256).map_err(|e| {
-        Error::new(
-            ErrorKind::Other,
-            format!("failed to generate key pair {}", e),
-        )
-    })?;
-    cert_params.key_pair = Some(key_pair);
-
-    cert_params.not_before = date_time_ymd(2022, 4, 1);
-    cert_params.not_after = date_time_ymd(5000, 1, 1);
-    cert_params.distinguished_name = DistinguishedName::new();
-    cert_params
-        .distinguished_name
-        .push(DnType::CountryName, "US");
-    cert_params
-        .distinguished_name
-        .push(DnType::StateOrProvinceName, "NY");
-    cert_params
-        .distinguished_name
-        .push(DnType::OrganizationName, "Test");
-    cert_params
-        .distinguished_name
-        .push(DnType::CommonName, "test");
-
-    Ok(cert_params)
-}
-
-/// Creates default certificate parameters.
-/// Use RSA for Apple M1.
-/// ref. <https://github.com/sfackler/rust-native-tls/issues/225>
-#[cfg(all(target_arch = "aarch64", target_os = "macos"))]
-pub fn create_default_params() -> io::Result<CertificateParams> {
-    let mut cert_params = CertificateParams::default();
-
-    log::info!("generating PKCS_RSA_SHA256 key");
-    cert_params.alg = &rcgen::PKCS_RSA_SHA256;
-    let mut rng = rand::thread_rng();
-    let private_key = RsaPrivateKey::new(&mut rng, 2048)
-        .map_err(|e| Error::new(ErrorKind::Other, format!("failed to generate key {}", e)))?;
-    let key = private_key
-        .to_pkcs8_pem(LineEnding::CRLF)
-        .map_err(|e| Error::new(ErrorKind::Other, format!("failed to convert key {}", e)))?;
-    let key_pair = KeyPair::from_pem(&key)
-        .map_err(|e| Error::new(ErrorKind::Other, format!("failed to create key pair {}", e)))?;
-    cert_params.key_pair = Some(key_pair);
-
-    cert_params.not_before = date_time_ymd(2022, 4, 1);
-    cert_params.not_after = date_time_ymd(5000, 1, 1);
-    cert_params.distinguished_name = DistinguishedName::new();
-    cert_params
-        .distinguished_name
-        .push(DnType::CountryName, "US");
-    cert_params
-        .distinguished_name
-        .push(DnType::StateOrProvinceName, "NY");
-    cert_params
-        .distinguished_name
-        .push(DnType::OrganizationName, "Test");
-    cert_params
-        .distinguished_name
-        .push(DnType::CommonName, "test");
-
-    Ok(cert_params)
 }
