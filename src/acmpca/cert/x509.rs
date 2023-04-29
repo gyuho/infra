@@ -168,6 +168,9 @@ pub fn create_default_params() -> io::Result<CertificateParams> {
 /// RUST_LOG=debug cargo test --all-features --lib -- acmpca::cert::x509::test_default_pem --exact --show-output
 #[tokio::test]
 async fn test_default_pem() {
+    use std::process::Stdio;
+    use tokio::process::Command;
+
     let _ = env_logger::builder()
         .filter_level(log::LevelFilter::Info)
         .is_test(true)
@@ -207,9 +210,9 @@ async fn test_default_pem() {
         "-text".to_string(),
         "-noout".to_string(),
     ];
-    let openssl_cmd = tokio::process::Command::new("openssl")
-        .stderr(std::process::Stdio::inherit())
-        .stdout(std::process::Stdio::inherit())
+    let openssl_cmd = Command::new("openssl")
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
         .args(openssl_args)
         .spawn()
         .unwrap();
