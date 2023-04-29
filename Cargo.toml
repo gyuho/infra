@@ -204,3 +204,4 @@ development = [
     "tempfile",
     "tokio-test",
 ]
+normal = ["rsa"]
