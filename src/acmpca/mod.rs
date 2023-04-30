@@ -82,12 +82,12 @@ impl Manager {
     }
 
     /// Deletes a private CA.
-    pub async fn delete_ca(&self, arn: &str) -> Result<()> {
-        log::info!("deleting a private CA '{arn}'");
+    pub async fn delete_ca(&self, ca_arn: &str) -> Result<()> {
+        log::info!("deleting a private CA '{ca_arn}'");
         let ret = self
             .cli
             .delete_certificate_authority()
-            .certificate_authority_arn(arn)
+            .certificate_authority_arn(ca_arn)
             .send()
             .await;
         match ret {
@@ -95,7 +95,7 @@ impl Manager {
             Err(e) => {
                 if is_err_not_found_delete_certificate_authority(&e) {
                     log::warn!(
-                        "private CA '{arn}' not found thus no need to delete ({})",
+                        "private CA '{ca_arn}' not found thus no need to delete ({})",
                         e
                     );
                     return Ok(());

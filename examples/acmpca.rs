@@ -24,6 +24,7 @@ async fn main() {
 
     let org = random_manager::secure_string(10);
     let common_name = random_manager::secure_string(10);
+
     let ca_arn = acmpca_manager
         .create_root_ca(&org, &common_name, Some(tags))
         .await
