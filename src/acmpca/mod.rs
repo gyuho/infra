@@ -5,13 +5,14 @@ use aws_sdk_acmpca::{
     operation::delete_certificate_authority::DeleteCertificateAuthorityError,
     types::{
         Asn1Subject, CertificateAuthority, CertificateAuthorityConfiguration,
-        CertificateAuthorityType, CertificateAuthorityUsageMode, KeyAlgorithm, SigningAlgorithm,
-        Tag, Validity, ValidityPeriodType,
+        CertificateAuthorityStatus, CertificateAuthorityType, CertificateAuthorityUsageMode,
+        KeyAlgorithm, RevocationReason, SigningAlgorithm, Tag, Validity, ValidityPeriodType,
     },
     Client,
 };
 use aws_smithy_client::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
+use tokio::fs;
 
 /// Implements AWS Private CA manager.
 #[derive(Debug, Clone)]
@@ -51,8 +52,8 @@ impl Manager {
                     .signing_algorithm(SigningAlgorithm::Sha256Withrsa)
                     .subject(
                         Asn1Subject::builder()
-                            .organization(org)
                             .country("US")
+                            .organization(org)
                             .common_name(common_name)
                             .build(),
                     )
@@ -64,8 +65,7 @@ impl Manager {
             }
         }
 
-        let ret = req.send().await;
-        let resp = match ret {
+        let resp = match req.send().await {
             Ok(v) => v,
             Err(e) => {
                 return Err(Error::API {
@@ -81,21 +81,46 @@ impl Manager {
         Ok(ca_arn)
     }
 
+    /// Disables the private CA.
+    /// Note that self-signed cert cannot be revoked.
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_UpdateCertificateAuthority.html>
+    pub async fn disable_ca(&self, ca_arn: &str) -> Result<()> {
+        log::info!("disabling private CA '{ca_arn}'");
+        match self
+            .cli
+            .update_certificate_authority()
+            .certificate_authority_arn(ca_arn)
+            .status(CertificateAuthorityStatus::Disabled)
+            .send()
+            .await
+        {
+            Ok(_) => log::info!("successfully disabled the private CA"),
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed update_certificate_authority {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        };
+
+        Ok(())
+    }
+
     /// Deletes a private CA.
-    pub async fn delete_ca(&self, arn: &str) -> Result<()> {
-        log::info!("deleting a private CA '{arn}'");
-        let ret = self
+    pub async fn delete_ca(&self, ca_arn: &str) -> Result<()> {
+        log::info!("deleting private CA '{ca_arn}'");
+        match self
             .cli
             .delete_certificate_authority()
-            .certificate_authority_arn(arn)
+            .certificate_authority_arn(ca_arn)
             .send()
-            .await;
-        match ret {
+            .await
+        {
             Ok(_) => log::info!("successfully deleted the private CA"),
             Err(e) => {
                 if is_err_not_found_delete_certificate_authority(&e) {
                     log::warn!(
-                        "private CA '{arn}' not found thus no need to delete ({})",
+                        "private CA '{ca_arn}' not found thus no need to delete ({})",
                         e
                     );
                     return Ok(());
@@ -112,15 +137,15 @@ impl Manager {
     }
 
     /// Describes a private root CA.
-    pub async fn describe_ca(&self, arn: &str) -> Result<CertificateAuthority> {
-        log::info!("describing a new private CA '{arn}'");
-        let ret = self
+    pub async fn describe_ca(&self, ca_arn: &str) -> Result<CertificateAuthority> {
+        log::info!("describing private CA '{ca_arn}'");
+        let resp = match self
             .cli
             .describe_certificate_authority()
-            .certificate_authority_arn(arn)
+            .certificate_authority_arn(ca_arn)
             .send()
-            .await;
-        let resp = match ret {
+            .await
+        {
             Ok(v) => v,
             Err(e) => {
                 return Err(Error::API {
@@ -134,34 +159,66 @@ impl Manager {
         Ok(ca.clone())
     }
 
-    /// Issues a new certificate and returns the Arn with SHA256 RSA signing algorithm.
+    /// Get the certificate, and returns the certificate in the base64-encoded PEM format.
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_GetCertificateAuthorityCsr.html>
+    pub async fn get_ca_csr(&self, ca_arn: &str) -> Result<String> {
+        log::info!("getting CSR for CA '{ca_arn}'");
+
+        // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_GetCertificateAuthorityCsr.html>
+        let resp = match self
+            .cli
+            .get_certificate_authority_csr()
+            .certificate_authority_arn(ca_arn)
+            .send()
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed get_certificate_authority_certificate {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        };
+
+        let csr_pem = resp.csr().unwrap();
+        Ok(csr_pem.to_string())
+    }
+
+    /// Issues a new certificate with SHA256 RSA signing algorithm from the root CA.
+    /// And returns the created certificate arn.
     /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html>
-    pub async fn issue_cert(
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+    pub async fn issue_cert_from_root_ca(
         &self,
-        ca: &str,
+        root_ca_arn: &str,
         valid_days: i64,
         csr_blob: aws_smithy_types::Blob,
     ) -> Result<String> {
         log::info!(
-            "issuing a new cert for the certificate authority '{ca}' with valid days {valid_days}"
+            "with CSR, issuing a new cert from root CA '{root_ca_arn}' with valid days {valid_days}"
         );
 
         // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#API_IssueCertificate_RequestSyntax>
-        let ret = self
+        let resp = match self
             .cli
             .issue_certificate()
-            .certificate_authority_arn(ca)
+            .certificate_authority_arn(root_ca_arn)
             .signing_algorithm(SigningAlgorithm::Sha256Withrsa)
-            .csr(csr_blob)
             .validity(
                 Validity::builder()
                     .r#type(ValidityPeriodType::Days)
                     .value(valid_days)
                     .build(),
             )
+            .csr(csr_blob)
+            // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#privateca-IssueCertificate-request-TemplateArn>
+            // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+            .template_arn("arn:aws:acm-pca:::template/RootCACertificate/V1")
             .send()
-            .await;
-        let resp = match ret {
+            .await
+        {
             Ok(v) => v,
             Err(e) => {
                 return Err(Error::API {
@@ -171,8 +228,123 @@ impl Manager {
             }
         };
 
-        let cert_arn = resp.certificate_arn().unwrap();
-        Ok(cert_arn.to_string())
+        let issued_cert_arn = resp.certificate_arn().unwrap();
+        log::info!("successfully issued cert '{issued_cert_arn}' for root CA '{root_ca_arn}'");
+
+        Ok(issued_cert_arn.to_string())
+    }
+
+    /// Get the certificate, and returns the certificate in the base64-encoded PEM format.
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_GetCertificate.html>
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+    pub async fn get_cert_pem(&self, ca_arn: &str, cert_arn: &str) -> Result<String> {
+        log::info!("getting cert PEM '{cert_arn}' for CA '{ca_arn}'");
+
+        // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_GetCertificate.html>
+        // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+        let resp = match self
+            .cli
+            .get_certificate()
+            .certificate_authority_arn(ca_arn)
+            .certificate_arn(cert_arn)
+            .send()
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed get_certificate {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        };
+
+        let cert_pem = resp.certificate().unwrap();
+        Ok(cert_pem.to_string())
+    }
+
+    /// Imports the base64-encoded PEM formatted certificate into the CA.
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_ImportCertificateAuthorityCertificate.html>
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+    pub async fn import_cert(&self, cert_file_path: &str, ca_arn: &str) -> Result<()> {
+        log::info!("importing cert PEM '{cert_file_path}' to CA '{ca_arn}'");
+        let cert_raw = fs::read(cert_file_path).await.map_err(|e| Error::Other {
+            message: format!("failed File::open {:?}", e),
+            retryable: false,
+        })?;
+
+        // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_ImportCertificateAuthorityCertificate.html>
+        // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+        let _ = match self
+            .cli
+            .import_certificate_authority_certificate()
+            .certificate(aws_smithy_types::Blob::new(cert_raw))
+            .certificate_authority_arn(ca_arn)
+            .send()
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed import_certificate_authority_certificate {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        };
+
+        Ok(())
+    }
+
+    /// Get the imported CA certificate, and returns the certificate in the base64-encoded PEM format.
+    /// Fails if the CA is still pending certificate.
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_GetCertificateAuthorityCertificate.html>
+    pub async fn get_ca_cert_pem(&self, ca_arn: &str) -> Result<String> {
+        log::info!("getting cert PEM for CA '{ca_arn}'");
+
+        // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_GetCertificateAuthorityCertificate.html>
+        let resp = match self
+            .cli
+            .get_certificate_authority_certificate()
+            .certificate_authority_arn(ca_arn)
+            .send()
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed get_certificate_authority_certificate {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        };
+
+        let cert_pem = resp.certificate().unwrap();
+        Ok(cert_pem.to_string())
+    }
+
+    /// Revokes the private CA.
+    /// Note that self-signed cert cannot be revoked.
+    pub async fn revoke_ca(&self, ca_arn: &str, cert_serial: &str) -> Result<()> {
+        log::info!("revoking a private CA '{ca_arn}'");
+        match self
+            .cli
+            .revoke_certificate()
+            .certificate_authority_arn(ca_arn)
+            .certificate_serial(cert_serial)
+            .revocation_reason(RevocationReason::CessationOfOperation)
+            .send()
+            .await
+        {
+            Ok(_) => log::info!("successfully disabled the private CA"),
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed revoke_certificate {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        };
+
+        Ok(())
     }
 }
 
