@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.26.20" # https://crates.io/crates/aws-manager/versions
+version = "0.26.21" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.69"
@@ -25,17 +25,13 @@ human-readable = { version = "0.0.1", optional = true }
 random-manager = { version = "0.0.5", optional = true } # https://crates.io/crates/random-manager/versions
 serde = { version = "1.0.160", features = ["derive"], optional = true } # https://github.com/serde-rs/serde/releases
 
+aws-sdk-acm = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-acm/versions
+aws-sdk-acmpca = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-acmpca/versions
 aws-sdk-autoscaling = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-cloudformation = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
 aws-sdk-sqs = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-sqs/versions
 aws-sdk-ssm = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
 aws-sdk-sts = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-sts/versions
-
-# [OPTIONAL] for "acm"
-aws-sdk-acm = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-acm/versions
-
-# [OPTIONAL] for "acmpca"
-aws-sdk-acmpca = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-acmpca/versions
 
 # [OPTIONAL] for "s3"
 aws-sdk-s3 = { version = "0.26.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions

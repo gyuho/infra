@@ -154,7 +154,7 @@ impl Manager {
         Ok((grant_id, grant_token))
     }
 
-    /// Creates a KMS grant for Sign, Verify, and other read operations.
+    /// Creates a KMS grant for Sign, DescribeKey, and GetPublicKey operations.
     /// And returns the grant Id and token.
     /// Note that "GetPublicKey" are not supported when creating a grant for a symmetric KMS.
     /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_CreateGrant.html>
@@ -163,7 +163,7 @@ impl Manager {
         key_id: &str,
         grantee_principal: &str,
     ) -> Result<(String, String)> {
-        log::info!("creating KMS grant for sign and reads for the key '{key_id}' on the grantee '{grantee_principal}' in region '{}'", self.region);
+        log::info!("creating KMS grant for Sign, DescribeKey, GetPublicKey for the key '{key_id}' on the grantee '{grantee_principal}' in region '{}'", self.region);
 
         let out = self
             .cli
@@ -171,7 +171,6 @@ impl Manager {
             .key_id(key_id)
             .grantee_principal(grantee_principal)
             .operations(GrantOperation::Sign)
-            .operations(GrantOperation::Verify)
             .operations(GrantOperation::DescribeKey)
             .operations(GrantOperation::GetPublicKey)
             .send()
