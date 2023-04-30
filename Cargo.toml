@@ -143,7 +143,7 @@ sts = [
 
 [[example]]
 name = "acmpca"
-required-features = ["acmpca", "random-manager"]
+required-features = ["acm", "acmpca", "random-manager"]
 
 [[example]]
 name = "cloudformation_ec2_instance_role"
