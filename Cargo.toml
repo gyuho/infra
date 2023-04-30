@@ -195,9 +195,11 @@ required-features = ["sts"]
 
 [package.metadata.cargo-udeps.ignore]
 development = [
+    "cert-manager",
     "cmp-manager",
     "env_logger",
     "id-manager",
+    "rcgen",
     "rust-embed",
     "tempfile",
     "tokio-test",
