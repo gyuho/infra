@@ -188,16 +188,18 @@ impl Manager {
 
     /// Issues a new certificate with SHA256 RSA signing algorithm from the root CA.
     /// And returns the created certificate arn.
+    /// CSR must be for the root. Otherwise fails with "Root CA CSR is not provided".
     /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html>
     /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
-    pub async fn issue_cert_from_root_ca(
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html>
+    pub async fn issue_self_signed_cert_from_root_ca(
         &self,
         root_ca_arn: &str,
         valid_days: i64,
         csr_blob: aws_smithy_types::Blob,
     ) -> Result<String> {
         log::info!(
-            "with CSR, issuing a new cert from root CA '{root_ca_arn}' with valid days {valid_days}"
+            "with CSR, issuing self-signed cert from root CA '{root_ca_arn}' with valid days {valid_days}"
         );
 
         // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#API_IssueCertificate_RequestSyntax>
@@ -215,7 +217,61 @@ impl Manager {
             .csr(csr_blob)
             // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#privateca-IssueCertificate-request-TemplateArn>
             // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+            // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html>
+            // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html#RootCACertificate-V1>
             .template_arn("arn:aws:acm-pca:::template/RootCACertificate/V1")
+            .send()
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed issue_certificate {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        };
+
+        let issued_cert_arn = resp.certificate_arn().unwrap();
+        log::info!("successfully issued cert '{issued_cert_arn}' for root CA '{root_ca_arn}'");
+
+        Ok(issued_cert_arn.to_string())
+    }
+
+    /// The root CA must be "ACTIVE" in order to issue this cert.
+    /// Make sure the valid days is within the root CA validation period.
+    /// Otherwise, "The certificate validity specified exceeds the certificate authority validity".
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html>
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+    /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html>
+    pub async fn issue_end_cert_from_root_ca(
+        &self,
+        root_ca_arn: &str,
+        valid_days: i64,
+        csr_blob: aws_smithy_types::Blob,
+    ) -> Result<String> {
+        log::info!(
+            "with CSR, issuing end cert from root CA '{root_ca_arn}' with valid days {valid_days}"
+        );
+
+        // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#API_IssueCertificate_RequestSyntax>
+        let resp = match self
+            .cli
+            .issue_certificate()
+            .certificate_authority_arn(root_ca_arn)
+            .signing_algorithm(SigningAlgorithm::Sha256Withrsa)
+            .validity(
+                Validity::builder()
+                    .r#type(ValidityPeriodType::Days)
+                    .value(valid_days)
+                    .build(),
+            )
+            .csr(csr_blob)
+            // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#privateca-IssueCertificate-request-TemplateArn>
+            // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+            // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html>
+            // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html#EndEntityCertificate-V1>
+            .template_arn("arn:aws:acm-pca:::template/EndEntityCertificate/V1")
             .send()
             .await
         {
@@ -264,6 +320,7 @@ impl Manager {
     }
 
     /// Imports the base64-encoded PEM formatted certificate into the CA.
+    /// Can only import a self-signed cert if the CA is a type root.
     /// ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_ImportCertificateAuthorityCertificate.html>
     /// ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
     pub async fn import_cert(&self, cert_file_path: &str, ca_arn: &str) -> Result<()> {
@@ -283,7 +340,9 @@ impl Manager {
             .send()
             .await
         {
-            Ok(v) => v,
+            Ok(_) => {
+                log::info!("successfully imported cert PEM '{cert_file_path}' to CA '{ca_arn}'");
+            }
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed import_certificate_authority_certificate {:?}", e),

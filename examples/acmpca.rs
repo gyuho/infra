@@ -7,6 +7,7 @@ use std::{
 };
 
 use aws_manager::{self, acmpca};
+use rcgen::{DistinguishedName, DnType};
 use tokio::time::{sleep, Duration};
 
 /// cargo run --example acmpca --features="acmpca random-manager" -- [ORG] [COMMON NAME]
@@ -50,6 +51,7 @@ async fn main() {
     println!();
     println!();
     println!();
+    println!("STEP 1. creating a root CA for the following CSRs");
     let root_ca_arn = acmpca_manager
         .create_root_ca(&org, &common_name, Some(tags))
         .await
@@ -68,13 +70,16 @@ async fn main() {
     println!();
     println!();
     sleep(Duration::from_secs(3)).await;
-    let ca_csr = acmpca_manager.get_ca_csr(&root_ca_arn).await.unwrap();
-    log::info!("ca_csr:\n\n{ca_csr}\n");
+    println!("STEP 2. getting the root CSR to import");
+    let root_ca_csr_to_import = acmpca_manager.get_ca_csr(&root_ca_arn).await.unwrap();
+    log::info!("root_ca_csr_to_import:\n\n{root_ca_csr_to_import}\n");
 
-    let root_ca_csr_path = random_manager::tmp_path(10, Some(".csr")).unwrap();
-    let mut root_ca_csr_file = File::create(&root_ca_csr_path).unwrap();
-    root_ca_csr_file.write_all(ca_csr.as_bytes()).unwrap();
-    log::info!("wrote CSR to {root_ca_csr_path}");
+    let root_ca_csr_to_import_path = random_manager::tmp_path(10, Some(".csr")).unwrap();
+    let mut root_ca_csr_to_import_file = File::create(&root_ca_csr_to_import_path).unwrap();
+    root_ca_csr_to_import_file
+        .write_all(root_ca_csr_to_import.as_bytes())
+        .unwrap();
+    log::info!("wrote CSR to {root_ca_csr_to_import_path}");
 
     // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
     let openssl_args = vec![
@@ -83,7 +88,7 @@ async fn main() {
         "-noout".to_string(),
         "-verify".to_string(),
         "-in".to_string(),
-        root_ca_csr_path.to_string(),
+        root_ca_csr_to_import_path.to_string(),
     ];
     let openssl_cmd = Command::new("openssl")
         .stderr(Stdio::inherit())
@@ -119,17 +124,35 @@ async fn main() {
     println!();
     println!();
     sleep(Duration::from_secs(3)).await;
-    let issued_cert_arn = acmpca_manager
-        .issue_cert_from_root_ca(&root_ca_arn, 365, aws_smithy_types::Blob::new(ca_csr))
+    println!("STEP 3. issuing the self-signed cert from the root CA and CSR");
+    let issued_self_signed_cert_arn = acmpca_manager
+        .issue_self_signed_cert_from_root_ca(
+            &root_ca_arn,
+            365,
+            aws_smithy_types::Blob::new(root_ca_csr_to_import),
+        )
         .await
         .unwrap();
 
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    println!();
+    println!();
+    println!();
     sleep(Duration::from_secs(3)).await;
-    let issued_cert_pem = acmpca_manager
-        .get_cert_pem(&root_ca_arn, &issued_cert_arn)
+    println!("STEP 4. fetching the newly issued the self-signed cert PEM");
+    let issued_self_signed_cert_pem = acmpca_manager
+        .get_cert_pem(&root_ca_arn, &issued_self_signed_cert_arn)
         .await
         .unwrap();
-    log::info!("issued_cert_pem:\n\n{issued_cert_pem}\n");
+    log::info!("issued_self_signed_cert_pem:\n\n{issued_self_signed_cert_pem}\n");
 
     sleep(Duration::from_secs(3)).await;
     match acmpca_manager.get_ca_cert_pem(&root_ca_arn).await {
@@ -140,12 +163,13 @@ async fn main() {
     }
 
     // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
-    let issued_cert_pem_path = random_manager::tmp_path(10, Some(".csr")).unwrap();
-    let mut issued_cert_pem_file = File::create(&issued_cert_pem_path).unwrap();
-    issued_cert_pem_file
-        .write_all(issued_cert_pem.as_bytes())
+    let issued_self_signed_cert_pem_path = random_manager::tmp_path(10, Some(".csr")).unwrap();
+    let mut issued_self_signed_cert_pem_file =
+        File::create(&issued_self_signed_cert_pem_path).unwrap();
+    issued_self_signed_cert_pem_file
+        .write_all(issued_self_signed_cert_pem.as_bytes())
         .unwrap();
-    log::info!("wrote issued cert PEM to {issued_cert_pem_path}");
+    log::info!("wrote issued cert PEM to {issued_self_signed_cert_pem_path}");
 
     // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
     let openssl_args = vec![
@@ -153,7 +177,7 @@ async fn main() {
         "-text".to_string(),
         "-noout".to_string(),
         "-in".to_string(),
-        issued_cert_pem_path.to_string(),
+        issued_self_signed_cert_pem_path.to_string(),
     ];
     let openssl_cmd = Command::new("openssl")
         .stderr(Stdio::inherit())
@@ -189,16 +213,246 @@ async fn main() {
     println!();
     println!();
     sleep(Duration::from_secs(3)).await;
+    println!("STEP 5. importing the self-signed cert PEM to the root CA");
     acmpca_manager
-        .import_cert(&issued_cert_pem_path, &root_ca_arn)
+        .import_cert(&issued_self_signed_cert_pem_path, &root_ca_arn)
         .await
         .unwrap();
+
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(3)).await;
+    println!("STEP 6. making sure the root CA is now ACTIVE");
+    sleep(Duration::from_secs(3)).await;
+    let described = acmpca_manager.describe_ca(&root_ca_arn).await.unwrap();
+    log::info!("described CA: {:?}", described);
+    assert_eq!(described.status().unwrap().as_str(), "ACTIVE");
+
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(3)).await;
+    println!("STEP 7. getting the root CA PEM");
+    let root_ca_cert = acmpca_manager.get_ca_cert_pem(&root_ca_arn).await.unwrap();
+    log::info!("Root CA cert:\n\n{root_ca_cert}\n");
+
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(3)).await;
+    println!("STEP 8. writing another CSR");
+    let mut csr_params =
+        cert_manager::x509::default_params(Some(common_name.clone()), false).unwrap();
+    csr_params.distinguished_name = DistinguishedName::new();
+    csr_params
+        .distinguished_name
+        .push(DnType::CountryName, "US");
+    csr_params
+        .distinguished_name
+        .push(DnType::StateOrProvinceName, "NY");
+    csr_params
+        .distinguished_name
+        .push(DnType::OrganizationName, org);
+    csr_params
+        .distinguished_name
+        .push(DnType::CommonName, common_name.clone());
+
+    let csr_entity_to_import =
+        cert_manager::x509::CsrEntity::new_with_parameters(csr_params).unwrap();
+    let csr_to_import = csr_entity_to_import.csr_pem.clone();
+
+    log::info!(
+        "csr_entity_to_import:\n\n{}\n",
+        csr_entity_to_import.csr_pem
+    );
+    let (csr_key_path, csr_cert_path, csr_to_import_path) =
+        csr_entity_to_import.save(true, None, None, None).unwrap();
+    log::info!("csr_key_path: {csr_key_path}");
+    log::info!("csr_cert_path: {csr_cert_path}");
+    log::info!("csr_to_import_path: {csr_to_import_path}");
+
+    // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+    let openssl_args = vec![
+        "req".to_string(),
+        "-text".to_string(),
+        "-noout".to_string(),
+        "-verify".to_string(),
+        "-in".to_string(),
+        csr_to_import_path.to_string(),
+    ];
+    let openssl_cmd = Command::new("openssl")
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .args(openssl_args)
+        .spawn()
+        .unwrap();
+    log::info!("ran openssl req with PID {}", openssl_cmd.id());
+    let res = openssl_cmd.wait_with_output();
+    match res {
+        Ok(output) => {
+            println!(
+                "openssl output {} bytes:\n{}\n",
+                output.stdout.len(),
+                String::from_utf8(output.stdout).unwrap()
+            )
+        }
+        Err(e) => {
+            log::warn!("failed to run openssl {}", e)
+        }
+    }
+
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(3)).await;
+    println!("STEP 9. issuing a new end cert from root CA and CSR");
+    let issued_end_cert_arn = acmpca_manager
+        .issue_end_cert_from_root_ca(
+            &root_ca_arn,
+            180,
+            aws_smithy_types::Blob::new(csr_to_import),
+        )
+        .await
+        .unwrap();
+
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(3)).await;
+    sleep(Duration::from_secs(3)).await;
+    println!("STEP 10. fetching the newly issued the end cert PEM");
+    let issued_end_cert_pem = acmpca_manager
+        .get_cert_pem(&root_ca_arn, &issued_end_cert_arn)
+        .await
+        .unwrap();
+    log::info!("issued_end_cert_pem:\n\n{issued_end_cert_pem}\n");
+
+    // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+    let issued_end_cert_pem_path = random_manager::tmp_path(10, Some(".csr")).unwrap();
+    let mut issued_end_cert_pem_file = File::create(&issued_end_cert_pem_path).unwrap();
+    issued_end_cert_pem_file
+        .write_all(issued_end_cert_pem.as_bytes())
+        .unwrap();
+    log::info!("wrote issued cert PEM to {issued_end_cert_pem_path}");
+
+    // ref. <https://docs.aws.amazon.com/privateca/latest/userguide/PCACertInstall.html#InstallRoot>
+    let openssl_args = vec![
+        "x509".to_string(),
+        "-text".to_string(),
+        "-noout".to_string(),
+        "-in".to_string(),
+        issued_end_cert_pem_path.to_string(),
+    ];
+    let openssl_cmd = Command::new("openssl")
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .args(openssl_args)
+        .spawn()
+        .unwrap();
+    log::info!("ran openssl x509 with PID {}", openssl_cmd.id());
+    let res = openssl_cmd.wait_with_output();
+    match res {
+        Ok(output) => {
+            println!(
+                "openssl output {} bytes:\n{}\n",
+                output.stdout.len(),
+                String::from_utf8(output.stdout).unwrap()
+            )
+        }
+        Err(e) => {
+            log::warn!("failed to run openssl {}", e)
+        }
+    }
+
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(3)).await;
+    println!("STEP 11. importing the end cert PEM to the root CA and expect failures");
+    match acmpca_manager
+        .import_cert(&issued_end_cert_pem_path, &root_ca_arn)
+        .await
+    {
+        Ok(_) => {}
+        Err(e) => {
+            log::info!("as expected, it failed {:?}", e)
+        }
+    }
 
     sleep(Duration::from_secs(3)).await;
     let described = acmpca_manager.describe_ca(&root_ca_arn).await.unwrap();
     log::info!("described CA: {:?}", described);
     assert_eq!(described.status().unwrap().as_str(), "ACTIVE");
 
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(3)).await;
+    println!("STEP 12. getting the root CA PEM");
     sleep(Duration::from_secs(3)).await;
     let ca_cert = acmpca_manager.get_ca_cert_pem(&root_ca_arn).await.unwrap();
     log::info!("CA cert:\n\n{ca_cert}\n");
@@ -252,6 +506,9 @@ async fn main() {
     println!();
     println!();
     log::info!("removing test files");
-    fs::remove_file(root_ca_csr_path).unwrap();
-    fs::remove_file(issued_cert_pem_path).unwrap();
+    fs::remove_file(root_ca_csr_to_import_path).unwrap();
+    fs::remove_file(issued_self_signed_cert_pem_path).unwrap();
+    fs::remove_file(csr_key_path).unwrap();
+    fs::remove_file(csr_cert_path).unwrap();
+    fs::remove_file(csr_to_import_path).unwrap();
 }

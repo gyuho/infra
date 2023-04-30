@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.26.19" # https://crates.io/crates/aws-manager/versions
+version = "0.26.20" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.69"
@@ -61,9 +61,11 @@ compress-manager = { version = "0.0.8", optional = true } # https://crates.io/cr
 ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/ring
 
 [dev-dependencies]
+cert-manager = "0.0.6"
 cmp-manager = "0.0.1"
 env_logger = "0.10.0"
 id-manager = "0.0.3"
+rcgen = "0.10.0"
 rust-embed = "6.6.1"
 tempfile = "3.5.0"
 tokio-test = "0.4.2"
