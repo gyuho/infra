@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    env::args,
     fs::{self, File},
     io::Write,
     process::{Command, Stdio},
@@ -8,7 +9,8 @@ use std::{
 use aws_manager::{self, acmpca};
 use tokio::time::{sleep, Duration};
 
-/// cargo run --example acmpca --features="acmpca random-manager"
+/// cargo run --example acmpca --features="acmpca random-manager" -- [ORG] [COMMON NAME]
+/// cargo run --example acmpca --features="acmpca random-manager" -- "myorg" "hello.com"
 ///
 /// 1. create ROOT CA
 /// 2. get ROOT CA CSR
@@ -32,8 +34,9 @@ async fn main() {
     tags.insert("Name".to_string(), name);
     tags.insert("Kind".to_string(), "aws-manager".to_string());
 
-    let org = random_manager::secure_string(10);
-    let common_name = random_manager::secure_string(10);
+    let org = args().nth(1).expect("no org given");
+    let common_name = args().nth(2).expect("no common name given");
+    log::info!("org {org}, common name {common_name}");
 
     //
     //
