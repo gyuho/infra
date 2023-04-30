@@ -1,5 +1,8 @@
 pub mod errors;
 
+#[cfg(feature = "acm")]
+pub mod acm;
+
 #[cfg(feature = "acmpca")]
 pub mod acmpca;
 
