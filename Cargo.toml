@@ -57,7 +57,7 @@ compress-manager = { version = "0.0.8", optional = true } # https://crates.io/cr
 ring = { version = "0.16.20", optional = true } # https://github.com/briansmith/ring
 
 [dev-dependencies]
-cert-manager = "0.0.6"
+cert-manager = "0.0.9"
 cmp-manager = "0.0.1"
 env_logger = "0.10.0"
 id-manager = "0.0.3"
