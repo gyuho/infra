@@ -345,7 +345,7 @@ async fn main() {
     sleep(Duration::from_secs(3)).await;
     println!("STEP 10. writing another CSR");
     let mut csr_params =
-        cert_manager::x509::default_params(Some(common_name.clone()), false).unwrap();
+        cert_manager::x509::default_params(None, Some(common_name.clone()), false).unwrap();
     csr_params.distinguished_name = DistinguishedName::new();
     csr_params
         .distinguished_name
