@@ -13,7 +13,8 @@ use aws_sdk_ec2::{
     operation::delete_key_pair::DeleteKeyPairError,
     types::{
         Address, AttachmentStatus, Filter, Instance, InstanceState, InstanceStateName,
-        ResourceType, Tag, TagSpecification, Volume, VolumeAttachmentState, VolumeState,
+        ResourceType, SecurityGroup, Subnet, Tag, TagSpecification, Volume, VolumeAttachmentState,
+        VolumeState, Vpc,
     },
     Client,
 };
@@ -318,6 +319,118 @@ impl Manager {
         Ok(())
     }
 
+    /// Describes an AWS EC2 VPC.
+    /// ref. <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcs.html>
+    pub async fn describe_vpc(&self, vpc_id: &str) -> Result<Vpc> {
+        log::info!("describing VPC '{vpc_id}' in region '{}'", self.region);
+        let ret = self.cli.describe_vpcs().vpc_ids(vpc_id).send().await;
+        let vpcs = match ret {
+            Ok(out) => {
+                if let Some(vpcs) = out.vpcs() {
+                    vpcs.to_vec()
+                } else {
+                    return Err(Error::API {
+                        message: "no vpc found".to_string(),
+                        retryable: false,
+                    });
+                }
+            }
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed describe_vpcs {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        };
+        if vpcs.len() != 1 {
+            return Err(Error::API {
+                message: format!("expected 1 VPC, got {} VPCs", vpcs.len()),
+                retryable: false,
+            });
+        }
+
+        Ok(vpcs[0].to_owned())
+    }
+
+    /// Describes security groups by VPC Id.
+    /// ref. <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSecurityGroups.html>
+    pub async fn describe_security_groups_by_vpc(
+        &self,
+        vpc_id: &str,
+    ) -> Result<Vec<SecurityGroup>> {
+        log::info!(
+            "describing security groups for '{vpc_id}' in region '{}'",
+            self.region
+        );
+        let ret = self
+            .cli
+            .describe_security_groups()
+            .filters(
+                Filter::builder()
+                    .set_name(Some(String::from("vpc-id")))
+                    .set_values(Some(vec![vpc_id.to_string()]))
+                    .build(),
+            )
+            .send()
+            .await;
+        match ret {
+            Ok(out) => {
+                if let Some(sgs) = out.security_groups() {
+                    Ok(sgs.to_vec())
+                } else {
+                    return Err(Error::API {
+                        message: "no security group found".to_string(),
+                        retryable: false,
+                    });
+                }
+            }
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed describe_security_groups {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        }
+    }
+
+    /// Describes subnets by VPC Id.
+    /// ref. <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeSubnets.html>
+    pub async fn describe_subnets_by_vpc(&self, vpc_id: &str) -> Result<Vec<Subnet>> {
+        log::info!(
+            "describing subnets for '{vpc_id}' in region '{}'",
+            self.region
+        );
+        let ret = self
+            .cli
+            .describe_subnets()
+            .filters(
+                Filter::builder()
+                    .set_name(Some(String::from("vpc-id")))
+                    .set_values(Some(vec![vpc_id.to_string()]))
+                    .build(),
+            )
+            .send()
+            .await;
+        match ret {
+            Ok(out) => {
+                if let Some(ss) = out.subnets() {
+                    Ok(ss.to_vec())
+                } else {
+                    return Err(Error::API {
+                        message: "no subnet found".to_string(),
+                        retryable: false,
+                    });
+                }
+            }
+            Err(e) => {
+                return Err(Error::API {
+                    message: format!("failed describe_subnets {:?}", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        }
+    }
+
     /// Describes the EBS volumes by filters.
     /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
     pub async fn describe_volumes(&self, filters: Option<Vec<Filter>>) -> Result<Vec<Volume>> {
@@ -443,9 +556,8 @@ impl Manager {
     /// --query Volumes[].Attachments[].State \
     /// --output text
     ///
-    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
-    /// ref. https://github.com/ava-labs/avalanche-ops/blob/fcbac87a219a8d3d6d3c38a1663fe1dafe78e04e/bin/avalancheup-aws/cfn-templates/asg_amd64_ubuntu.yaml#L397-L409
-    ///
+    /// ref. <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html>
+    /// ref. <https://github.com/ava-labs/avalanche-ops/blob/fcbac87a219a8d3d6d3c38a1663fe1dafe78e04e/bin/avalancheup-aws/cfn-templates/asg_amd64_ubuntu.yaml#L397-L409>
     pub async fn describe_local_volumes(
         &self,
         ebs_volume_id: Option<String>,

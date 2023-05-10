@@ -1,9 +1,9 @@
-use aws_manager::{self, cloudformation};
+use aws_manager::{self, cloudformation, ec2};
 use aws_sdk_cloudformation::types::{OnFailure, Parameter, StackStatus, Tag};
 use rust_embed::RustEmbed;
 use tokio::time::{sleep, Duration};
 
-/// cargo run --example cloudformation_vpc --features="cloudformation"
+/// cargo run --example cloudformation_vpc --features="cloudformation ec2"
 #[tokio::main]
 async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
@@ -18,6 +18,7 @@ async fn main() {
     let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None).await;
     log::info!("region {:?}", shared_config.region().unwrap());
     let cloudformation_manager = cloudformation::Manager::new(&shared_config);
+    let ec2_manager = ec2::Manager::new(&shared_config);
 
     #[derive(RustEmbed)]
     #[folder = "examples/templates/"]
@@ -96,10 +97,32 @@ async fn main() {
         .unwrap();
     assert_eq!(stack.name, stack_name);
     assert_eq!(stack.status, StackStatus::CreateComplete);
+
+    let mut vpc_id = String::new();
+    let mut sg_id = String::new();
     let outputs = stack.outputs.unwrap();
     for o in outputs {
-        log::info!("output {:?} {:?}", o.output_key, o.output_value)
+        log::info!("output {:?} {:?}", o.output_key, o.output_value);
+
+        if o.output_key().unwrap() == "VpcId" {
+            vpc_id = o.output_value().unwrap().to_string();
+        }
+        if o.output_key().unwrap() == "SecurityGroupId" {
+            sg_id = o.output_value().unwrap().to_string();
+        }
     }
+
+    let vpc = ec2_manager.describe_vpc(&vpc_id).await.unwrap();
+    log::info!("VPC: {:?}", vpc);
+
+    let sgs = ec2_manager
+        .describe_security_groups_by_vpc(&vpc_id)
+        .await
+        .unwrap();
+    log::info!("security groups: {:?}", sgs);
+
+    let subnets = ec2_manager.describe_subnets_by_vpc(&vpc_id).await.unwrap();
+    log::info!("subnets: {:?}", subnets);
 
     sleep(Duration::from_secs(5)).await;
 
