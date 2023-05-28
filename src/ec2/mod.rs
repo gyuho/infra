@@ -6,6 +6,7 @@ use std::{
     fs::{self, File},
     io::{self, Write},
     path::Path,
+    str::FromStr,
 };
 
 use crate::errors::{self, Error, Result};
@@ -24,178 +25,355 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration, Instant};
 
+/// Defines the Arch type.
+#[derive(
+    Deserialize,
+    Serialize,
+    std::clone::Clone,
+    std::cmp::Eq,
+    std::cmp::Ord,
+    std::cmp::PartialEq,
+    std::cmp::PartialOrd,
+    std::fmt::Debug,
+    std::hash::Hash,
+)]
+pub enum ArchType {
+    #[serde(rename = "amd64")]
+    Amd64,
+    #[serde(rename = "arm64")]
+    Arm64,
+
+    #[serde(rename = "amd64-gpu-nvidia-tesla-a100")]
+    Amd64GpuNvidiaTeslaA100,
+    #[serde(rename = "amd64-gpu-nvidia-tesla-m60")]
+    Amd64GpuNvidiaTeslaM60,
+    #[serde(rename = "amd64-gpu-nvidia-t4")]
+    Amd64GpuNvidiaT4,
+    #[serde(rename = "amd64-gpu-nvidia-a10g")]
+    Amd64GpuNvidiaA10G,
+
+    #[serde(rename = "amd64-gpu-radeon")]
+    Amd64GpuRadeon,
+
+    Unknown(String),
+}
+
+impl std::convert::From<&str> for ArchType {
+    fn from(s: &str) -> Self {
+        match s {
+            "amd64" => ArchType::Amd64,
+            "arm64" => ArchType::Arm64,
+            "amd64-gpu-nvidia-tesla-a100" => ArchType::Amd64GpuNvidiaTeslaA100,
+            "amd64-gpu-nvidia-tesla-m60" => ArchType::Amd64GpuNvidiaTeslaM60,
+            "amd64-gpu-nvidia-t4" => ArchType::Amd64GpuNvidiaT4,
+            "amd64-gpu-nvidia-a10g" => ArchType::Amd64GpuNvidiaA10G,
+            "amd64-gpu-radeon" => ArchType::Amd64GpuRadeon,
+            other => ArchType::Unknown(other.to_owned()),
+        }
+    }
+}
+
+impl std::str::FromStr for ArchType {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(ArchType::from(s))
+    }
+}
+
+impl ArchType {
+    /// Returns the `&str` value of the enum member.
+    pub fn as_str(&self) -> &str {
+        match self {
+            ArchType::Amd64 => "amd64",
+            ArchType::Arm64 => "arm64",
+            ArchType::Amd64GpuNvidiaTeslaA100 => "amd64-gpu-nvidia-tesla-a100",
+            ArchType::Amd64GpuNvidiaTeslaM60 => "amd64-gpu-nvidia-tesla-m60",
+            ArchType::Amd64GpuNvidiaT4 => "amd64-gpu-nvidia-t4",
+            ArchType::Amd64GpuNvidiaA10G => "amd64-gpu-nvidia-a10g",
+            ArchType::Amd64GpuRadeon => "amd64-gpu-radeon",
+            ArchType::Unknown(s) => s.as_ref(),
+        }
+    }
+
+    /// Returns all the `&str` values of the enum members.
+    pub fn values() -> &'static [&'static str] {
+        &[
+            "amd64",                       //
+            "arm64",                       //
+            "amd64-gpu-nvidia-tesla-a100", //
+            "amd64-gpu-nvidia-tesla-m60",  //
+            "amd64-gpu-nvidia-t4",         //
+            "amd64-gpu-nvidia-a10g",       //
+            "amd64-gpu-radeon",            //
+        ]
+    }
+}
+
+impl AsRef<str> for ArchType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+/// ref. <https://docs.aws.amazon.com/linux/al2023/ug/compare-with-al2.html>
+/// ref. <https://us-west-2.console.aws.amazon.com/systems-manager/parameters/?region=us-west-2&tab=PublicTable#public_parameter_service=canonical>
+pub fn default_image_id_ssm_parameter(arch: &str, os: &str) -> io::Result<String> {
+    let arch_type = ArchType::from_str(arch).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("failed ArchType::from_str '{arch}' with {}", e),
+        )
+    })?;
+    let os_type = OsType::from_str(os).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("failed OsType::from_str '{os}' with {}", e),
+        )
+    })?;
+
+    match (arch_type, os_type) {
+        (
+            ArchType::Amd64
+            | ArchType::Amd64GpuNvidiaTeslaA100
+            | ArchType::Amd64GpuNvidiaTeslaM60
+            | ArchType::Amd64GpuNvidiaT4
+            | ArchType::Amd64GpuNvidiaA10G
+            | ArchType::Amd64GpuRadeon,
+            OsType::Al2023,
+        ) => {
+            Ok("/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64".to_string())
+        }
+        (ArchType::Arm64, OsType::Al2023) => {
+            Ok("/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64".to_string())
+        }
+
+        (
+            ArchType::Amd64
+            | ArchType::Amd64GpuNvidiaTeslaA100
+            | ArchType::Amd64GpuNvidiaTeslaM60
+            | ArchType::Amd64GpuNvidiaT4
+            | ArchType::Amd64GpuNvidiaA10G
+            | ArchType::Amd64GpuRadeon,
+            OsType::Ubuntu2004,
+        ) => Ok(
+            "/aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
+                .to_string(),
+        ),
+        (ArchType::Arm64, OsType::Ubuntu2004) => Ok(
+            "/aws/service/canonical/ubuntu/server/20.04/stable/current/arm64/hvm/ebs-gp2/ami-id"
+                .to_string(),
+        ),
+
+        (
+            ArchType::Amd64
+            | ArchType::Amd64GpuNvidiaTeslaA100
+            | ArchType::Amd64GpuNvidiaTeslaM60
+            | ArchType::Amd64GpuNvidiaT4
+            | ArchType::Amd64GpuNvidiaA10G
+            | ArchType::Amd64GpuRadeon,
+            OsType::Ubuntu2204,
+        ) => Ok(
+            "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
+                .to_string(),
+        ),
+        (ArchType::Arm64, OsType::Ubuntu2204) => Ok(
+            "/aws/service/canonical/ubuntu/server/22.04/stable/current/arm64/hvm/ebs-gp2/ami-id"
+                .to_string(),
+        ),
+
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("unknown arch '{arch}' or os_type '{os}'"),
+        )),
+    }
+}
+
 /// Returns default instance types.
-/// Avalanche consensus paper used "c5.large" for testing 125 ~ 2,000 nodes
-/// Avalanche test net ("fuji") runs "c5.2xlarge"
 ///
-/// https://aws.amazon.com/ec2/instance-types/c6a/
+/// ref. <https://aws.amazon.com/ec2/instance-types/c6a/>
 /// c6a.large:   2  vCPU + 4  GiB RAM
 /// c6a.xlarge:  4  vCPU + 8  GiB RAM
 /// c6a.2xlarge: 8  vCPU + 16 GiB RAM
 /// c6a.4xlarge: 16 vCPU + 32 GiB RAM
 /// c6a.8xlarge: 32 vCPU + 64 GiB RAM
 ///
-/// https://aws.amazon.com/ec2/instance-types/m6a/
+/// ref. <https://aws.amazon.com/ec2/instance-types/m6a/>
 /// m6a.large:   2  vCPU + 8  GiB RAM
 /// m6a.xlarge:  4  vCPU + 16 GiB RAM
 /// m6a.2xlarge: 8  vCPU + 32 GiB RAM
 /// m6a.4xlarge: 16 vCPU + 64 GiB RAM
 /// m6a.8xlarge: 32 vCPU + 128 GiB RAM
 ///
-/// https://aws.amazon.com/ec2/instance-types/m5/
+/// ref. <https://aws.amazon.com/ec2/instance-types/m5/>
 /// m5.large:   2  vCPU + 8  GiB RAM
 /// m5.xlarge:  4  vCPU + 16 GiB RAM
 /// m5.2xlarge: 8  vCPU + 32 GiB RAM
 /// m5.4xlarge: 16 vCPU + 64 GiB RAM
 /// m5.8xlarge: 32 vCPU + 128 GiB RAM
 ///
-/// https://aws.amazon.com/ec2/instance-types/c5/
+/// ref. <https://aws.amazon.com/ec2/instance-types/c5/>
 /// c5.large:   2  vCPU + 4  GiB RAM
 /// c5.xlarge:  4  vCPU + 8  GiB RAM
 /// c5.2xlarge: 8  vCPU + 16 GiB RAM
 /// c5.4xlarge: 16 vCPU + 32 GiB RAM
 /// c5.9xlarge: 32 vCPU + 72 GiB RAM
 ///
-/// https://aws.amazon.com/ec2/instance-types/r5/
+/// ref. <https://aws.amazon.com/ec2/instance-types/r5/>
 /// r5.large:   2  vCPU + 16 GiB RAM
 /// r5.xlarge:  4  vCPU + 32 GiB RAM
 /// r5.2xlarge: 8  vCPU + 64 GiB RAM
 /// r5.4xlarge: 16 vCPU + 128 GiB RAM
 /// r5.8xlarge: 32 vCPU + 256 GiB RAM
 ///
-/// https://aws.amazon.com/ec2/instance-types/t3/
+/// ref. <https://aws.amazon.com/ec2/instance-types/t3/>
 /// t3.large:    2  vCPU + 8 GiB RAM
 /// t3.xlarge:   4  vCPU + 16 GiB RAM
 /// t3.2xlarge:  8  vCPU + 32 GiB RAM
 ///
 ///
 /// Graviton
-/// https://aws.amazon.com/ec2/instance-types/a1/
+/// ref. <https://aws.amazon.com/ec2/instance-types/a1/>
 /// a1.large:   2 vCPU + 8  GiB RAM
 /// a1.xlarge:  4 vCPU + 8 GiB RAM
 /// a1.2xlarge: 8 vCPU + 16 GiB RAM
 ///
 /// Graviton 3 (in preview)
-/// https://aws.amazon.com/ec2/instance-types/c7g/
+/// ref. <https://aws.amazon.com/ec2/instance-types/c7g/>
 /// c7g.large:   2 vCPU + 8  GiB RAM
 /// c7g.xlarge:  4 vCPU + 16 GiB RAM
 /// c7g.2xlarge: 8 vCPU + 32 GiB RAM
 ///
 /// Graviton 2
-/// https://aws.amazon.com/ec2/instance-types/c6g/
+/// ref. <https://aws.amazon.com/ec2/instance-types/c6g/>
 /// c6g.large:   2 vCPU + 4  GiB RAM
 /// c6g.xlarge:  4 vCPU + 8  GiB RAM
 /// c6g.2xlarge: 8 vCPU + 16 GiB RAM
 ///
 /// Graviton 2
-/// https://aws.amazon.com/ec2/instance-types/m6g/
+/// ref. <https://aws.amazon.com/ec2/instance-types/m6g/>
 /// m6g.large:   2 vCPU + 8  GiB RAM
 /// m6g.xlarge:  4 vCPU + 16 GiB RAM
 /// m6g.2xlarge: 8 vCPU + 32 GiB RAM
 ///
 /// Graviton 2
-/// https://aws.amazon.com/ec2/instance-types/r6g/
+/// ref. <https://aws.amazon.com/ec2/instance-types/r6g/>
 /// r6g.large:   2 vCPU + 16 GiB RAM
 /// r6g.xlarge:  4 vCPU + 32 GiB RAM
 /// r6g.2xlarge: 8 vCPU + 64 GiB RAM
 ///
 /// Graviton 2
-/// https://aws.amazon.com/ec2/instance-types/t4/
+/// ref. <https://aws.amazon.com/ec2/instance-types/t4/>
 /// t4g.large:   2 vCPU + 8 GiB RAM
 /// t4g.xlarge:  4 vCPU + 16 GiB RAM
 /// t4g.2xlarge: 8 vCPU + 32 GiB RAM
 ///
 /// ref. <https://instances.vantage.sh/?min_memory=8&min_vcpus=4&region=us-west-2&cost_duration=monthly&selected=t4g.xlarge,c5.xlarge>
+///
+///
+/// GPU g4
+/// ref. <https://docs.aws.amazon.com/dlami/latest/devguide/gpu.html>
+/// ref. <https://aws.amazon.com/ec2/instance-types/g4/>
+/// ref. <https://aws.amazon.com/ec2/instance-types/g5/>
+///
 pub fn default_instance_types(
     region: &str,
     arch: &str,
     instance_size: &str,
 ) -> io::Result<Vec<String>> {
+    let arch_type = ArchType::from_str(arch).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("failed ArchType::from_str '{arch}' with {}", e),
+        )
+    })?;
+
     // NOTE
     // incheon region doesn't support c6a/m6a yet
     // incheon region doesn't support a1 yet
     // r6g more expensive than c5...
     // ref. <https://aws.amazon.com/ec2/instance-types/r6g>
-    match (region, arch, instance_size) {
-        ("ap-northeast-2", "amd64", "4xlarge") => Ok(vec![
+    match (region, arch_type, instance_size) {
+        ("ap-northeast-2", ArchType::Amd64, "4xlarge") => Ok(vec![
             format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        ("ap-northeast-2", "amd64", "8xlarge") => Ok(vec![
+        ("ap-northeast-2", ArchType::Amd64, "8xlarge") => Ok(vec![
             format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        ("ap-northeast-2", "amd64", "12xlarge") => Ok(vec![
+        ("ap-northeast-2", ArchType::Amd64, "12xlarge") => Ok(vec![
             format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        ("ap-northeast-2", "amd64", "16xlarge") => Ok(vec![
+        ("ap-northeast-2", ArchType::Amd64, "16xlarge") => Ok(vec![
             format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        ("ap-northeast-2", "amd64", "24xlarge") => Ok(vec![
+        ("ap-northeast-2", ArchType::Amd64, "24xlarge") => Ok(vec![
             format!("m5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        ("ap-northeast-2", "amd64", _) => Ok(vec![
+        ("ap-northeast-2", ArchType::Amd64, _) => Ok(vec![
             format!("t3a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t3>
             format!("t3.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t3>
             format!("t2.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t2>
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        ("ap-northeast-2", "arm64", "4xlarge") => Ok(vec![
+        ("ap-northeast-2", ArchType::Arm64, "4xlarge") => Ok(vec![
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        ("ap-northeast-2", "arm64", "8xlarge") => Ok(vec![
+        ("ap-northeast-2", ArchType::Arm64, "8xlarge") => Ok(vec![
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        ("ap-northeast-2", "arm64", "12xlarge") => Ok(vec![
+        ("ap-northeast-2", ArchType::Arm64, "12xlarge") => Ok(vec![
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        ("ap-northeast-2", "arm64", "16xlarge") => Ok(vec![
+        ("ap-northeast-2", ArchType::Arm64, "16xlarge") => Ok(vec![
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        ("ap-northeast-2", "arm64", _) => Ok(vec![
+        ("ap-northeast-2", ArchType::Arm64, _) => Ok(vec![
             format!("t4g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t4g>
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        (_, "amd64", "4xlarge") => Ok(vec![
+
+        (_, ArchType::Amd64, "4xlarge") => Ok(vec![
             format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
             format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        (_, "amd64", "8xlarge") => Ok(vec![
+        (_, ArchType::Amd64, "8xlarge") => Ok(vec![
             format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
             format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        (_, "amd64", "12xlarge") => Ok(vec![
+        (_, ArchType::Amd64, "12xlarge") => Ok(vec![
             format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
             format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        (_, "amd64", "16xlarge") => Ok(vec![
+        (_, ArchType::Amd64, "16xlarge") => Ok(vec![
             format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
             format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        (_, "amd64", "24xlarge") => Ok(vec![
+        (_, ArchType::Amd64, "24xlarge") => Ok(vec![
             format!("c6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6a>
             format!("m6a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6a>
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        (_, "amd64", _) => Ok(vec![
+        (_, ArchType::Amd64, _) => Ok(vec![
             format!("t3a.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t3>
             format!("t3.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t3>
             format!("t2.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/t2>
@@ -204,24 +382,131 @@ pub fn default_instance_types(
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
-        (_, "arm64", "4xlarge") => Ok(vec![
+
+        (_, ArchType::Arm64, "4xlarge") => Ok(vec![
             format!("a1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/a1>
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        (_, "arm64", "8xlarge") => Ok(vec![
+        (_, ArchType::Arm64, "8xlarge") => Ok(vec![
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
-        (_, "arm64", _) => Ok(vec![
+        (_, ArchType::Arm64, _) => Ok(vec![
             format!("a1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/a1>
             format!("t4g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/t4g>
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
+
+        (_, ArchType::Amd64GpuNvidiaTeslaA100, _) => Ok(vec![
+            format!("p4d.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/p4>
+        ]),
+        (_, ArchType::Amd64GpuNvidiaTeslaM60, _) => Ok(vec![
+            format!("g3.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g3>
+        ]),
+        (_, ArchType::Amd64GpuNvidiaT4, _) => Ok(vec![
+            format!("g4dn.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
+        ]),
+        (_, ArchType::Amd64GpuNvidiaA10G, _) => Ok(vec![
+            format!("g5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g5>
+        ]),
+
+        (_, ArchType::Amd64GpuRadeon, _) => Ok(vec![
+            format!("g4ad.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
+        ]),
+
         _ => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("unknown region '{region}' and arch '{arch}'"),
+        )),
+    }
+}
+
+/// Defines the OS type.
+#[derive(
+    Deserialize,
+    Serialize,
+    std::clone::Clone,
+    std::cmp::Eq,
+    std::cmp::Ord,
+    std::cmp::PartialEq,
+    std::cmp::PartialOrd,
+    std::fmt::Debug,
+    std::hash::Hash,
+)]
+pub enum OsType {
+    #[serde(rename = "al2023")]
+    Al2023,
+    #[serde(rename = "ubuntu20.04")]
+    Ubuntu2004,
+    #[serde(rename = "ubuntu22.04")]
+    Ubuntu2204,
+
+    Unknown(String),
+}
+
+impl std::convert::From<&str> for OsType {
+    fn from(s: &str) -> Self {
+        match s {
+            "al2023" => OsType::Al2023,
+            "ubuntu20.04" => OsType::Ubuntu2004,
+            "ubuntu-20.04" => OsType::Ubuntu2004,
+            "ubuntu22.04" => OsType::Ubuntu2204,
+            "ubuntu-22.04" => OsType::Ubuntu2204,
+            other => OsType::Unknown(other.to_owned()),
+        }
+    }
+}
+
+impl std::str::FromStr for OsType {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Ok(OsType::from(s))
+    }
+}
+
+impl OsType {
+    /// Returns the `&str` value of the enum member.
+    pub fn as_str(&self) -> &str {
+        match self {
+            OsType::Al2023 => "al2023",
+            OsType::Ubuntu2004 => "ubuntu20.04",
+            OsType::Ubuntu2204 => "ubuntu22.04",
+            OsType::Unknown(s) => s.as_ref(),
+        }
+    }
+
+    /// Returns all the `&str` values of the enum members.
+    pub fn values() -> &'static [&'static str] {
+        &[
+            "al2023",      //
+            "ubuntu20.04", //
+            "ubuntu22.04", //
+        ]
+    }
+}
+
+impl AsRef<str> for OsType {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+/// ref. <https://docs.aws.amazon.com/linux/al2023/ug/compare-with-al2.html>
+pub fn default_user_name(os_type: &str) -> io::Result<String> {
+    match OsType::from_str(os_type).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("failed OsType::from_str '{os_type}' with {}", e),
+        )
+    })? {
+        OsType::Al2023 => Ok("ec2-user".to_string()),
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("ubuntu".to_string()),
+        OsType::Unknown(v) => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("unknown os_type '{v}'"),
         )),
     }
 }
