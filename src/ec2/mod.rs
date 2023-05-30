@@ -54,7 +54,7 @@ pub enum ArchType {
     /// For g4dn instances.
     /// ref. <https://aws.amazon.com/ec2/instance-types/g4/>
     #[serde(rename = "amd64-gpu-g4dn-nvidia-t4")]
-    Amd64GpuG4dnNvidiaT4For,
+    Amd64GpuG4dnNvidiaT4,
     /// For g4 instances.
     /// ref. <https://aws.amazon.com/ec2/instance-types/g4/>
     #[serde(rename = "amd64-gpu-g4ad-radeon")]
@@ -84,7 +84,7 @@ impl std::convert::From<&str> for ArchType {
             "arm64" => ArchType::Arm64,
             "amd64-gpu-p4-nvidia-tesla-a100" => ArchType::Amd64GpuP4NvidiaTeslaA100,
             "amd64-gpu-g3-nvidia-tesla-m60" => ArchType::Amd64GpuG3NvidiaTeslaM60,
-            "amd64-gpu-g4dn-nvidia-t4" => ArchType::Amd64GpuG4dnNvidiaT4For,
+            "amd64-gpu-g4dn-nvidia-t4" => ArchType::Amd64GpuG4dnNvidiaT4,
             "amd64-gpu-g4ad-radeon" => ArchType::Amd64GpuG4adRadeon,
             "amd64-gpu-g5-nvidia-a10g" => ArchType::Amd64GpuG5NvidiaA10G,
             "amd64-gpu-inf1" => ArchType::Amd64GpuInf1,
@@ -110,7 +110,7 @@ impl ArchType {
             ArchType::Arm64 => "arm64",
             ArchType::Amd64GpuP4NvidiaTeslaA100 => "amd64-gpu-p4-nvidia-tesla-a100",
             ArchType::Amd64GpuG3NvidiaTeslaM60 => "amd64-gpu-g3-nvidia-tesla-m60",
-            ArchType::Amd64GpuG4dnNvidiaT4For => "amd64-gpu-g4dn-nvidia-t4",
+            ArchType::Amd64GpuG4dnNvidiaT4 => "amd64-gpu-g4dn-nvidia-t4",
             ArchType::Amd64GpuG4adRadeon => "amd64-gpu-g4ad-radeon",
             ArchType::Amd64GpuG5NvidiaA10G => "amd64-gpu-g5-nvidia-a10g",
             ArchType::Amd64GpuInf1 => "amd64-gpu-inf1",
@@ -162,9 +162,11 @@ pub fn default_image_id_ssm_parameter(arch: &str, os: &str) -> io::Result<String
             ArchType::Amd64
             | ArchType::Amd64GpuP4NvidiaTeslaA100
             | ArchType::Amd64GpuG3NvidiaTeslaM60
-            | ArchType::Amd64GpuG4dnNvidiaT4For
+            | ArchType::Amd64GpuG4dnNvidiaT4
             | ArchType::Amd64GpuG4adRadeon
-            | ArchType::Amd64GpuG5NvidiaA10G,
+            | ArchType::Amd64GpuG5NvidiaA10G
+            | ArchType::Amd64GpuInf1
+            | ArchType::Amd64GpuTrn1,
             OsType::Al2023,
         ) => {
             Ok("/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64".to_string())
@@ -177,9 +179,11 @@ pub fn default_image_id_ssm_parameter(arch: &str, os: &str) -> io::Result<String
             ArchType::Amd64
             | ArchType::Amd64GpuP4NvidiaTeslaA100
             | ArchType::Amd64GpuG3NvidiaTeslaM60
-            | ArchType::Amd64GpuG4dnNvidiaT4For
+            | ArchType::Amd64GpuG4dnNvidiaT4
             | ArchType::Amd64GpuG4adRadeon
-            | ArchType::Amd64GpuG5NvidiaA10G,
+            | ArchType::Amd64GpuG5NvidiaA10G
+            | ArchType::Amd64GpuInf1
+            | ArchType::Amd64GpuTrn1,
             OsType::Ubuntu2004,
         ) => Ok(
             "/aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
@@ -194,9 +198,11 @@ pub fn default_image_id_ssm_parameter(arch: &str, os: &str) -> io::Result<String
             ArchType::Amd64
             | ArchType::Amd64GpuP4NvidiaTeslaA100
             | ArchType::Amd64GpuG3NvidiaTeslaM60
-            | ArchType::Amd64GpuG4dnNvidiaT4For
+            | ArchType::Amd64GpuG4dnNvidiaT4
             | ArchType::Amd64GpuG4adRadeon
-            | ArchType::Amd64GpuG5NvidiaA10G,
+            | ArchType::Amd64GpuG5NvidiaA10G
+            | ArchType::Amd64GpuInf1
+            | ArchType::Amd64GpuTrn1,
             OsType::Ubuntu2204,
         ) => Ok(
             "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
@@ -343,25 +349,42 @@ pub fn default_instance_types(
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
 
-        (_, ArchType::Amd64GpuP4NvidiaTeslaA100, _) => Ok(vec![
+        (_, ArchType::Amd64GpuP4NvidiaTeslaA100, "24xlarge") => Ok(vec![
             format!("p4d.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/p4>
         ]),
-        (_, ArchType::Amd64GpuG3NvidiaTeslaM60, _) => Ok(vec![
-            format!("g3.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g3>
-        ]),
-        (_, ArchType::Amd64GpuG4dnNvidiaT4For, _) => Ok(vec![
+        (_, ArchType::Amd64GpuG3NvidiaTeslaM60, "xlarge" | "4xlarge" | "8xlarge" | "16xlarge") => {
+            Ok(vec![
+                format!("g3.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g3>
+            ])
+        }
+        (
+            _,
+            ArchType::Amd64GpuG4dnNvidiaT4,
+            "xlarge" | "2xlarge" | "4xlarge" | "8xlarge" | "12xlarge" | "16xlarge",
+        ) => Ok(vec![
             format!("g4dn.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
         ]),
-        (_, ArchType::Amd64GpuG4adRadeon, _) => Ok(vec![
-            format!("g4ad.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
-        ]),
-        (_, ArchType::Amd64GpuG5NvidiaA10G, _) => Ok(vec![
+        (
+            _,
+            ArchType::Amd64GpuG4adRadeon,
+            "xlarge" | "2xlarge" | "4xlarge" | "8xlarge" | "16xlarge",
+        ) => {
+            Ok(vec![
+                format!("g4ad.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
+            ])
+        }
+        (
+            _,
+            ArchType::Amd64GpuG5NvidiaA10G,
+            "xlarge" | "2xlarge" | "4xlarge" | "8xlarge" | "12xlarge" | "16xlarge" | "24xlarge"
+            | "48xlarge",
+        ) => Ok(vec![
             format!("g5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g5>
         ]),
-        (_, ArchType::Amd64GpuInf1, _) => Ok(vec![
+        (_, ArchType::Amd64GpuInf1, "xlarge" | "2xlarge" | "6xlarge" | "24xlarge") => Ok(vec![
             format!("inf1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/inf1>
         ]),
-        (_, ArchType::Amd64GpuTrn1, _) => Ok(vec![
+        (_, ArchType::Amd64GpuTrn1, "2xlarge" | "32xlarge") => Ok(vec![
             format!("trn1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/trn1>
         ]),
 
