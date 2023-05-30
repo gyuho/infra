@@ -352,11 +352,13 @@ pub fn default_instance_types(
         (_, ArchType::Amd64GpuP4NvidiaTeslaA100, "24xlarge") => Ok(vec![
             format!("p4d.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/p4>
         ]),
+
         (_, ArchType::Amd64GpuG3NvidiaTeslaM60, "xlarge" | "4xlarge" | "8xlarge" | "16xlarge") => {
             Ok(vec![
                 format!("g3.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g3>
             ])
         }
+
         (
             _,
             ArchType::Amd64GpuG4dnNvidiaT4,
@@ -373,6 +375,7 @@ pub fn default_instance_types(
                 format!("g4ad.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
             ])
         }
+
         (
             _,
             ArchType::Amd64GpuG5NvidiaA10G,
@@ -381,6 +384,7 @@ pub fn default_instance_types(
         ) => Ok(vec![
             format!("g5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g5>
         ]),
+
         (_, ArchType::Amd64GpuInf1, "xlarge" | "2xlarge" | "6xlarge" | "24xlarge") => Ok(vec![
             format!("inf1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/inf1>
         ]),
