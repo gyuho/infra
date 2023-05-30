@@ -43,17 +43,36 @@ pub enum ArchType {
     #[serde(rename = "arm64")]
     Arm64,
 
-    #[serde(rename = "amd64-gpu-nvidia-tesla-a100")]
-    Amd64GpuNvidiaTeslaA100,
-    #[serde(rename = "amd64-gpu-nvidia-tesla-m60")]
-    Amd64GpuNvidiaTeslaM60,
-    #[serde(rename = "amd64-gpu-nvidia-t4")]
-    Amd64GpuNvidiaT4,
-    #[serde(rename = "amd64-gpu-nvidia-a10g")]
-    Amd64GpuNvidiaA10G,
+    /// For p4 instances.
+    /// ref. <https://aws.amazon.com/ec2/instance-types/p4/>
+    #[serde(rename = "amd64-gpu-p4-nvidia-tesla-a100")]
+    Amd64GpuP4NvidiaTeslaA100,
+    /// For g3 instances.
+    /// ref. <https://aws.amazon.com/ec2/instance-types/g3/>
+    #[serde(rename = "amd64-gpu-g3-nvidia-tesla-m60")]
+    Amd64GpuG3NvidiaTeslaM60,
+    /// For g4dn instances.
+    /// ref. <https://aws.amazon.com/ec2/instance-types/g4/>
+    #[serde(rename = "amd64-gpu-g4dn-nvidia-t4")]
+    Amd64GpuG4dnNvidiaT4For,
+    /// For g4 instances.
+    /// ref. <https://aws.amazon.com/ec2/instance-types/g4/>
+    #[serde(rename = "amd64-gpu-g4ad-radeon")]
+    Amd64GpuG4adRadeon,
+    /// For g5 instances.
+    /// ref. <https://aws.amazon.com/ec2/instance-types/g5/>
+    #[serde(rename = "amd64-gpu-g5-nvidia-a10g")]
+    Amd64GpuG5NvidiaA10G,
 
-    #[serde(rename = "amd64-gpu-radeon")]
-    Amd64GpuRadeon,
+    /// For inf1 instances.
+    /// ref. <https://aws.amazon.com/ec2/instance-types/inf1/>
+    #[serde(rename = "amd64-gpu-inf1")]
+    Amd64GpuInf1,
+
+    /// For trn1 instances.
+    /// ref. <https://aws.amazon.com/ec2/instance-types/trn1/>
+    #[serde(rename = "amd64-gpu-trn1")]
+    Amd64GpuTrn1,
 
     Unknown(String),
 }
@@ -63,11 +82,13 @@ impl std::convert::From<&str> for ArchType {
         match s {
             "amd64" => ArchType::Amd64,
             "arm64" => ArchType::Arm64,
-            "amd64-gpu-nvidia-tesla-a100" => ArchType::Amd64GpuNvidiaTeslaA100,
-            "amd64-gpu-nvidia-tesla-m60" => ArchType::Amd64GpuNvidiaTeslaM60,
-            "amd64-gpu-nvidia-t4" => ArchType::Amd64GpuNvidiaT4,
-            "amd64-gpu-nvidia-a10g" => ArchType::Amd64GpuNvidiaA10G,
-            "amd64-gpu-radeon" => ArchType::Amd64GpuRadeon,
+            "amd64-gpu-p4-nvidia-tesla-a100" => ArchType::Amd64GpuP4NvidiaTeslaA100,
+            "amd64-gpu-g3-nvidia-tesla-m60" => ArchType::Amd64GpuG3NvidiaTeslaM60,
+            "amd64-gpu-g4dn-nvidia-t4" => ArchType::Amd64GpuG4dnNvidiaT4For,
+            "amd64-gpu-g4ad-radeon" => ArchType::Amd64GpuG4adRadeon,
+            "amd64-gpu-g5-nvidia-a10g" => ArchType::Amd64GpuG5NvidiaA10G,
+            "amd64-gpu-inf1" => ArchType::Amd64GpuInf1,
+            "amd64-gpu-trn1" => ArchType::Amd64GpuTrn1,
             other => ArchType::Unknown(other.to_owned()),
         }
     }
@@ -87,11 +108,13 @@ impl ArchType {
         match self {
             ArchType::Amd64 => "amd64",
             ArchType::Arm64 => "arm64",
-            ArchType::Amd64GpuNvidiaTeslaA100 => "amd64-gpu-nvidia-tesla-a100",
-            ArchType::Amd64GpuNvidiaTeslaM60 => "amd64-gpu-nvidia-tesla-m60",
-            ArchType::Amd64GpuNvidiaT4 => "amd64-gpu-nvidia-t4",
-            ArchType::Amd64GpuNvidiaA10G => "amd64-gpu-nvidia-a10g",
-            ArchType::Amd64GpuRadeon => "amd64-gpu-radeon",
+            ArchType::Amd64GpuP4NvidiaTeslaA100 => "amd64-gpu-p4-nvidia-tesla-a100",
+            ArchType::Amd64GpuG3NvidiaTeslaM60 => "amd64-gpu-g3-nvidia-tesla-m60",
+            ArchType::Amd64GpuG4dnNvidiaT4For => "amd64-gpu-g4dn-nvidia-t4",
+            ArchType::Amd64GpuG4adRadeon => "amd64-gpu-g4ad-radeon",
+            ArchType::Amd64GpuG5NvidiaA10G => "amd64-gpu-g5-nvidia-a10g",
+            ArchType::Amd64GpuInf1 => "amd64-gpu-inf1",
+            ArchType::Amd64GpuTrn1 => "amd64-gpu-trn1",
             ArchType::Unknown(s) => s.as_ref(),
         }
     }
@@ -99,13 +122,15 @@ impl ArchType {
     /// Returns all the `&str` values of the enum members.
     pub fn values() -> &'static [&'static str] {
         &[
-            "amd64",                       //
-            "arm64",                       //
-            "amd64-gpu-nvidia-tesla-a100", //
-            "amd64-gpu-nvidia-tesla-m60",  //
-            "amd64-gpu-nvidia-t4",         //
-            "amd64-gpu-nvidia-a10g",       //
-            "amd64-gpu-radeon",            //
+            "amd64",                          //
+            "arm64",                          //
+            "amd64-gpu-p4-nvidia-tesla-a100", //
+            "amd64-gpu-g3-nvidia-tesla-m60",  //
+            "amd64-gpu-g4dn-nvidia-t4",       //
+            "amd64-gpu-g4ad-radeon",          //
+            "amd64-gpu-g5-nvidia-a10g",       //
+            "amd64-gpu-inf1",                 //
+            "amd64-gpu-trn1",                 //
         ]
     }
 }
@@ -135,11 +160,11 @@ pub fn default_image_id_ssm_parameter(arch: &str, os: &str) -> io::Result<String
     match (arch_type, os_type) {
         (
             ArchType::Amd64
-            | ArchType::Amd64GpuNvidiaTeslaA100
-            | ArchType::Amd64GpuNvidiaTeslaM60
-            | ArchType::Amd64GpuNvidiaT4
-            | ArchType::Amd64GpuNvidiaA10G
-            | ArchType::Amd64GpuRadeon,
+            | ArchType::Amd64GpuP4NvidiaTeslaA100
+            | ArchType::Amd64GpuG3NvidiaTeslaM60
+            | ArchType::Amd64GpuG4dnNvidiaT4For
+            | ArchType::Amd64GpuG4adRadeon
+            | ArchType::Amd64GpuG5NvidiaA10G,
             OsType::Al2023,
         ) => {
             Ok("/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64".to_string())
@@ -150,11 +175,11 @@ pub fn default_image_id_ssm_parameter(arch: &str, os: &str) -> io::Result<String
 
         (
             ArchType::Amd64
-            | ArchType::Amd64GpuNvidiaTeslaA100
-            | ArchType::Amd64GpuNvidiaTeslaM60
-            | ArchType::Amd64GpuNvidiaT4
-            | ArchType::Amd64GpuNvidiaA10G
-            | ArchType::Amd64GpuRadeon,
+            | ArchType::Amd64GpuP4NvidiaTeslaA100
+            | ArchType::Amd64GpuG3NvidiaTeslaM60
+            | ArchType::Amd64GpuG4dnNvidiaT4For
+            | ArchType::Amd64GpuG4adRadeon
+            | ArchType::Amd64GpuG5NvidiaA10G,
             OsType::Ubuntu2004,
         ) => Ok(
             "/aws/service/canonical/ubuntu/server/20.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
@@ -167,11 +192,11 @@ pub fn default_image_id_ssm_parameter(arch: &str, os: &str) -> io::Result<String
 
         (
             ArchType::Amd64
-            | ArchType::Amd64GpuNvidiaTeslaA100
-            | ArchType::Amd64GpuNvidiaTeslaM60
-            | ArchType::Amd64GpuNvidiaT4
-            | ArchType::Amd64GpuNvidiaA10G
-            | ArchType::Amd64GpuRadeon,
+            | ArchType::Amd64GpuP4NvidiaTeslaA100
+            | ArchType::Amd64GpuG3NvidiaTeslaM60
+            | ArchType::Amd64GpuG4dnNvidiaT4For
+            | ArchType::Amd64GpuG4adRadeon
+            | ArchType::Amd64GpuG5NvidiaA10G,
             OsType::Ubuntu2204,
         ) => Ok(
             "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
@@ -190,92 +215,11 @@ pub fn default_image_id_ssm_parameter(arch: &str, os: &str) -> io::Result<String
 }
 
 /// Returns default instance types.
-///
-/// ref. <https://aws.amazon.com/ec2/instance-types/c6a/>
-/// c6a.large:   2  vCPU + 4  GiB RAM
-/// c6a.xlarge:  4  vCPU + 8  GiB RAM
-/// c6a.2xlarge: 8  vCPU + 16 GiB RAM
-/// c6a.4xlarge: 16 vCPU + 32 GiB RAM
-/// c6a.8xlarge: 32 vCPU + 64 GiB RAM
-///
-/// ref. <https://aws.amazon.com/ec2/instance-types/m6a/>
-/// m6a.large:   2  vCPU + 8  GiB RAM
-/// m6a.xlarge:  4  vCPU + 16 GiB RAM
-/// m6a.2xlarge: 8  vCPU + 32 GiB RAM
-/// m6a.4xlarge: 16 vCPU + 64 GiB RAM
-/// m6a.8xlarge: 32 vCPU + 128 GiB RAM
-///
-/// ref. <https://aws.amazon.com/ec2/instance-types/m5/>
-/// m5.large:   2  vCPU + 8  GiB RAM
-/// m5.xlarge:  4  vCPU + 16 GiB RAM
-/// m5.2xlarge: 8  vCPU + 32 GiB RAM
-/// m5.4xlarge: 16 vCPU + 64 GiB RAM
-/// m5.8xlarge: 32 vCPU + 128 GiB RAM
-///
-/// ref. <https://aws.amazon.com/ec2/instance-types/c5/>
-/// c5.large:   2  vCPU + 4  GiB RAM
-/// c5.xlarge:  4  vCPU + 8  GiB RAM
-/// c5.2xlarge: 8  vCPU + 16 GiB RAM
-/// c5.4xlarge: 16 vCPU + 32 GiB RAM
-/// c5.9xlarge: 32 vCPU + 72 GiB RAM
-///
-/// ref. <https://aws.amazon.com/ec2/instance-types/r5/>
-/// r5.large:   2  vCPU + 16 GiB RAM
-/// r5.xlarge:  4  vCPU + 32 GiB RAM
-/// r5.2xlarge: 8  vCPU + 64 GiB RAM
-/// r5.4xlarge: 16 vCPU + 128 GiB RAM
-/// r5.8xlarge: 32 vCPU + 256 GiB RAM
-///
-/// ref. <https://aws.amazon.com/ec2/instance-types/t3/>
-/// t3.large:    2  vCPU + 8 GiB RAM
-/// t3.xlarge:   4  vCPU + 16 GiB RAM
-/// t3.2xlarge:  8  vCPU + 32 GiB RAM
-///
-///
-/// Graviton
-/// ref. <https://aws.amazon.com/ec2/instance-types/a1/>
-/// a1.large:   2 vCPU + 8  GiB RAM
-/// a1.xlarge:  4 vCPU + 8 GiB RAM
-/// a1.2xlarge: 8 vCPU + 16 GiB RAM
-///
-/// Graviton 3 (in preview)
-/// ref. <https://aws.amazon.com/ec2/instance-types/c7g/>
-/// c7g.large:   2 vCPU + 8  GiB RAM
-/// c7g.xlarge:  4 vCPU + 16 GiB RAM
-/// c7g.2xlarge: 8 vCPU + 32 GiB RAM
-///
-/// Graviton 2
-/// ref. <https://aws.amazon.com/ec2/instance-types/c6g/>
-/// c6g.large:   2 vCPU + 4  GiB RAM
-/// c6g.xlarge:  4 vCPU + 8  GiB RAM
-/// c6g.2xlarge: 8 vCPU + 16 GiB RAM
-///
-/// Graviton 2
-/// ref. <https://aws.amazon.com/ec2/instance-types/m6g/>
-/// m6g.large:   2 vCPU + 8  GiB RAM
-/// m6g.xlarge:  4 vCPU + 16 GiB RAM
-/// m6g.2xlarge: 8 vCPU + 32 GiB RAM
-///
-/// Graviton 2
-/// ref. <https://aws.amazon.com/ec2/instance-types/r6g/>
-/// r6g.large:   2 vCPU + 16 GiB RAM
-/// r6g.xlarge:  4 vCPU + 32 GiB RAM
-/// r6g.2xlarge: 8 vCPU + 64 GiB RAM
-///
-/// Graviton 2
-/// ref. <https://aws.amazon.com/ec2/instance-types/t4/>
-/// t4g.large:   2 vCPU + 8 GiB RAM
-/// t4g.xlarge:  4 vCPU + 16 GiB RAM
-/// t4g.2xlarge: 8 vCPU + 32 GiB RAM
-///
 /// ref. <https://instances.vantage.sh/?min_memory=8&min_vcpus=4&region=us-west-2&cost_duration=monthly&selected=t4g.xlarge,c5.xlarge>
-///
-///
-/// GPU g4
 /// ref. <https://docs.aws.amazon.com/dlami/latest/devguide/gpu.html>
-/// ref. <https://aws.amazon.com/ec2/instance-types/g4/>
-/// ref. <https://aws.amazon.com/ec2/instance-types/g5/>
 ///
+/// TODO: add Graviton 3 (in preview)
+/// ref. <https://aws.amazon.com/ec2/instance-types/c7g/>
 pub fn default_instance_types(
     region: &str,
     arch: &str,
@@ -399,21 +343,26 @@ pub fn default_instance_types(
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
         ]),
 
-        (_, ArchType::Amd64GpuNvidiaTeslaA100, _) => Ok(vec![
+        (_, ArchType::Amd64GpuP4NvidiaTeslaA100, _) => Ok(vec![
             format!("p4d.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/p4>
         ]),
-        (_, ArchType::Amd64GpuNvidiaTeslaM60, _) => Ok(vec![
+        (_, ArchType::Amd64GpuG3NvidiaTeslaM60, _) => Ok(vec![
             format!("g3.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g3>
         ]),
-        (_, ArchType::Amd64GpuNvidiaT4, _) => Ok(vec![
+        (_, ArchType::Amd64GpuG4dnNvidiaT4For, _) => Ok(vec![
             format!("g4dn.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
         ]),
-        (_, ArchType::Amd64GpuNvidiaA10G, _) => Ok(vec![
+        (_, ArchType::Amd64GpuG4adRadeon, _) => Ok(vec![
+            format!("g4ad.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
+        ]),
+        (_, ArchType::Amd64GpuG5NvidiaA10G, _) => Ok(vec![
             format!("g5.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g5>
         ]),
-
-        (_, ArchType::Amd64GpuRadeon, _) => Ok(vec![
-            format!("g4ad.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g4>
+        (_, ArchType::Amd64GpuInf1, _) => Ok(vec![
+            format!("inf1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/inf1>
+        ]),
+        (_, ArchType::Amd64GpuTrn1, _) => Ok(vec![
+            format!("trn1.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/trn1>
         ]),
 
         _ => Err(io::Error::new(
