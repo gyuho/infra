@@ -12,19 +12,19 @@ async fn main() {
     let device_name = "nvme1n1";
     let dir_name = "/data";
 
-    let (o1, o2) = ec2::disk::make_filesystem(filesystem_name, device_name).unwrap();
-    println!("out1 {}, out2 {}", o1, o2);
+    let out = ec2::disk::make_filesystem(filesystem_name, device_name).unwrap();
+    println!("out1 {}, out2 {}", out.stdout, out.stderr);
 
-    let (o1, o2) = ec2::disk::mount_filesystem(filesystem_name, device_name, dir_name).unwrap();
-    println!("out1 {}, out2 {}", o1, o2);
+    let out = ec2::disk::mount_filesystem(filesystem_name, device_name, dir_name).unwrap();
+    println!("out1 {}, out2 {}", out.stdout, out.stderr);
 
-    let (o1, o2) = ec2::disk::update_fstab(filesystem_name, device_name, dir_name).unwrap();
-    println!("out1 {}, out2 {}", o1, o2);
+    let out = ec2::disk::update_fstab(filesystem_name, device_name, dir_name).unwrap();
+    println!("out1 {}, out2 {}", out.stdout, out.stderr);
 
-    let (o1, _) = command_manager::run("lsblk").unwrap();
-    println!("out1 {}", o1);
-    assert!(o1.contains(device_name));
-    assert!(o1.contains(dir_name));
+    let o1 = command_manager::run("lsblk").unwrap();
+    println!("out1 {:?}", o1);
+    assert!(o1.stdout.contains(device_name));
+    assert!(o1.stdout.contains(dir_name));
     /*
     NAME         MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
     loop0          7:0    0  25.1M  1 loop /snap/amazon-ssm-agent/5656
@@ -39,10 +39,10 @@ async fn main() {
     └─nvme0n1p15 259:4    0   106M  0 part /boot/efi
     */
 
-    let (o1, _) = command_manager::run("df -h").unwrap();
-    println!("out1 {}", o1);
-    assert!(o1.contains(device_name));
-    assert!(o1.contains(dir_name));
+    let o1 = command_manager::run("df -h").unwrap();
+    println!("out1 {:?}", o1);
+    assert!(o1.stdout.contains(device_name));
+    assert!(o1.stdout.contains(dir_name));
     /*
     Filesystem       Size  Used Avail Use% Mounted on
     /dev/root        194G  9.7G  184G   6% /

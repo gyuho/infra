@@ -14,7 +14,10 @@ use std::{
 ///
 /// ref. See https://github.com/cholcombe973/block-utils/blob/master/src/lib.rs for other commands.
 /// ref. https://stackoverflow.com/questions/45167717/mounting-a-nvme-disk-on-aws-ec2
-pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(String, String)> {
+pub fn make_filesystem(
+    filesystem_name: &str,
+    device_name: &str,
+) -> io::Result<command_manager::Output> {
     match run_make_filesystem(filesystem_name, device_name) {
         Ok(v) => {
             log::debug!("first time success 'make_filesystem'");
@@ -34,7 +37,7 @@ pub fn make_filesystem(filesystem_name: &str, device_name: &str) -> io::Result<(
 pub fn run_make_filesystem(
     filesystem_name: &str,
     device_name: &str,
-) -> io::Result<(String, String)> {
+) -> io::Result<command_manager::Output> {
     let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
@@ -60,7 +63,10 @@ pub fn run_make_filesystem(
         }
 
         log::warn!("ignoring the 'is mounted' error '{}'", e.to_string());
-        Ok((String::new(), e.to_string()))
+        Ok(command_manager::Output {
+            stdout: String::new(),
+            stderr: e.to_string(),
+        })
     } else {
         res
     }
@@ -78,7 +84,7 @@ pub fn mount_filesystem(
     filesystem_name: &str,
     device_name: &str,
     dir_name: &str,
-) -> io::Result<(String, String)> {
+) -> io::Result<command_manager::Output> {
     let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
@@ -106,7 +112,10 @@ pub fn mount_filesystem(
         }
 
         log::warn!("ignoring the 'already mounted' error '{}'", e.to_string());
-        Ok((String::new(), e.to_string()))
+        Ok(command_manager::Output {
+            stdout: String::new(),
+            stderr: e.to_string(),
+        })
     } else {
         res
     }
@@ -127,7 +136,7 @@ pub fn update_fstab(
     filesystem_name: &str,
     device_name: &str,
     dir_name: &str,
-) -> io::Result<(String, String)> {
+) -> io::Result<command_manager::Output> {
     let device_path = if device_name.starts_with("/dev/") {
         device_name.to_string()
     } else {
@@ -146,7 +155,10 @@ pub fn update_fstab(
     let mut contents = fs::read_to_string(FSTAB_PATH)?;
     if contents.contains(&line) {
         log::warn!("fstab already contains '{}', skipping updating fstab", line);
-        return Ok((contents, String::new()));
+        return Ok(command_manager::Output {
+            stdout: contents,
+            stderr: String::new(),
+        });
     }
     contents.push('\n');
     contents.push_str(&line);
@@ -159,5 +171,8 @@ pub fn update_fstab(
     command_manager::run(&cmd)?;
     command_manager::run("sudo mount --all")?;
 
-    Ok((contents, String::new()))
+    Ok(command_manager::Output {
+        stdout: contents,
+        stderr: String::new(),
+    })
 }

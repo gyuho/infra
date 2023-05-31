@@ -1489,3 +1489,88 @@ public_ip: 1.2.3.4
     };
     assert_eq!(eip, orig);
 }
+
+pub struct SshCommands(Vec<SshCommand>);
+
+impl SshCommands {
+    pub fn sync(&self, file_path: String) -> io::Result<()> {
+        log::info!("syncing ssh commands to '{file_path}'");
+        let path = Path::new(&file_path);
+        let parent_dir = path.parent().unwrap();
+        fs::create_dir_all(parent_dir)?;
+
+        let mut contents = String::from("#!/bin/bash\n\n");
+        for ssh_cmd in self.0.iter() {
+            let d = ssh_cmd.to_string();
+            contents.push_str(&d);
+            contents.push_str("\n\n");
+        }
+
+        let mut f = File::create(file_path)?;
+        f.write_all(&contents.as_bytes())?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
+pub struct SshCommand {
+    pub ec2_key_path: String,
+    pub user_name: String,
+
+    pub region: String,
+    pub availability_zone: String,
+
+    pub instance_id: String,
+    pub instance_state_name: String,
+
+    pub ip_mode: String,
+    pub public_ip: String,
+}
+
+/// ref. <https://doc.rust-lang.org/std/string/trait.ToString.html>
+/// ref. <https://doc.rust-lang.org/std/fmt/trait.Display.html>
+/// Use "Self.to_string()" to directly invoke this.
+impl std::fmt::Display for SshCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "# change SSH key permission
+chmod 400 {ec2_key_path}
+# instance '{instance_id}' ({instance_state_name}, {availability_zone}) -- ip mode '{ip_mode}'
+ssh -o \"StrictHostKeyChecking no\" -i {ec2_key_path} {user_name}@{public_ip}
+ssh -o \"StrictHostKeyChecking no\" -i {ec2_key_path} {user_name}@{public_ip} 'tail -10 /var/log/cloud-init-output.log'
+# download a remote file to local machine
+scp -i {ec2_key_path} {user_name}@{public_ip}:REMOTE_FILE_PATH LOCAL_FILE_PATH
+scp -i {ec2_key_path} -r {user_name}@{public_ip}:REMOTE_DIRECTORY_PATH LOCAL_DIRECTORY_PATH
+# upload a local file to remote machine
+scp -i {ec2_key_path} LOCAL_FILE_PATH {user_name}@{public_ip}:REMOTE_FILE_PATH
+scp -i {ec2_key_path} -r LOCAL_DIRECTORY_PATH {user_name}@{public_ip}:REMOTE_DIRECTORY_PATH
+# SSM session (requires a running SSM agent)
+aws ssm start-session --region {region} --target {instance_id}",
+            ec2_key_path = self.ec2_key_path,
+            user_name = self.user_name,
+
+            region = self.region,
+            availability_zone = self.availability_zone,
+
+            instance_id = self.instance_id,
+            instance_state_name = self.instance_state_name,
+
+            ip_mode = self.ip_mode,
+            public_ip = self.public_ip,
+        )
+    }
+}
+
+impl SshCommand {
+    /// Run a command remotely.
+    pub fn run(&self, cmd: &str) -> io::Result<command_manager::Output> {
+        let cmd_to_run = format!("chmod 400 {ec2_key_path} && ssh -o \"StrictHostKeyChecking no\" -i {ec2_key_path} {user_name}@{public_ip} '{cmd}'",
+            ec2_key_path = self.ec2_key_path,
+            user_name = self.user_name,
+            public_ip = self.public_ip,
+        );
+        command_manager::run(&cmd_to_run)
+    }
+}
