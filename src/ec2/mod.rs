@@ -1490,7 +1490,7 @@ public_ip: 1.2.3.4
     assert_eq!(eip, orig);
 }
 
-pub struct SshCommands(Vec<SshCommand>);
+pub struct SshCommands(pub Vec<SshCommand>);
 
 impl SshCommands {
     pub fn sync(&self, file_path: String) -> io::Result<()> {
