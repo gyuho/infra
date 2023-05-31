@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.28.6" # https://crates.io/crates/aws-manager/versions
+version = "0.28.7" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.69"
@@ -45,7 +45,7 @@ serde_json = { version = "1.0.96", optional = true }
 # [OPTIONAL] for "ec2"
 aws-sdk-ec2 = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
 chrono = { version = "0.4.26", optional = true } # https://github.com/chronotope/chrono/releases
-command-manager = { version = "0.0.2", optional = true }
+command-manager = { version = "0.0.3", optional = true }
 reqwest = { version = "0.11.18", optional = true }
 rfc-manager = { version = "0.0.1", optional = true }
 serde_yaml = { version = "0.9.21", optional = true } # https://github.com/dtolnay/serde-yaml/releases
