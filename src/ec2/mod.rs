@@ -1490,12 +1490,13 @@ public_ip: 1.2.3.4
     assert_eq!(eip, orig);
 }
 
+/// A list of ssh commands.
 pub struct SshCommands(pub Vec<SshCommand>);
 
 impl SshCommands {
-    pub fn sync(&self, file_path: String) -> io::Result<()> {
+    pub fn sync(&self, file_path: &str) -> io::Result<()> {
         log::info!("syncing ssh commands to '{file_path}'");
-        let path = Path::new(&file_path);
+        let path = Path::new(file_path);
         let parent_dir = path.parent().unwrap();
         fs::create_dir_all(parent_dir)?;
 
