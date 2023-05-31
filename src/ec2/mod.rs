@@ -1533,6 +1533,8 @@ pub struct SshCommand {
 /// Use "Self.to_string()" to directly invoke this.
 impl std::fmt::Display for SshCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // ssh -o "StrictHostKeyChecking no" -i [ec2_key_path] [user name]@[public IPv4/DNS name]
+        // aws ssm start-session --region [region] --target [instance ID]
         write!(
             f,
             "# change SSH key permission
