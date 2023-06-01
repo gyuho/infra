@@ -133,6 +133,16 @@ impl ArchType {
             "amd64-gpu-trn1",                 //
         ]
     }
+
+    pub fn is_nvidia(&self) -> bool {
+        matches!(
+            self,
+            ArchType::Amd64GpuP4NvidiaTeslaA100
+                | ArchType::Amd64GpuG3NvidiaTeslaM60
+                | ArchType::Amd64GpuG4dnNvidiaT4
+                | ArchType::Amd64GpuG5NvidiaA10G
+        )
+    }
 }
 
 impl AsRef<str> for ArchType {
