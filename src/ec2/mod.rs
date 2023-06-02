@@ -1634,6 +1634,7 @@ chmod 400 {ec2_key_path}
 # instance '{instance_id}' ({instance_state_name}, {availability_zone}) -- ip mode '{ip_mode}'
 ssh -o \"StrictHostKeyChecking no\" -i {ec2_key_path} {user_name}@{public_ip}
 ssh -o \"StrictHostKeyChecking no\" -i {ec2_key_path} {user_name}@{public_ip} 'tail -10 /var/log/cloud-init-output.log'
+ssh -o \"StrictHostKeyChecking no\" -i {ec2_key_path} {user_name}@{public_ip} 'tail -f /var/log/cloud-init-output.log'
 # download a remote file to local machine
 scp -i {ec2_key_path} {user_name}@{public_ip}:REMOTE_FILE_PATH LOCAL_FILE_PATH
 scp -i {ec2_key_path} -r {user_name}@{public_ip}:REMOTE_DIRECTORY_PATH LOCAL_DIRECTORY_PATH
