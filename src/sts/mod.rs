@@ -50,6 +50,22 @@ pub struct Identity {
     pub user_id: String,
 }
 
+impl Default for Identity {
+    fn default() -> Self {
+        Self::default()
+    }
+}
+
+impl Identity {
+    pub fn default() -> Self {
+        Self {
+            account_id: String::new(),
+            role_arn: String::new(),
+            user_id: String::new(),
+        }
+    }
+}
+
 impl Identity {
     pub fn new(account_id: &str, role_arn: &str, user_id: &str) -> Self {
         // ref. <https://doc.rust-lang.org/1.0.0/style/ownership/constructors.html>
