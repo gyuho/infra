@@ -281,6 +281,7 @@ pub fn default_instance_types(
             format!("m5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/m5>
             format!("c5.{instance_size}"),  // ref. <https://aws.amazon.com/ec2/instance-types/c5>
         ]),
+
         ("ap-northeast-2", ArchType::Arm64, "4xlarge") => Ok(vec![
             format!("c6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/c6g>
             format!("m6g.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/m6g>
@@ -363,7 +364,12 @@ pub fn default_instance_types(
             format!("p4d.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/p4>
         ]),
 
-        (_, ArchType::Amd64GpuG3NvidiaTeslaM60, "xlarge" | "4xlarge" | "8xlarge" | "16xlarge") => {
+        (_, ArchType::Amd64GpuG3NvidiaTeslaM60, "xlarge") => {
+            Ok(vec![
+                format!("g3s.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g3>
+            ])
+        }
+        (_, ArchType::Amd64GpuG3NvidiaTeslaM60, "4xlarge" | "8xlarge" | "16xlarge") => {
             Ok(vec![
                 format!("g3.{instance_size}"), // ref. <https://aws.amazon.com/ec2/instance-types/g3>
             ])
