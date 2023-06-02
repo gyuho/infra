@@ -42,8 +42,11 @@ impl Manager {
 /// Represents the caller identity.
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct Identity {
+    #[serde(default)]
     pub account_id: String,
+    #[serde(default)]
     pub role_arn: String,
+    #[serde(default)]
     pub user_id: String,
 }
 
