@@ -2,7 +2,7 @@ pub mod disk;
 pub mod metadata;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::{self, File},
     io::{self, Write},
     path::Path,
@@ -406,6 +406,81 @@ pub fn default_instance_types(
             io::ErrorKind::InvalidInput,
             format!("unknown region '{region}' and arch '{arch}'"),
         )),
+    }
+}
+
+/// Returns a set of valid instance types.
+/// Empty if not known.
+pub fn valid_instance_types(arch_type: ArchType) -> HashSet<String> {
+    match arch_type {
+        ArchType::Amd64GpuP4NvidiaTeslaA100 => {
+            // ref. <https://aws.amazon.com/ec2/instance-types/p4>
+            let mut s = HashSet::new();
+            s.insert("p4d.24xlarge".to_string());
+            s
+        }
+        ArchType::Amd64GpuG3NvidiaTeslaM60 => {
+            // ref. <https://aws.amazon.com/ec2/instance-types/g3>
+            let mut s = HashSet::new();
+            s.insert("g3s.xlarge".to_string());
+            s.insert("g3.4xlarge".to_string());
+            s.insert("g3.8xlarge".to_string());
+            s.insert("g3.16xlarge".to_string());
+            s
+        }
+        ArchType::Amd64GpuG4dnNvidiaT4 => {
+            // ref. <https://aws.amazon.com/ec2/instance-types/g4>
+            let mut s = HashSet::new();
+            s.insert("g4dn.xlarge".to_string());
+            s.insert("g4dn.2xlarge".to_string());
+            s.insert("g4dn.4xlarge".to_string());
+            s.insert("g4dn.8xlarge".to_string());
+            s.insert("g4dn.16xlarge".to_string());
+            s.insert("g4dn.12xlarge".to_string());
+            s.insert("g4dn.metal".to_string());
+            s
+        }
+        ArchType::Amd64GpuG4adRadeon => {
+            // ref. <https://aws.amazon.com/ec2/instance-types/g4>
+            let mut s = HashSet::new();
+            s.insert("g4ad.xlarge".to_string());
+            s.insert("g4ad.2xlarge".to_string());
+            s.insert("g4ad.4xlarge".to_string());
+            s.insert("g4ad.8xlarge".to_string());
+            s.insert("g4ad.16xlarge".to_string());
+            s
+        }
+        ArchType::Amd64GpuG5NvidiaA10G => {
+            // ref. <https://aws.amazon.com/ec2/instance-types/g5>
+            let mut s = HashSet::new();
+            s.insert("g5.xlarge".to_string());
+            s.insert("g5.2xlarge".to_string());
+            s.insert("g5.4xlarge".to_string());
+            s.insert("g5.8xlarge".to_string());
+            s.insert("g5.16xlarge".to_string());
+            s.insert("g5.12xlarge".to_string());
+            s.insert("g5.24xlarge".to_string());
+            s.insert("g5.48xlarge".to_string());
+            s
+        }
+        ArchType::Amd64GpuInf1 => {
+            // ref. <https://aws.amazon.com/ec2/instance-types/inf1>
+            let mut s = HashSet::new();
+            s.insert("inf1.xlarge".to_string());
+            s.insert("inf1.2xlarge".to_string());
+            s.insert("inf1.6xlarge".to_string());
+            s.insert("inf1.24xlarge".to_string());
+            s
+        }
+        ArchType::Amd64GpuTrn1 => {
+            // ref. <https://aws.amazon.com/ec2/instance-types/trn1>
+            let mut s = HashSet::new();
+            s.insert("trn1.2xlarge".to_string());
+            s.insert("trn1.32xlarge".to_string());
+            s.insert("trn1n.32xlarge".to_string());
+            s
+        }
+        _ => HashSet::new(),
     }
 }
 
