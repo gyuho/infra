@@ -15,7 +15,7 @@ async fn main() {
     println!();
     println!();
     log::info!("creating AWS S3 resources!");
-    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None).await;
+    let shared_config = aws_manager::load_config(Some(String::from("us-east-1")), None, None).await;
     log::info!("region {:?}", shared_config.region().unwrap());
     let cloudformation_manager = cloudformation::Manager::new(&shared_config);
 

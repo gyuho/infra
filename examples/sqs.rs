@@ -15,7 +15,7 @@ async fn main() {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    let shared_config = aws_manager::load_config(Some(String::from("us-west-2")), None).await;
+    let shared_config = aws_manager::load_config(Some(String::from("us-west-2")), None, None).await;
     log::info!("region {:?}", shared_config.region().unwrap());
     let sqs_manager = sqs::Manager::new(&shared_config);
 

@@ -40,6 +40,7 @@ use tokio::time::Duration;
 /// Loads an AWS config from default environments.
 pub async fn load_config(
     region: Option<String>,
+    profile_name: Option<String>,
     operation_timeout: Option<Duration>,
 ) -> AwsSdkConfig {
     log::info!("loading config for the region {:?}", region);
@@ -57,9 +58,13 @@ pub async fn load_config(
     }
     let timeout_cfg = builder.build();
 
-    aws_config::from_env()
+    let mut cfg = aws_config::from_env()
         .region(reg_provider)
-        .timeout_config(timeout_cfg)
-        .load()
-        .await
+        .timeout_config(timeout_cfg);
+    if let Some(p) = profile_name {
+        log::info!("loading the aws profile '{p}'");
+        cfg = cfg.profile_name(p);
+    }
+
+    cfg.load().await
 }
