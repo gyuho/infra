@@ -1,5 +1,6 @@
 pub mod disk;
 pub mod metadata;
+pub mod plugins;
 
 use std::{
     collections::{HashMap, HashSet},
