@@ -1006,7 +1006,7 @@ pub fn aws_cfn_helper(os_type: OsType) -> io::Result<String> {
 # https://repost.aws/knowledge-center/install-cloudformation-scripts
 
 # pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
-sudo -H -u ubuntu bash -c 'pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
+sudo -H -u ubuntu bash -c 'pip3 install --user aws-cfn-bootstrap && pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
 
 # /home/ubuntu/.local/bin/cfn-hup
 which cfn-hup || true
@@ -1142,7 +1142,7 @@ then
     exit 1
 fi
 
-GOPATH=/home/ubuntu/go /usr/local/go/bin/go install -v k8s.io/cloud-provider-aws/cmd/ecr-credential-provider@v1.27.1
+HOME=/home/ubuntu GOPATH=/home/ubuntu/go /usr/local/go/bin/go install -v k8s.io/cloud-provider-aws/cmd/ecr-credential-provider@v1.27.1
 
 which ecr-credential-provider || true
 chmod +x /home/ubuntu/go/bin/ecr-credential-provider
@@ -1627,7 +1627,7 @@ pub fn eks_worker_node_ami(os_type: OsType) -> io::Result<String> {
 #######
 sudo mkdir -p /etc/eks
 
-targets = (
+targets=(
     get-ecr-uri.sh
     eni-max-pods.txt
     bootstrap.sh
@@ -1644,6 +1644,10 @@ do
     chmod +x /tmp/${target}
     sudo mv /tmp/${target} /etc/eks/${target}
 done
+
+sudo chown -R root:root /etc/eks
+sudo chown -R ubuntu:ubuntu /etc/eks
+find /etc/eks
 
 #######
 # set up iptables
@@ -1669,7 +1673,7 @@ find /etc/eks
 sudo mkdir -p /etc/eks
 sudo mkdir -p /etc/eks/containerd
 
-targets = (
+targets=(
     containerd-config.toml
     kubelet-containerd.service
     sandbox-image.service
