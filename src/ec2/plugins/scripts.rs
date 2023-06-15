@@ -6,10 +6,19 @@ pub fn start(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("#!/usr/bin/env bash
 
+# print all executed commands to terminal
+set -x
+
+# do not mask errors in a pipeline
 set -o pipefail
+
+# treat unset variables as an error
 set -o nounset
+
+# exit script whenever it errs
 set -o errexit
 
+# makes the  default answers be used for all questions
 export DEBIAN_FRONTEND=noninteractive
 
 
@@ -1007,7 +1016,11 @@ pub fn aws_cfn_helper(os_type: OsType) -> io::Result<String> {
 
 # pip3 install --user aws-cfn-bootstrap doesn't work
 # pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
-sudo -H -u ubuntu bash -c 'pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
+while [ 1 ]; do
+    sudo -H -u ubuntu bash -c 'pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
 
 # /home/ubuntu/.local/bin/cfn-hup
 which cfn-hup || true
@@ -1143,7 +1156,11 @@ then
     exit 1
 fi
 
-HOME=/home/ubuntu GOPATH=/home/ubuntu/go /usr/local/go/bin/go install -v k8s.io/cloud-provider-aws/cmd/ecr-credential-provider@v1.27.1
+while [ 1 ]; do
+    HOME=/home/ubuntu GOPATH=/home/ubuntu/go /usr/local/go/bin/go install -v k8s.io/cloud-provider-aws/cmd/ecr-credential-provider@v1.27.1
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
 
 which ecr-credential-provider || true
 chmod +x /home/ubuntu/go/bin/ecr-credential-provider
@@ -1369,7 +1386,12 @@ pub fn nvidia_driver(arch_type: ArchType, os_type: OsType) -> io::Result<String>
 DRIVER_VERSION=460.106.00
 BASE_URL=https://us.download.nvidia.com/tesla
 
-wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"${BASE_URL}/${DRIVER_VERSION}/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run\"
+while [ 1 ]; do
+    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"${BASE_URL}/${DRIVER_VERSION}/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run\"
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
 sudo sh /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run --silent --ui=none --no-questions
 rm -f /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run
 sudo tail /var/log/nvidia-installer.log
@@ -1393,7 +1415,12 @@ nvidia-smi
 DRIVER_VERSION=525.105.17
 BASE_URL=https://us.download.nvidia.com/tesla
 
-wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"${BASE_URL}/${DRIVER_VERSION}/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run\"
+while [ 1 ]; do
+    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"${BASE_URL}/${DRIVER_VERSION}/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run\"
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
 sudo sh /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run --silent --ui=none --no-questions
 rm -f /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run
 sudo tail /var/log/nvidia-installer.log
@@ -1428,7 +1455,12 @@ CUDA_VERSION=12.1.1
 TOOL_KIT_VERSION=530.30.02
 BASE_URL=https://developer.download.nvidia.com/compute/cuda
 
-wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"${BASE_URL}/${CUDA_VERSION}/local_installers/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run\"
+while [ 1 ]; do
+    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"${BASE_URL}/${CUDA_VERSION}/local_installers/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run\"
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
 sudo sh /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run --silent
 rm -f /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run
 
@@ -1624,6 +1656,18 @@ pub fn eks_worker_node_ami(os_type: OsType) -> io::Result<String> {
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 
 #######
+# install packages
+#######
+while [ 1 ]; do
+    sudo apt-get update -yq
+    sudo apt-get upgrade -yq
+    sudo apt-get install -yq conntrack socat nfs-kernel-server ipvsadm
+    sudo apt-get clean
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
+#######
 # set up files
 #######
 sudo mkdir -p /etc/eks
@@ -1796,6 +1840,39 @@ sudo systemctl daemon-reload
 sudo systemctl disable kubelet
 
 #######
+# clean up
+#######
+cat /etc/machine-id || true
+
+CLEANUP_IMAGE=\"${CLEANUP_IMAGE:-false}\"
+if [[ \"$CLEANUP_IMAGE\" == \"true\" ]]; then
+    sudo apt-get clean
+
+    sudo rm -rf \
+    /etc/hostname \
+    /etc/machine-id \
+    /etc/resolv.conf \
+    /etc/ssh/ssh_host* \
+    /home/ubuntu/.ssh/authorized_keys \
+    /root/.ssh/authorized_keys \
+    /var/lib/cloud/data \
+    /var/lib/cloud/instance \
+    /var/lib/cloud/instances \
+    /var/lib/cloud/sem \
+    /var/lib/dhclient/* \
+    /var/lib/dhcp/dhclient.* \
+    /var/lib/apt/history \
+    /var/log/cloud-init-output.log \
+    /var/log/cloud-init.log \
+    /var/log/auth.log \
+    /var/log/wtmp
+
+    # TODO: clean up SSH keys + AWS credentials
+
+    sudo touch /etc/machine-id
+fi
+
+#######
 # write release file
 #######
 BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
@@ -1807,6 +1884,9 @@ ARCH=$(uname -m)
 
 OS_RELEASE_ID=$(. /etc/os-release;echo $ID)
 OS_RELEASE_DISTRIBUTION=$(. /etc/os-release;echo $ID$VERSION_ID)
+
+KUBELET_VERSION=\"$(kubelet --version)\"
+
 EOF
 cat /tmp/release-full
 
