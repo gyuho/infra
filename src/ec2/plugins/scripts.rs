@@ -1016,8 +1016,16 @@ pub fn aws_cfn_helper(os_type: OsType) -> io::Result<String> {
 
 # pip3 install --user aws-cfn-bootstrap doesn't work
 # pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+# install for user
 while [ 1 ]; do
     sudo -H -u ubuntu bash -c 'pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
+# install for root
+while [ 1 ]; do
+    pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
     if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
     sleep 2s;
 done;
