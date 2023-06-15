@@ -1218,6 +1218,7 @@ pub fn kubelet(os_type: OsType) -> io::Result<String> {
 
 while [ 1 ]; do
     export KUBELET_CURRENT_VERSION=$(curl -L -s --retry 70 --retry-delay 1 https://dl.k8s.io/release/stable.txt)
+    export KUBELET_CURRENT_VERSION=\"v1.26.6\"
     rm -f /tmp/kubelet || true;
     wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://dl.k8s.io/release/${KUBELET_CURRENT_VERSION}/bin/linux/$(dpkg --print-architecture)/kubelet\"
     if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
