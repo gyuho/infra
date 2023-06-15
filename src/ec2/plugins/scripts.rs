@@ -1005,8 +1005,9 @@ pub fn aws_cfn_helper(os_type: OsType) -> io::Result<String> {
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-helper-scripts-reference.html
 # https://repost.aws/knowledge-center/install-cloudformation-scripts
 
+# pip3 install --user aws-cfn-bootstrap doesn't work
 # pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
-sudo -H -u ubuntu bash -c 'pip3 install --user aws-cfn-bootstrap && pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
+sudo -H -u ubuntu bash -c 'pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
 
 # /home/ubuntu/.local/bin/cfn-hup
 which cfn-hup || true
