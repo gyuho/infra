@@ -114,6 +114,7 @@ sudo apt-get clean
 sudo find /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl list-units --type=service --no-pager
+df -h
 ###########################
 
 
@@ -122,6 +123,7 @@ sudo systemctl list-units --type=service --no-pager
 
 
 
+set +x
 ###########################
 echo SUCCESS
 
@@ -134,7 +136,8 @@ ARCH=$(uname -m)
 EOF
 cat /tmp/release
 
-sudo cp /tmp/release /data/release || true
+sudo cp /tmp/release /etc/release || true
+sudo chmod 0444 /etc/release
 ###########################
 
 
@@ -157,6 +160,7 @@ pub fn update_bash_profile(
     go_installed: bool,
     kubectl_installed: bool,
     helm_installed: bool,
+    data_directory_mounted: bool,
 ) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => {
@@ -241,8 +245,9 @@ pub fn update_bash_profile(
 
             // add "path_line" once more to use the PATH
             // during the following executions
-            Ok(format!(
-                "
+            if data_directory_mounted {
+                Ok(format!(
+                    "
 ###########################
 # setting up user bash profiles
 
@@ -261,7 +266,25 @@ sudo chown -R ubuntu /data || true
 EOF
 
 {path_line}"
-            ))
+                ))
+            } else {
+                Ok(format!(
+                    "
+###########################
+# setting up user bash profiles
+
+{profile}
+# set permissions
+
+EOF
+
+{bashrc}
+
+EOF
+
+{path_line}"
+                ))
+            }
         }
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
@@ -270,16 +293,28 @@ EOF
     }
 }
 
-pub fn write_cluster_data(s3_bucket: &str, id: &str) -> String {
-    format!(
-        "
+pub fn write_cluster_data(s3_bucket: &str, id: &str, data_directory_mounted: bool) -> String {
+    if data_directory_mounted {
+        format!(
+            "
 ###########################
 # write cluster information, assume /data is mounted
 
 echo -n \"{s3_bucket}\" > /data/current_s3_bucket
 echo -n \"{id}\" > /data/current_id
 "
-    )
+        )
+    } else {
+        format!(
+            "
+###########################
+# write cluster information, assume /data is not mounted
+
+echo -n \"{s3_bucket}\" > /tmp/current_s3_bucket
+echo -n \"{id}\" > /tmp/current_id
+"
+        )
+    }
 }
 
 pub fn imds(os_type: OsType) -> io::Result<String> {
@@ -1892,10 +1927,10 @@ if [[ \"$CLEANUP_IMAGE\" == \"true\" ]]; then
     /var/log/cloud-init-output.log \
     /var/log/cloud-init.log \
     /var/log/auth.log \
-    /var/log/wtmp
+    /var/log/wtmp || true
 
-    # TODO: clean up SSH keys + AWS credentials
-
+    sudo rm -rf /home/ubuntu/.aws
+    sudo rm -f /tmp/*
     sudo touch /etc/machine-id
 fi
 
@@ -1913,11 +1948,11 @@ OS_RELEASE_ID=$(. /etc/os-release;echo $ID)
 OS_RELEASE_DISTRIBUTION=$(. /etc/os-release;echo $ID$VERSION_ID)
 
 KUBELET_VERSION=\"$(kubelet --version)\"
-
 EOF
 cat /tmp/release-full
 
-sudo cp /tmp/release-full /data/release-full || true
+sudo cp /tmp/release-full /etc/release-full || true
+sudo chmod 0444 /etc/release-full
 "
         .to_string()),
         _ => Err(Error::new(

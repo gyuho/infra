@@ -313,7 +313,6 @@ impl Plugin {
             Plugin::SystemLimitBump.as_str().to_string(),
             Plugin::SsmAgent.as_str().to_string(),
             Plugin::CloudwatchAgent.as_str().to_string(),
-            Plugin::StaticVolumeProvisioner.as_str().to_string(),
             Plugin::Anaconda.as_str().to_string(),
             Plugin::NvidiaDriver.as_str().to_string(),
             Plugin::NvidiaCudaToolkit.as_str().to_string(),
@@ -432,6 +431,31 @@ pub fn create(
         }
     }
 
+    if plugins_set.contains(&Plugin::DevBark) {
+        if !plugins_set.contains(&Plugin::StaticVolumeProvisioner) {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!(
+                    "specified '{}' requires '{}'",
+                    Plugin::DevBark.as_str(),
+                    Plugin::StaticVolumeProvisioner.as_str()
+                ),
+            ));
+        }
+    }
+    if plugins_set.contains(&Plugin::DevFaissGpu) {
+        if !plugins_set.contains(&Plugin::StaticVolumeProvisioner) {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                format!(
+                    "specified '{}' requires '{}'",
+                    Plugin::DevFaissGpu.as_str(),
+                    Plugin::StaticVolumeProvisioner.as_str()
+                ),
+            ));
+        }
+    }
+
     // special/default plugins
     let mut plugins: Vec<Plugin> = vec![
         Plugin::Imds,
@@ -443,11 +467,17 @@ pub fn create(
         Plugin::SystemLimitBump,
         Plugin::SsmAgent,
         Plugin::CloudwatchAgent,
-        Plugin::StaticVolumeProvisioner,
     ];
-    if require_static_ip_provisioner {
-        plugins.push(Plugin::StaticIpProvisioner);
+
+    if plugins_set.contains(&Plugin::StaticVolumeProvisioner) {
+        // must in order; volume mount first + ip provision
+        // useful when we create a base instance for AMI
+        plugins.push(Plugin::StaticVolumeProvisioner);
+        if require_static_ip_provisioner {
+            plugins.push(Plugin::StaticIpProvisioner);
+        }
     }
+
     // pick either anaconda or python
     if plugins_set.contains(&Plugin::Anaconda) {
         if plugins_set.contains(&Plugin::Python) {
@@ -599,6 +629,7 @@ pub fn create(
                     plugins_set.contains(&Plugin::Go),
                     plugins_set.contains(&Plugin::Kubectl),
                     plugins_set.contains(&Plugin::Helm),
+                    plugins_set.contains(&Plugin::StaticVolumeProvisioner),
                 )?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n",
@@ -608,7 +639,11 @@ pub fn create(
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n",
                 );
-                contents.push_str(&scripts::write_cluster_data(s3_bucket, id));
+                contents.push_str(&scripts::write_cluster_data(
+                    s3_bucket,
+                    id,
+                    plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+                ));
             }
             Plugin::StaticIpProvisioner => {
                 let d = scripts::static_ip_provisioner(
