@@ -128,6 +128,7 @@ set +x
 echo SUCCESS
 
 BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
+sudo rm -f /tmp/release
 cat << EOF > /tmp/release
 BASE_AMI_ID=$BASE_AMI_ID
 BUILD_TIME=$(date)
@@ -136,7 +137,7 @@ ARCH=$(uname -m)
 EOF
 cat /tmp/release
 
-sudo cp /tmp/release /etc/release
+sudo cp -v /tmp/release /etc/release
 sudo chmod 0444 /etc/release
 ###########################
 
@@ -1209,7 +1210,7 @@ done;
 
 which ecr-credential-provider
 chmod +x /home/ubuntu/go/bin/ecr-credential-provider
-sudo cp /home/ubuntu/go/bin/ecr-credential-provider /usr/bin/ecr-credential-provider
+sudo cp -v /home/ubuntu/go/bin/ecr-credential-provider /usr/bin/ecr-credential-provider
 
 # /usr/bin/ecr-credential-provider
 which ecr-credential-provider
@@ -1220,7 +1221,7 @@ which ecr-credential-provider
 sudo mkdir -p /etc/eks
 sudo mkdir -p /etc/eks/image-credential-provider
 
-sudo cp /home/ubuntu/go/bin/ecr-credential-provider /etc/eks/image-credential-provider/ecr-credential-provider
+sudo cp -v /home/ubuntu/go/bin/ecr-credential-provider /etc/eks/image-credential-provider/ecr-credential-provider
 
 while [ 1 ]; do
     rm -f /tmp/ecr-credential-provider-config.json || true;
@@ -1932,6 +1933,8 @@ if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ 
     ECR_URI=$(/etc/eks/get-ecr-uri.sh \"${BINARY_BUCKET_REGION}\" \"${AWS_DOMAIN}\")
 
     PAUSE_CONTAINER=\"${ECR_URI}/eks/pause:${PAUSE_CONTAINER_VERSION}\"
+    echo \"PAUSE_CONTAINER: ${PAUSE_CONTAINER}\"
+
     cat /etc/eks/containerd/containerd-config.toml | sed s,SANDBOX_IMAGE,$PAUSE_CONTAINER,g | sudo tee /etc/eks/containerd/containerd-cached-pause-config.toml
 
     sudo mkdir -p /etc/containerd
@@ -1946,9 +1949,11 @@ if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ 
 
     # e.g., 1.26
     K8S_MINOR_VERSION=$(echo \"${KUBERNETES_VERSION}\" | cut -d'.' -f1-2)
+    echo \"K8S_MINOR_VERSION: ${K8S_MINOR_VERSION}\"
 
     #### Cache kube-proxy images starting with the addon default version and the latest version
     KUBE_PROXY_ADDON_VERSIONS=$(aws eks describe-addon-versions --addon-name kube-proxy --kubernetes-version=${K8S_MINOR_VERSION})
+    echo \"KUBE_PROXY_ADDON_VERSIONS: ${KUBE_PROXY_ADDON_VERSIONS}\"
     KUBE_PROXY_IMGS=()
     if [[ $(jq '.addons | length' <<< $KUBE_PROXY_ADDON_VERSIONS) -gt 0 ]]; then
         DEFAULT_KUBE_PROXY_FULL_VERSION=$(echo \"${KUBE_PROXY_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] | select(.compatibilities[] .defaultVersion==true).addonVersion')
@@ -1969,9 +1974,11 @@ if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ 
             \"${ECR_URI}/eks/kube-proxy:${LATEST_KUBE_PROXY_VERSION}-minimal-${LATEST_KUBE_PROXY_PLATFORM_VERSION}\"
         )
     fi
+    echo \"KUBE_PROXY_IMGS: ${KUBE_PROXY_IMGS}\"
 
     #### Cache VPC CNI images starting with the addon default version and the latest version
     VPC_CNI_ADDON_VERSIONS=$(aws eks describe-addon-versions --addon-name vpc-cni --kubernetes-version=${K8S_MINOR_VERSION})
+    echo \"VPC_CNI_ADDON_VERSIONS: ${VPC_CNI_ADDON_VERSIONS}\"
     VPC_CNI_IMGS=()
     if [[ $(jq '.addons | length' <<< $VPC_CNI_ADDON_VERSIONS) -gt 0 ]]; then
         DEFAULT_VPC_CNI_VERSION=$(echo \"${VPC_CNI_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] | select(.compatibilities[] .defaultVersion==true).addonVersion')
@@ -1989,14 +1996,16 @@ if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ 
             \"${CNI_INIT_IMG}:${LATEST_VPC_CNI_VERSION}\"
         )
     fi
+    echo \"VPC_CNI_IMGS: ${VPC_CNI_IMGS}\"
 
     CACHE_IMGS=(
         \"${PAUSE_CONTAINER}\"
         ${KUBE_PROXY_IMGS[@]+\"${KUBE_PROXY_IMGS[@]}\"}
         ${VPC_CNI_IMGS[@]+\"${VPC_CNI_IMGS[@]}\"}
     )
-    PULLED_IMGS=()
+    echo \"CACHE_IMGS: ${CACHE_IMGS}\"
 
+    PULLED_IMGS=()
     for img in \"${CACHE_IMGS[@]}\"; do
         ## only kube-proxy-minimal is vended for K8s 1.24+
         if [[ \"${img}\" == *\"kube-proxy:\"* ]] && [[ \"${img}\" != *\"-minimal-\"* ]] && vercmp \"${K8S_MINOR_VERSION}\" gteq \"1.24\"; then
@@ -2012,6 +2021,7 @@ if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ 
         ## iterate through decrementing the build version each time
         for build_version in $(seq \"${eksbuild_version}\" -1 1); do
             img=$(echo \"${img}\" | sed -E \"s/eksbuild.[0-9]+/eksbuild.${build_version}/\")
+            echo \"ctr pulling/fetching an image ${img}\"
             if /etc/eks/containerd/pull-image.sh \"${img}\"; then
                 PULLED_IMGS+=(\"${img}\")
                 break
@@ -2020,11 +2030,13 @@ if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ 
             fi
         done
     done
+    echo \"PULLED_IMGS: ${PULLED_IMGS}\"
 
     #### Tag the pulled down image for all other regions in the partition
     for region in $(aws ec2 describe-regions --all-regions | jq -r '.Regions[] .RegionName'); do
         for img in \"${PULLED_IMGS[@]}\"; do
             regional_img=\"${img/$BINARY_BUCKET_REGION/$region}\"
+            echo \"tagging a pulled image ${regional_img}\"
             sudo ctr -n k8s.io image tag \"${img}\" \"${regional_img}\" || :
 
             ## Tag ECR fips endpoint for supported regions
@@ -2086,6 +2098,7 @@ fi
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
+sudo rm -f /tmp/release-full
 cat << EOF > /tmp/release-full
 BASE_AMI_ID=$BASE_AMI_ID
 BUILD_TIME=$(date)
@@ -2095,6 +2108,7 @@ ARCH=$(uname -m)
 OS_RELEASE_ID=$(. /etc/os-release;echo $ID)
 OS_RELEASE_DISTRIBUTION=$(. /etc/os-release;echo $ID$VERSION_ID)
 
+RUNC_VERSION=\"$(runc --version | head -1 | tr -d '\\n')\"
 CONTAINERD_VERSION=\"$(containerd --version)\"
 CTR_VERSION=\"$(ctr --version)\"
 
@@ -2102,7 +2116,7 @@ KUBELET_VERSION=\"$(kubelet --version)\"
 EOF
 cat /tmp/release-full
 
-sudo cp /tmp/release-full /etc/release-full
+sudo cp -v /tmp/release-full /etc/release-full
 sudo chmod 0444 /etc/release-full
 "
         .to_string()),
