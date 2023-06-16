@@ -896,6 +896,7 @@ containerd --version || true
 # /usr/bin/ctr
 which ctr || true
 ctr --version || true
+ctr version || true
 ".to_string())
         }
         _  => {
@@ -1766,6 +1767,23 @@ net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 EOF
+
+cat <<EOF | sudo tee /etc/systemd/system/containerd.service
+[Unit]
+Description=containerd
+Documentation=https://containerd.io
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/containerd
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable containerd
+sudo systemctl start containerd
+sudo ctr version
 
 #######
 # set up log-collector
