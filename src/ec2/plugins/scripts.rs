@@ -1161,7 +1161,7 @@ pub fn ecr_credential_helper(os_type: OsType) -> io::Result<String> {
 # https://github.com/awslabs/amazon-ecr-credential-helper
 
 which docker-credential-ecr-login || true
-docker-credential-ecr-login -version || true
+docker-credential-ecr-login version || true
 
 while [ 1 ]; do
     export ECR_CREDENTIAL_HELPER_CURRENT_VERSION=$(curl -Ls --retry 70 --retry-delay 1 https://api.github.com/repos/awslabs/amazon-ecr-credential-helper/releases/latest | grep 'tag_name' | cut -d'v' -f2 | cut -d'\"' -f1)
@@ -1176,7 +1176,7 @@ sudo mv /tmp/docker-credential-ecr-login /usr/bin/docker-credential-ecr-login
 
 # /usr/bin/docker-credential-ecr-login
 which docker-credential-ecr-login
-docker-credential-ecr-login -version
+docker-credential-ecr-login version
 "
         .to_string()),
         _ => Err(Error::new(
@@ -1303,7 +1303,7 @@ rm -f /tmp/kubectl
 
 # /usr/bin/kubectl
 which kubectl
-kubectl version --client
+kubectl version --client=true
 ".to_string())
         }
         _  => {
@@ -1701,8 +1701,10 @@ pub fn eks_worker_node_ami(os_type: OsType) -> io::Result<String> {
 # install EKS worker node AMI
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 
+
 #######
 # install packages
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 while [ 1 ]; do
     sudo apt-get update -yq
@@ -1713,8 +1715,10 @@ while [ 1 ]; do
     sleep 2s;
 done;
 
+
 #######
 # set up files
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 sudo mkdir -p /etc/eks
 
@@ -1740,8 +1744,10 @@ sudo chown -R root:root /etc/eks
 sudo chown -R ubuntu:ubuntu /etc/eks
 find /etc/eks
 
+
 #######
 # set up iptables
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 sudo mkdir -p /etc/eks
 
@@ -1758,8 +1764,10 @@ sudo chown -R root:root /etc/eks
 sudo chown -R ubuntu:ubuntu /etc/eks
 find /etc/eks
 
+
 #######
 # set up containerd
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 sudo mkdir -p /etc/eks
 sudo mkdir -p /etc/eks/containerd
@@ -1819,10 +1827,12 @@ EOF
 
 sudo systemctl enable containerd
 sudo systemctl start containerd
-sudo ctr version
+sudo ctr version || true
+
 
 #######
 # set up log-collector
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 sudo mkdir -p /etc/eks/log-collector-script/
 
@@ -1839,8 +1849,10 @@ sudo chown -R root:root /etc/eks
 sudo chown -R ubuntu:ubuntu /etc/eks
 find /etc/eks
 
+
 #######
 # set up logrotate
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 sudo mkdir -p /var/log/journal
 
@@ -1862,8 +1874,10 @@ done;
 sudo mv /tmp/logrotate.conf /etc/logrotate.conf
 sudo chown root:root /etc/logrotate.conf
 
+
 #######
 # set up kubernetes
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 sudo mkdir -p /var/lib/kubernetes
 sudo mkdir -p /var/lib/kubelet
@@ -1902,8 +1916,136 @@ sudo chown root:root /etc/kubernetes/kubelet/kubelet-config.json
 sudo systemctl daemon-reload
 sudo systemctl disable kubelet
 
+
+#######
+# cache images
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
+#######
+ISOLATED_REGIONS=\"${ISOLATED_REGIONS:-us-iso-east-1 us-iso-west-1 us-isob-east-1}\"
+CACHE_CONTAINER_IMAGES=\"${CACHE_CONTAINER_IMAGES:-false}\"
+BINARY_BUCKET_REGION=\"${BINARY_BUCKET_REGION:-us-west-2}\"
+PAUSE_CONTAINER_VERSION=\"${PAUSE_CONTAINER_VERSION:-3.5}\"
+KUBERNETES_VERSION=\"${KUBERNETES_VERSION:-1.26}\"
+
+if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ $BINARY_BUCKET_REGION ]]; then
+    AWS_DOMAIN=$(imds 'latest/meta-data/services/domain')
+    ECR_URI=$(/etc/eks/get-ecr-uri.sh \"${BINARY_BUCKET_REGION}\" \"${AWS_DOMAIN}\")
+
+    PAUSE_CONTAINER=\"${ECR_URI}/eks/pause:${PAUSE_CONTAINER_VERSION}\"
+    cat /etc/eks/containerd/containerd-config.toml | sed s,SANDBOX_IMAGE,$PAUSE_CONTAINER,g | sudo tee /etc/eks/containerd/containerd-cached-pause-config.toml
+
+    sudo mkdir -p /etc/containerd
+    sudo chown -R root:root /etc/containerd
+    sudo cp -v /etc/eks/containerd/containerd-cached-pause-config.toml /etc/containerd/config.toml
+    sudo cp -v /etc/eks/containerd/sandbox-image.service /etc/systemd/system/sandbox-image.service
+    sudo chown root:root /etc/systemd/system/sandbox-image.service
+
+    sudo systemctl daemon-reload
+    sudo systemctl start containerd
+    sudo systemctl enable containerd sandbox-image
+
+    # e.g., 1.26
+    K8S_MINOR_VERSION=$(echo \"${KUBERNETES_VERSION}\" | cut -d'.' -f1-2)
+
+    #### Cache kube-proxy images starting with the addon default version and the latest version
+    KUBE_PROXY_ADDON_VERSIONS=$(aws eks describe-addon-versions --addon-name kube-proxy --kubernetes-version=${K8S_MINOR_VERSION})
+    KUBE_PROXY_IMGS=()
+    if [[ $(jq '.addons | length' <<< $KUBE_PROXY_ADDON_VERSIONS) -gt 0 ]]; then
+        DEFAULT_KUBE_PROXY_FULL_VERSION=$(echo \"${KUBE_PROXY_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] | select(.compatibilities[] .defaultVersion==true).addonVersion')
+        DEFAULT_KUBE_PROXY_VERSION=$(echo \"${DEFAULT_KUBE_PROXY_FULL_VERSION}\" | cut -d\"-\" -f1)
+        DEFAULT_KUBE_PROXY_PLATFORM_VERSION=$(echo \"${DEFAULT_KUBE_PROXY_FULL_VERSION}\" | cut -d\"-\" -f2)
+
+        LATEST_KUBE_PROXY_FULL_VERSION=$(echo \"${KUBE_PROXY_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] .addonVersion' | sort -V | tail -n1)
+        LATEST_KUBE_PROXY_VERSION=$(echo \"${LATEST_KUBE_PROXY_FULL_VERSION}\" | cut -d\"-\" -f1)
+        LATEST_KUBE_PROXY_PLATFORM_VERSION=$(echo \"${LATEST_KUBE_PROXY_FULL_VERSION}\" | cut -d\"-\" -f2)
+
+        KUBE_PROXY_IMGS=(
+            ## Default kube-proxy images
+            \"${ECR_URI}/eks/kube-proxy:${DEFAULT_KUBE_PROXY_VERSION}-${DEFAULT_KUBE_PROXY_PLATFORM_VERSION}\"
+            \"${ECR_URI}/eks/kube-proxy:${DEFAULT_KUBE_PROXY_VERSION}-minimal-${DEFAULT_KUBE_PROXY_PLATFORM_VERSION}\"
+
+            ## Latest kube-proxy images
+            \"${ECR_URI}/eks/kube-proxy:${LATEST_KUBE_PROXY_VERSION}-${LATEST_KUBE_PROXY_PLATFORM_VERSION}\"
+            \"${ECR_URI}/eks/kube-proxy:${LATEST_KUBE_PROXY_VERSION}-minimal-${LATEST_KUBE_PROXY_PLATFORM_VERSION}\"
+        )
+    fi
+
+    #### Cache VPC CNI images starting with the addon default version and the latest version
+    VPC_CNI_ADDON_VERSIONS=$(aws eks describe-addon-versions --addon-name vpc-cni --kubernetes-version=${K8S_MINOR_VERSION})
+    VPC_CNI_IMGS=()
+    if [[ $(jq '.addons | length' <<< $VPC_CNI_ADDON_VERSIONS) -gt 0 ]]; then
+        DEFAULT_VPC_CNI_VERSION=$(echo \"${VPC_CNI_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] | select(.compatibilities[] .defaultVersion==true).addonVersion')
+        LATEST_VPC_CNI_VERSION=$(echo \"${VPC_CNI_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] .addonVersion' | sort -V | tail -n1)
+        CNI_IMG=\"${ECR_URI}/amazon-k8s-cni\"
+        CNI_INIT_IMG=\"${CNI_IMG}-init\"
+
+        VPC_CNI_IMGS=(
+            ## Default VPC CNI Images
+            \"${CNI_IMG}:${DEFAULT_VPC_CNI_VERSION}\"
+            \"${CNI_INIT_IMG}:${DEFAULT_VPC_CNI_VERSION}\"
+
+            ## Latest VPC CNI Images
+            \"${CNI_IMG}:${LATEST_VPC_CNI_VERSION}\"
+            \"${CNI_INIT_IMG}:${LATEST_VPC_CNI_VERSION}\"
+        )
+    fi
+
+    CACHE_IMGS=(
+        \"${PAUSE_CONTAINER}\"
+        ${KUBE_PROXY_IMGS[@]+\"${KUBE_PROXY_IMGS[@]}\"}
+        ${VPC_CNI_IMGS[@]+\"${VPC_CNI_IMGS[@]}\"}
+    )
+    PULLED_IMGS=()
+
+    for img in \"${CACHE_IMGS[@]}\"; do
+        ## only kube-proxy-minimal is vended for K8s 1.24+
+        if [[ \"${img}\" == *\"kube-proxy:\"* ]] && [[ \"${img}\" != *\"-minimal-\"* ]] && vercmp \"${K8S_MINOR_VERSION}\" gteq \"1.24\"; then
+            continue
+        fi
+
+        ## Since eksbuild.x version may not match the image tag, we need to decrement the eksbuild version until we find the latest image tag within the app semver
+        eksbuild_version=\"1\"
+        if [[ ${img} == *'eksbuild.'* ]]; then
+            eksbuild_version=$(echo \"${img}\" | grep -o 'eksbuild\\.[0-9]\\+' | cut -d'.' -f2)
+        fi
+
+        ## iterate through decrementing the build version each time
+        for build_version in $(seq \"${eksbuild_version}\" -1 1); do
+            img=$(echo \"${img}\" | sed -E \"s/eksbuild.[0-9]+/eksbuild.${build_version}/\")
+            if /etc/eks/containerd/pull-image.sh \"${img}\"; then
+                PULLED_IMGS+=(\"${img}\")
+                break
+            elif [[ \"${build_version}\" -eq 1 ]]; then
+                exit 1
+            fi
+        done
+    done
+
+    #### Tag the pulled down image for all other regions in the partition
+    for region in $(aws ec2 describe-regions --all-regions | jq -r '.Regions[] .RegionName'); do
+        for img in \"${PULLED_IMGS[@]}\"; do
+            regional_img=\"${img/$BINARY_BUCKET_REGION/$region}\"
+            sudo ctr -n k8s.io image tag \"${img}\" \"${regional_img}\" || :
+
+            ## Tag ECR fips endpoint for supported regions
+            if [[ \"${region}\" =~ (us-east-1|us-east-2|us-west-1|us-west-2|us-gov-east-1|us-gov-east-2) ]]; then
+                regional_fips_img=\"${regional_img/.ecr./.ecr-fips.}\"
+                sudo ctr -n k8s.io image tag \"${img}\" \"${regional_fips_img}\" || :
+                sudo ctr -n k8s.io image tag \"${img}\" \"${regional_fips_img/-eksbuild.1/}\" || :
+            fi
+
+            ## Cache the non-addon VPC CNI images since \"v*.*.*-eksbuild.1\" is equivalent to leaving off the eksbuild suffix
+            if [[ \"${img}\" == *\"-cni\"*\"-eksbuild.1\" ]]; then
+                sudo ctr -n k8s.io image tag \"${img}\" \"${regional_img/-eksbuild.1/}\" || :
+            fi
+        done
+    done
+fi
+
+
 #######
 # clean up
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
 #######
 cat /etc/machine-id
 
@@ -1938,8 +2080,10 @@ if [[ \"$CLEANUP_IMAGE\" == \"true\" ]]; then
     sudo touch /etc/machine-id
 fi
 
+
 #######
 # write release file
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
 cat << EOF > /tmp/release-full
@@ -1950,6 +2094,9 @@ ARCH=$(uname -m)
 
 OS_RELEASE_ID=$(. /etc/os-release;echo $ID)
 OS_RELEASE_DISTRIBUTION=$(. /etc/os-release;echo $ID$VERSION_ID)
+
+CONTAINERD_VERSION=\"$(containerd --version)\"
+CTR_VERSION=\"$(ctr --version)\"
 
 KUBELET_VERSION=\"$(kubelet --version)\"
 EOF
