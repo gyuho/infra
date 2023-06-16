@@ -1908,26 +1908,29 @@ cat /etc/machine-id || true
 
 CLEANUP_IMAGE=\"${CLEANUP_IMAGE:-false}\"
 if [[ \"$CLEANUP_IMAGE\" == \"true\" ]]; then
+    sudo apt clean all
     sudo apt-get clean
 
-    sudo rm -rf \
-    /etc/hostname \
-    /etc/machine-id \
-    /etc/resolv.conf \
-    /etc/ssh/ssh_host* \
-    /home/ubuntu/.ssh/authorized_keys \
-    /root/.ssh/authorized_keys \
-    /var/lib/cloud/data \
-    /var/lib/cloud/instance \
-    /var/lib/cloud/instances \
-    /var/lib/cloud/sem \
-    /var/lib/dhclient/* \
-    /var/lib/dhcp/dhclient.* \
-    /var/lib/apt/history \
-    /var/log/cloud-init-output.log \
-    /var/log/cloud-init.log \
-    /var/log/auth.log \
-    /var/log/wtmp || true
+    sudo rm -rf \\
+    /tmp/worker \\
+    /etc/hostname \\
+    /etc/machine-id \\
+    /etc/resolv.conf \\
+    /etc/ssh/ssh_host* \\
+    /home/ubuntu/.ssh/authorized_keys \\
+    /root/.ssh/authorized_keys \\
+    /var/lib/cloud/data \\
+    /var/lib/cloud/instance \\
+    /var/lib/cloud/instances \\
+    /var/lib/cloud/sem \\
+    /var/lib/dhclient/* \\
+    /var/lib/dhcp/dhclient.* \\
+    /var/lib/apt/history \\
+    /var/log/cloud-init-output.log \\
+    /var/log/cloud-init.log \\
+    /var/log/auth.log \\
+    /var/log/wtmp \\
+    /tmp/imds-tokens || true
 
     sudo rm -rf /home/ubuntu/.aws
     sudo rm -f /tmp/*
