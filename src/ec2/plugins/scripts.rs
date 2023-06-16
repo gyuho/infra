@@ -883,7 +883,8 @@ containerd --version
 
 # /usr/bin/ctr
 which ctr
-ctr --version
+ctr --version || true
+ctr version || true
 
 # /usr/bin/docker
 which docker
@@ -930,8 +931,8 @@ containerd --version
 
 # /usr/bin/ctr
 which ctr
-ctr --version
-ctr version
+ctr --version || true
+ctr version || true
 ".to_string())
         }
         _  => {
