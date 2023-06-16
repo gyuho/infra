@@ -1923,12 +1923,12 @@ sudo systemctl disable kubelet
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 ISOLATED_REGIONS=\"${ISOLATED_REGIONS:-us-iso-east-1 us-iso-west-1 us-isob-east-1}\"
-CACHE_CONTAINER_IMAGES=\"${CACHE_CONTAINER_IMAGES:-false}\"
+EKS_CACHE_CONTAINER_IMAGES=\"${EKS_CACHE_CONTAINER_IMAGES:-false}\"
 BINARY_BUCKET_REGION=\"${BINARY_BUCKET_REGION:-us-west-2}\"
 PAUSE_CONTAINER_VERSION=\"${PAUSE_CONTAINER_VERSION:-3.5}\"
 KUBERNETES_VERSION=\"${KUBERNETES_VERSION:-1.26}\"
 
-if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ $BINARY_BUCKET_REGION ]]; then
+if [[ \"$EKS_CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ $BINARY_BUCKET_REGION ]]; then
     AWS_DOMAIN=$(imds 'latest/meta-data/services/domain')
     ECR_URI=$(/etc/eks/get-ecr-uri.sh \"${BINARY_BUCKET_REGION}\" \"${AWS_DOMAIN}\")
 
@@ -1954,6 +1954,7 @@ if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ 
     #### Cache kube-proxy images starting with the addon default version and the latest version
     KUBE_PROXY_ADDON_VERSIONS=$(aws eks describe-addon-versions --addon-name kube-proxy --kubernetes-version=${K8S_MINOR_VERSION})
     echo \"KUBE_PROXY_ADDON_VERSIONS: ${KUBE_PROXY_ADDON_VERSIONS}\"
+
     KUBE_PROXY_IMGS=()
     if [[ $(jq '.addons | length' <<< $KUBE_PROXY_ADDON_VERSIONS) -gt 0 ]]; then
         DEFAULT_KUBE_PROXY_FULL_VERSION=$(echo \"${KUBE_PROXY_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] | select(.compatibilities[] .defaultVersion==true).addonVersion')
@@ -1979,6 +1980,7 @@ if [[ \"$CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ 
     #### Cache VPC CNI images starting with the addon default version and the latest version
     VPC_CNI_ADDON_VERSIONS=$(aws eks describe-addon-versions --addon-name vpc-cni --kubernetes-version=${K8S_MINOR_VERSION})
     echo \"VPC_CNI_ADDON_VERSIONS: ${VPC_CNI_ADDON_VERSIONS}\"
+
     VPC_CNI_IMGS=()
     if [[ $(jq '.addons | length' <<< $VPC_CNI_ADDON_VERSIONS) -gt 0 ]]; then
         DEFAULT_VPC_CNI_VERSION=$(echo \"${VPC_CNI_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] | select(.compatibilities[] .defaultVersion==true).addonVersion')
