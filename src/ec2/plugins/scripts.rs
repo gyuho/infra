@@ -76,15 +76,15 @@ while [ 1 ]; do
 done;
 
 # /usr/sbin/iptables
-which iptables || true
+which iptables
 iptables --version
 
 # /usr/sbin/iptables-save
-which iptables-save || true
+which iptables-save
 iptables-save --version
 
 # /usr/sbin/iptables-restore
-which iptables-restore || true
+which iptables-restore
 iptables-restore --version
 
 /usr/bin/gcc --version
@@ -136,7 +136,7 @@ ARCH=$(uname -m)
 EOF
 cat /tmp/release
 
-sudo cp /tmp/release /etc/release || true
+sudo cp /tmp/release /etc/release
 sudo chmod 0444 /etc/release
 ###########################
 
@@ -230,7 +230,7 @@ pub fn update_bash_profile(
             if rust_installed {
                 // only include in the profile
                 profile.push_str(
-                    ". /opt/rust/env || true
+                    ". /opt/rust/env
 ",
                 )
             }
@@ -238,7 +238,7 @@ pub fn update_bash_profile(
             if rust_installed {
                 // only include in the bashrc
                 bashrc.push_str(
-                    ". /opt/rust/env || true
+                    ". /opt/rust/env
 ",
                 )
             }
@@ -253,15 +253,15 @@ pub fn update_bash_profile(
 
 {profile}
 # set permissions
-sudo chown -R $(whoami) /data || true
-sudo chown -R ubuntu /data || true
+sudo chown -R $(whoami) /data
+sudo chown -R ubuntu /data
 
 EOF
 
 {bashrc}
 # set permissions
-sudo chown -R $(whoami) /data || true
-sudo chown -R ubuntu /data || true
+sudo chown -R $(whoami) /data
+sudo chown -R ubuntu /data
 
 EOF
 
@@ -613,8 +613,8 @@ chmod +x /tmp/aws-volume-provisioner.$(uname -m)-{os_type}-linux-gnu
 --mount-directory-path=/data
 
 # set permissions
-sudo chown -R $(whoami) /data || true
-sudo chown -R ubuntu /data || true
+sudo chown -R $(whoami) /data
+sudo chown -R ubuntu /data
 ",
             os_type = os_type.as_str(),
             id=id,
@@ -707,24 +707,24 @@ sudo chown -R ubuntu /home/ubuntu/anaconda3/etc/conda || true
 sudo chown -R ubuntu /home/ubuntu/anaconda3 || true
 
 # check versions
-which conda || true
-/home/ubuntu/anaconda3/bin/conda --version || true
+which conda
+/home/ubuntu/anaconda3/bin/conda --version
 
 # check default system versions
-which python3 || true
-python3 --version || true
-which python || true
-python --version || true
-which pip3 || true
-pip3 --version || true
-which pip || true
-pip --version || true
+which python3
+python3 --version
+which python
+python --version
+which pip3
+pip3 --version
+which pip
+pip --version
 
 # check versions from conda
-/home/ubuntu/anaconda3/bin/python3 --version || true
-/home/ubuntu/anaconda3/bin/python --version || true
-/home/ubuntu/anaconda3/bin/pip3 --version || true
-/home/ubuntu/anaconda3/bin/pip --version || true
+/home/ubuntu/anaconda3/bin/python3 --version
+/home/ubuntu/anaconda3/bin/python --version
+/home/ubuntu/anaconda3/bin/pip3 --version
+/home/ubuntu/anaconda3/bin/pip --version
 ".to_string()),
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
@@ -743,22 +743,22 @@ sudo apt-get install -yq python3-pip
 sudo apt install -yq python-is-python3
 
 # /usr/bin/python3
-which python3 || true
-python3 --version || true
+which python3
+python3 --version
 
 # /usr/bin/python
-which python || true
-python --version || true
+which python
+python --version
 
 pip3 install --upgrade pip
 
 # /usr/local/bin/pip3
-which pip3 || true
-pip3 --version || true
+which pip3
+pip3 --version
 
 # /usr/local/bin/pip
-which pip || true
-pip --version || true
+which pip
+pip --version
 "
         .to_string()),
         _ => Err(Error::new(
@@ -781,11 +781,11 @@ export CARGO_HOME=/opt/rust
 curl --proto '=https' --tlsv1.2 -sSf --retry 70 --retry-delay 1 https://sh.rustup.rs | bash -s -- -y --no-modify-path --default-toolchain stable --profile default
 sudo -H -u ubuntu bash -c 'source /opt/rust/env && rustup default stable'
 
-. /opt/rust/env || true
+. /opt/rust/env
 
 # /opt/rust/bin/rustc
 which rustc
-rustc --version || true
+rustc --version
 ".to_string())
         }
 
@@ -800,11 +800,11 @@ export CARGO_HOME=/opt/rust
 curl --proto '=https' --tlsv1.2 -sSf --retry 70 --retry-delay 1 https://sh.rustup.rs | bash -s -- -y --no-modify-path --default-toolchain stable --profile default
 sudo -H -u ec2-user bash -c 'source /opt/rust/env && rustup default stable'
 
-. /opt/rust/env || true
+. /opt/rust/env
 
 # /opt/rust/bin/rustc
 which rustc
-rustc --version || true
+rustc --version
 ".to_string())
         }
 
@@ -878,17 +878,17 @@ sudo docker ps
 sudo docker version
 
 # /usr/bin/containerd
-which containerd || true
-containerd --version || true
+which containerd
+containerd --version
 
 # /usr/bin/ctr
-which ctr || true
-ctr --version || true
+which ctr
+ctr --version
 
 # /usr/bin/docker
-which docker || true
-docker ps || true
-docker version || true
+which docker
+docker ps
+docker version
 ".to_string()),
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
@@ -922,16 +922,16 @@ done;
 
 chmod +x /tmp/containerd/bin/*
 sudo mv /tmp/containerd/bin/* /usr/bin/
-rm -rf /tmp/containerd || true;
+rm -rf /tmp/containerd
 
 # /usr/bin/containerd
-which containerd || true
-containerd --version || true
+which containerd
+containerd --version
 
 # /usr/bin/ctr
-which ctr || true
-ctr --version || true
-ctr version || true
+which ctr
+ctr --version
+ctr version
 ".to_string())
         }
         _  => {
@@ -977,8 +977,8 @@ chmod +x /tmp/runc.$(dpkg --print-architecture)
 sudo mv /tmp/runc.$(dpkg --print-architecture) /usr/bin/runc
 
 # /usr/bin/runc
-which runc || true
-runc --version || true
+which runc
+runc --version
 "
         .to_string()),
         _ => Err(Error::new(
@@ -1014,7 +1014,7 @@ chmod +x /tmp/cni-plugins/*
 
 sudo mkdir -p /opt/cni/bin
 sudo mv /tmp/cni-plugins/* /opt/cni/bin/
-rm -rf /tmp/cni-plugins || true;
+rm -rf /tmp/cni-plugins
 
 sudo find /opt/cni/bin/
 "
@@ -1067,8 +1067,8 @@ while [ 1 ]; do
 done;
 
 # /home/ubuntu/.local/bin/cfn-hup
-which cfn-hup || true
-cfn-hup --help || true
+which cfn-hup
+cfn-hup --help
 ls /home/ubuntu/.local/bin/
 
 # sudo /sbin/service cfn-hup restart
@@ -1076,7 +1076,7 @@ ls /home/ubuntu/.local/bin/
 # update-rc.d cfn-hup defaults
 #
 # sudo systemctl daemon-reload
-# sudo systemctl status cfn-hup || true
+# sudo systemctl status cfn-hup
 "
         .to_string()),
         _ => Err(Error::new(
@@ -1139,8 +1139,8 @@ chmod +x /tmp/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_CURRENT_VERSION}_lin
 sudo mv /tmp/aws-iam-authenticator_${AWS_IAM_AUTHENTICATOR_CURRENT_VERSION}_linux_$(dpkg --print-architecture) /usr/bin/aws-iam-authenticator
 
 # /usr/bin/aws-iam-authenticator
-which aws-iam-authenticator || true
-aws-iam-authenticator version || true
+which aws-iam-authenticator
+aws-iam-authenticator version
 ".to_string())
         }
         _  => {
@@ -1174,8 +1174,8 @@ chmod +x /tmp/docker-credential-ecr-login
 sudo mv /tmp/docker-credential-ecr-login /usr/bin/docker-credential-ecr-login
 
 # /usr/bin/docker-credential-ecr-login
-which docker-credential-ecr-login || true
-docker-credential-ecr-login -version || true
+which docker-credential-ecr-login
+docker-credential-ecr-login -version
 "
         .to_string()),
         _ => Err(Error::new(
@@ -1206,12 +1206,12 @@ while [ 1 ]; do
     sleep 2s;
 done;
 
-which ecr-credential-provider || true
+which ecr-credential-provider
 chmod +x /home/ubuntu/go/bin/ecr-credential-provider
 sudo cp /home/ubuntu/go/bin/ecr-credential-provider /usr/bin/ecr-credential-provider
 
 # /usr/bin/ecr-credential-provider
-which ecr-credential-provider || true
+which ecr-credential-provider
 
 # TODO: this blocks
 # ecr-credential-provider --help
@@ -1263,11 +1263,11 @@ done;
 
 chmod +x /tmp/kubelet
 sudo mv /tmp/kubelet /usr/bin/kubelet
-rm -f /tmp/kubelet || true;
+rm -f /tmp/kubelet
 
 # /usr/bin/kubelet
-which kubelet || true
-kubelet --version || true
+which kubelet
+kubelet --version
 ".to_string())
         }
         _  => {
@@ -1298,11 +1298,11 @@ done;
 
 chmod +x /tmp/kubectl
 sudo mv /tmp/kubectl /usr/bin/kubectl
-rm -f /tmp/kubectl || true;
+rm -f /tmp/kubectl
 
 # /usr/bin/kubectl
-which kubectl || true
-kubectl version --client || true
+which kubectl
+kubectl version --client
 ".to_string())
         }
         _  => {
@@ -1335,11 +1335,11 @@ done;
 
 chmod +x /tmp/helm/linux-$(dpkg --print-architecture)/helm
 sudo mv /tmp/helm/linux-$(dpkg --print-architecture)/helm /usr/bin/helm
-rm -rf /tmp/helm || true;
+rm -rf /tmp/helm
 
 # /usr/bin/helm
 which helm
-helm version || true
+helm version
 ".to_string())
         }
         _  => {
@@ -1380,8 +1380,8 @@ while [ 1 ]; do
 done;
 
 # /usr/bin/terraform
-which terraform || true
-terraform --version || true
+which terraform
+terraform --version
 ".to_string())
         }
         _  => {
@@ -1407,8 +1407,8 @@ ssh-add /home/ubuntu/.ssh/id_rsa
 cat /home/ubuntu/.ssh/id_rsa.pub
 
 # set permissions
-sudo chown -R $(whoami) /home/ubuntu/.ssh || true
-sudo chown -R ubuntu /home/ubuntu/.ssh || true
+sudo chown -R $(whoami) /home/ubuntu/.ssh
+sudo chown -R ubuntu /home/ubuntu/.ssh
 ",
             email = email,
         )),
@@ -1509,11 +1509,11 @@ done;
 sudo sh /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run --silent
 rm -f /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run
 
-which nvcc || true
-nvcc --version || true
+which nvcc
+nvcc --version
 
-which nvidia-smi || true
-nvidia-smi || true
+which nvidia-smi
+nvidia-smi
 "
             .to_string()),
 
@@ -1575,11 +1575,11 @@ sudo apt purge --auto-remove cmake
 # sudo apt update -y
 # sudo apt install -yq cmake
 
-which pip || true
+which pip
 {python_pip_bin_path}/pip install --upgrade cmake
 
-which cmake || true
-cmake --version || true
+which cmake
+cmake --version
 ")),
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
@@ -1600,9 +1600,9 @@ ls -lah /data/
 git clone https://github.com/suno-ai/bark.git /data/bark
 cd /data/bark
 
-which python || true
+which python
 {python_pip_bin_path}/python -m pip install .
-which pip || true
+which pip
 {python_pip_bin_path}/pip install --verbose nltk
 "
         )),
@@ -1659,8 +1659,8 @@ sudo apt-get install -yq swig
 /usr/bin/gcc --version
 /usr/bin/c++ -v
 
-which cmake || true
-cmake --version || true
+which cmake
+cmake --version
 
 ls -lah /data/
 git clone https://github.com/facebookresearch/faiss.git /data/faiss
@@ -1904,7 +1904,7 @@ sudo systemctl disable kubelet
 #######
 # clean up
 #######
-cat /etc/machine-id || true
+cat /etc/machine-id
 
 CLEANUP_IMAGE=\"${CLEANUP_IMAGE:-false}\"
 if [[ \"$CLEANUP_IMAGE\" == \"true\" ]]; then
@@ -1954,7 +1954,7 @@ KUBELET_VERSION=\"$(kubelet --version)\"
 EOF
 cat /tmp/release-full
 
-sudo cp /tmp/release-full /etc/release-full || true
+sudo cp /tmp/release-full /etc/release-full
 sudo chmod 0444 /etc/release-full
 "
         .to_string()),
