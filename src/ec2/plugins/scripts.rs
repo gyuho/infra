@@ -1499,6 +1499,11 @@ nvidia-smi
 # e.g.,
 # Release Date: 2023.6.14
 # DRIVER_VERSION=535.54.03
+#
+# in case of rollback
+# original system76 ubuntu 22.04 ships
+# DRIVER_VERSION=525.105.17
+# CUDA_VERSION=12.0
 
 # Release Date: 2023.3.30
 DRIVER_VERSION=525.105.17

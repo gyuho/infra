@@ -585,6 +585,35 @@ pub fn create(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
                 contents.push_str(&d);
+
+                // dev ubuntu
+                if !plugins_set.contains(&Plugin::CloudwatchAgent)
+                    && !plugins_set.contains(&Plugin::StaticVolumeProvisioner)
+                {
+                    let d = scripts::update_bash_profile(
+                        os_type.clone(),
+                        plugins_set.contains(&Plugin::Anaconda),
+                        plugins_set.contains(&Plugin::Python),
+                        plugins_set.contains(&Plugin::Rust),
+                        plugins_set.contains(&Plugin::Go),
+                        plugins_set.contains(&Plugin::Kubectl),
+                        plugins_set.contains(&Plugin::Helm),
+                        plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+                    )?;
+                    contents.push_str(
+                        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                    );
+                    contents.push_str(&d);
+
+                    contents.push_str(
+                        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                    );
+                    contents.push_str(&scripts::write_cluster_data(
+                        s3_bucket,
+                        id,
+                        plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+                    ));
+                }
             }
             Plugin::SsmAgent => {
                 let d = scripts::ssm_agent(os_type.clone())?;
@@ -612,13 +641,13 @@ pub fn create(
                         plugins_set.contains(&Plugin::StaticVolumeProvisioner),
                     )?;
                     contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                    );
                     contents.push_str(&d);
 
                     contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                    );
                     contents.push_str(&scripts::write_cluster_data(
                         s3_bucket,
                         id,
