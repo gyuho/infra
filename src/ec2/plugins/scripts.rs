@@ -1431,6 +1431,7 @@ pub fn nvidia_driver(arch_type: ArchType, os_type: OsType) -> io::Result<String>
 # https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html
 # https://www.nvidia.com/en-us/drivers/unix/
 
+# Release Date:	2021.10.26
 DRIVER_VERSION=460.106.00
 BASE_URL=https://us.download.nvidia.com/tesla
 
@@ -1460,6 +1461,7 @@ nvidia-smi
 # https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html
 # https://www.nvidia.com/en-us/drivers/unix/
 
+# Release Date:	2023.3.30
 DRIVER_VERSION=525.105.17
 BASE_URL=https://us.download.nvidia.com/tesla
 
@@ -1545,6 +1547,7 @@ sudo apt-get update
 sudo apt-get install -yq nvidia-container-toolkit
 
 # checking nvidia container toolkit
+# TODO: support other runtime?
 which nvidia-ctk
 sudo nvidia-ctk runtime configure --runtime=docker
 

@@ -209,6 +209,8 @@ impl Plugin {
     }
 
     /// Returns the ranking in the sort.
+    /// Must in order; volume mount first + ip provision
+    /// useful when we create a base instance for AMI.
     pub fn rank(&self) -> u32 {
         match self {
             Plugin::Imds => 0,
@@ -225,7 +227,8 @@ impl Plugin {
             Plugin::StaticIpProvisioner => 10,
 
             Plugin::Anaconda => 11,
-            Plugin::Python => 12,
+            Plugin::Python => 11,
+
             Plugin::Rust => 13,
             Plugin::Go => 14,
             Plugin::Docker => 15,
@@ -403,6 +406,24 @@ pub fn create(
         plugins_set.insert(plugin);
     }
 
+    if plugins_set.contains(&Plugin::StaticVolumeProvisioner) {
+        if require_static_ip_provisioner {
+            plugins_set.insert(Plugin::StaticIpProvisioner);
+        }
+    }
+    // pick either anaconda or python
+    if plugins_set.contains(&Plugin::Anaconda) {
+        if plugins_set.contains(&Plugin::Python) {
+            log::info!("anaconda specifies thus overriding python plugin");
+            plugins_set.remove(&Plugin::Python);
+        }
+    } else if plugins_set.contains(&Plugin::Python) {
+        log::info!("only python plugin, without anaconda");
+    }
+    if arch_type.is_nvidia() {
+        plugins_set.insert(Plugin::NvidiaDriver);
+    }
+
     if plugins_set.contains(&Plugin::AwsCfnHelper) {
         if !plugins_set.contains(&Plugin::Anaconda) && !plugins_set.contains(&Plugin::Python) {
             return Err(Error::new(
@@ -504,74 +525,9 @@ pub fn create(
         }
     }
 
-    // special/default plugins
-    let mut plugins: Vec<Plugin> = vec![
-        Plugin::Imds,
-        Plugin::ProviderId,
-        Plugin::Vercmp,
-        Plugin::SetupLocalDisks,
-        Plugin::MountBpfFs,
-        Plugin::TimeSync,
-        Plugin::SystemLimitBump,
-        Plugin::SsmAgent,
-        Plugin::CloudwatchAgent,
-    ];
-
-    if plugins_set.contains(&Plugin::StaticVolumeProvisioner) {
-        // must in order; volume mount first + ip provision
-        // useful when we create a base instance for AMI
-        plugins.push(Plugin::StaticVolumeProvisioner);
-        if require_static_ip_provisioner {
-            plugins.push(Plugin::StaticIpProvisioner);
-        }
-    }
-
-    // pick either anaconda or python
-    if plugins_set.contains(&Plugin::Anaconda) {
-        if plugins_set.contains(&Plugin::Python) {
-            log::info!("anaconda specifies thus overriding python plugin");
-        }
-        plugins.push(Plugin::Anaconda);
-    } else if plugins_set.contains(&Plugin::Python) {
-        log::info!("only python plugin, without anaconda");
-        plugins.push(Plugin::Python);
-    }
-    if arch_type.is_nvidia() {
-        plugins.push(Plugin::NvidiaDriver);
-    }
-
-    for p in plugins_str.iter() {
-        let plugin = Plugin::from_str(p).map_err(|e| {
-            Error::new(
-                ErrorKind::InvalidInput,
-                format!("failed to convert '{p}' to plugin {}", e),
-            )
-        })?;
-
-        // exclude special/default plugins
-        // that must be installed in order
-        // e.g., bark requires anaconda/python
-        if matches!(
-            plugin,
-            Plugin::Imds
-                | Plugin::ProviderId
-                | Plugin::Vercmp
-                | Plugin::SetupLocalDisks
-                | Plugin::MountBpfFs
-                | Plugin::TimeSync
-                | Plugin::SystemLimitBump
-                | Plugin::SsmAgent
-                | Plugin::CloudwatchAgent
-                | Plugin::StaticVolumeProvisioner
-                | Plugin::StaticIpProvisioner
-                | Plugin::Anaconda
-                | Plugin::Python
-                | Plugin::NvidiaDriver
-        ) {
-            continue;
-        }
-
-        plugins.push(plugin.clone());
+    let mut plugins = Vec::new();
+    for p in plugins_set.iter() {
+        plugins.push(p.clone());
     }
     plugins.sort();
 
@@ -1029,18 +985,30 @@ fn test_sort() {
         Plugin::SystemLimitBump,
         Plugin::SsmAgent,
         Plugin::CloudwatchAgent,
+        Plugin::Anaconda,
+        Plugin::Go,
+        Plugin::Docker,
+        Plugin::Containerd,
+        Plugin::Runc,
+        Plugin::DevBark,
     ];
 
     let mut unsorted: Vec<Plugin> = vec![
         Plugin::CloudwatchAgent,
+        Plugin::Runc,
         Plugin::SsmAgent,
         Plugin::MountBpfFs,
         Plugin::Imds,
         Plugin::SystemLimitBump,
+        Plugin::Containerd,
         Plugin::Vercmp,
+        Plugin::DevBark,
         Plugin::ProviderId,
         Plugin::TimeSync,
+        Plugin::Docker,
         Plugin::SetupLocalDisks,
+        Plugin::Anaconda,
+        Plugin::Go,
     ];
     unsorted.sort();
 
