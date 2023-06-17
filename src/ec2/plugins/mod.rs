@@ -13,15 +13,7 @@ use serde::{Deserialize, Serialize};
 
 /// Defines the Arch type.
 #[derive(
-    Deserialize,
-    Serialize,
-    std::clone::Clone,
-    std::cmp::Eq,
-    std::cmp::Ord,
-    std::cmp::PartialEq,
-    std::cmp::PartialOrd,
-    std::fmt::Debug,
-    std::hash::Hash,
+    Deserialize, Serialize, std::clone::Clone, std::cmp::Eq, std::fmt::Debug, std::hash::Hash,
 )]
 pub enum Plugin {
     #[serde(rename = "imds")]
@@ -213,6 +205,62 @@ impl Plugin {
             Plugin::DevFaissGpu => "dev-faiss-gpu",
             Plugin::EksWorkerNodeAmi => "eks-worker-node-ami",
             Plugin::Unknown(s) => s.as_ref(),
+        }
+    }
+
+    /// Returns the ranking in the sort.
+    pub fn rank(&self) -> u32 {
+        match self {
+            Plugin::Imds => 0,
+            Plugin::ProviderId => 1,
+            Plugin::Vercmp => 2,
+            Plugin::SetupLocalDisks => 3,
+            Plugin::MountBpfFs => 4,
+            Plugin::TimeSync => 5,
+            Plugin::SystemLimitBump => 6,
+            Plugin::SsmAgent => 7,
+            Plugin::CloudwatchAgent => 8,
+
+            Plugin::StaticVolumeProvisioner => 9,
+            Plugin::StaticIpProvisioner => 10,
+
+            Plugin::Anaconda => 11,
+            Plugin::Python => 12,
+            Plugin::Rust => 13,
+            Plugin::Go => 14,
+            Plugin::Docker => 15,
+            Plugin::Containerd => 16,
+            Plugin::Runc => 17,
+            Plugin::CniPlugins => 18,
+
+            Plugin::AwsCfnHelper => 19,
+            Plugin::Saml2Aws => 20,
+
+            Plugin::AwsIamAuthenticator => 21,
+            Plugin::EcrCredentialHelper => 22,
+            Plugin::EcrCredentialProvider => 23,
+
+            Plugin::Kubelet => 24,
+            Plugin::Kubectl => 25,
+            Plugin::Helm => 26,
+            Plugin::Terraform => 27,
+
+            Plugin::SshKeyWithEmail => 28,
+
+            Plugin::NvidiaDriver => 100,
+            Plugin::NvidiaCudaToolkit => 101,
+            Plugin::NvidiaContainerToolkit => 102,
+
+            Plugin::ProtobufCompiler => 60000,
+            Plugin::Cmake => 60001,
+            Plugin::Gcc7 => 60002,
+
+            Plugin::DevBark => 80000,
+            Plugin::DevFaissGpu => 80001,
+
+            Plugin::EksWorkerNodeAmi => 99999,
+
+            Plugin::Unknown(_) => u32::MAX,
         }
     }
 
@@ -525,6 +573,7 @@ pub fn create(
 
         plugins.push(plugin.clone());
     }
+    plugins.sort();
 
     // TODO: make this configurable?
     let provisioner_initial_wait_random_seconds = 10;
@@ -947,4 +996,54 @@ pub fn to_strings(plugins: Vec<Plugin>) -> Vec<String> {
         ss.push(s.as_str().to_string());
     }
     ss
+}
+
+impl Ord for Plugin {
+    fn cmp(&self, plugin: &Plugin) -> std::cmp::Ordering {
+        self.rank().cmp(&(plugin.rank()))
+    }
+}
+
+impl PartialOrd for Plugin {
+    fn partial_cmp(&self, plugin: &Plugin) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(plugin))
+    }
+}
+
+impl PartialEq for Plugin {
+    fn eq(&self, plugin: &Plugin) -> bool {
+        self.cmp(plugin) == std::cmp::Ordering::Equal
+    }
+}
+
+/// RUST_LOG=debug cargo test --package aws-manager --lib -- ec2::plugins::test_sort --exact --show-output
+#[test]
+fn test_sort() {
+    let expected: Vec<Plugin> = vec![
+        Plugin::Imds,
+        Plugin::ProviderId,
+        Plugin::Vercmp,
+        Plugin::SetupLocalDisks,
+        Plugin::MountBpfFs,
+        Plugin::TimeSync,
+        Plugin::SystemLimitBump,
+        Plugin::SsmAgent,
+        Plugin::CloudwatchAgent,
+    ];
+
+    let mut unsorted: Vec<Plugin> = vec![
+        Plugin::CloudwatchAgent,
+        Plugin::SsmAgent,
+        Plugin::MountBpfFs,
+        Plugin::Imds,
+        Plugin::SystemLimitBump,
+        Plugin::Vercmp,
+        Plugin::ProviderId,
+        Plugin::TimeSync,
+        Plugin::SetupLocalDisks,
+    ];
+    unsorted.sort();
+
+    assert_eq!(expected, unsorted);
+    assert_eq!(unsorted[0], Plugin::Imds);
 }
