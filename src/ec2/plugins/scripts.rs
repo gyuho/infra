@@ -527,6 +527,7 @@ Restart=always
 RestartSec=60s
 EOF
 
+sudo mkdir -p /etc/systemd/system/snap.amazon-ssm-agent.amazon-ssm-agent.service.d
 sudo mv /tmp/amazon-ssm-agent-10-restart-always.conf /etc/systemd/system/snap.amazon-ssm-agent.amazon-ssm-agent.service.d/10-restart-always.conf
 sudo systemctl start --no-block snap.amazon-ssm-agent.amazon-ssm-agent.service
 ".to_string()),
