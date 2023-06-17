@@ -6,6 +6,8 @@ pub fn start(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("#!/usr/bin/env bash
 
+
+
 # print all executed commands to terminal
 set -x
 
@@ -58,11 +60,11 @@ while [ 1 ]; do
     sudo apt-get update -yq
     sudo apt-get upgrade -yq
     sudo apt-get install -yq \\
-    build-essential tmux zsh git \\
+    build-essential tmux git xclip \\
     jq curl wget \\
-    unzip zip gzip tar \\
+    zip unzip gzip tar \\
     libssl-dev \\
-    pkg-config lsb-release \\
+    pkg-config lsb-release vim \\
     linux-headers-$(uname -r)
     sudo apt-get clean
     if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
@@ -144,6 +146,7 @@ sudo chmod 0444 /etc/release
 
 
 
+
 "
         .to_string()),
         _ => Err(Error::new(
@@ -178,14 +181,45 @@ pub fn update_bash_profile(
 
             let mut profile = String::from(
                 "cat<<EOF >> /home/ubuntu/.profile
+HISTSIZE=1000000
+HISTFILESIZE=2000000
+
+alias ..='cd ..'
+alias hh='history | grep'
+alias t=tmux
+alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
+alias kill-docker='docker kill $(docker ps -q)'
+alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
+alias pbcopy='xclip -selection clipboard'
+alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
+
+export VISUAL=vim
+export EDITOR=$VISUAL
+export GPG_TTY=$(tty)
 
 ",
             );
             let mut bashrc = String::from(
                 "cat<<EOF >> /home/ubuntu/.bashrc
+HISTSIZE=1000000
+HISTFILESIZE=2000000
+
+alias ..='cd ..'
+alias hh='history | grep'
+alias t=tmux
+alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
+alias kill-docker='docker kill $(docker ps -q)'
+alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
+alias pbcopy='xclip -selection clipboard'
+alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
+
+export VISUAL=vim
+export EDITOR=$VISUAL
+export GPG_TTY=$(tty)
 
 ",
             );
+
             if go_installed {
                 paths.push("/usr/local/go/bin".to_string());
                 paths.push("/home/ubuntu/go/bin".to_string());
@@ -1461,7 +1495,12 @@ nvidia-smi
 # https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html
 # https://www.nvidia.com/en-us/drivers/unix/
 
-# Release Date:	2023.3.30
+# THIS IS DIFFERENT FOR UBUNTU LAPTOP
+# e.g.,
+# Release Date: 2023.6.14
+# DRIVER_VERSION=535.54.03
+
+# Release Date: 2023.3.30
 DRIVER_VERSION=525.105.17
 BASE_URL=https://us.download.nvidia.com/tesla
 
