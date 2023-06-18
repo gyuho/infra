@@ -108,6 +108,8 @@ pub enum Plugin {
     EksWorkerNodeAmi,
     #[serde(rename = "eks-worker-node-ami-ubuntu-addon")]
     EksWorkerNodeAmiUbuntuAddon,
+    #[serde(rename = "eks-worker-node-ami-ubuntu-addon-update-containerd-for-nvidia-gpu")]
+    EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu,
 
     #[serde(rename = "cleanup-image")]
     CleanupImage,
@@ -158,6 +160,9 @@ impl std::convert::From<&str> for Plugin {
             "dev-faiss-gpu" => Plugin::DevFaissGpu,
             "eks-worker-node-ami" => Plugin::EksWorkerNodeAmi,
             "eks-worker-node-ami-ubuntu-addon" => Plugin::EksWorkerNodeAmiUbuntuAddon,
+            "eks-worker-node-ami-ubuntu-addon-update-containerd-for-nvidia-gpu" => {
+                Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu
+            }
             "cleanup-image" => Plugin::CleanupImage,
             other => Plugin::Unknown(other.to_owned()),
         }
@@ -216,6 +221,9 @@ impl Plugin {
             Plugin::DevFaissGpu => "dev-faiss-gpu",
             Plugin::EksWorkerNodeAmi => "eks-worker-node-ami",
             Plugin::EksWorkerNodeAmiUbuntuAddon => "eks-worker-node-ami-ubuntu-addon",
+            Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu => {
+                "eks-worker-node-ami-ubuntu-addon-update-containerd-for-nvidia-gpu"
+            }
             Plugin::CleanupImage => "cleanup-image",
             Plugin::Unknown(s) => s.as_ref(),
         }
@@ -277,6 +285,7 @@ impl Plugin {
 
             Plugin::EksWorkerNodeAmi => 99990,
             Plugin::EksWorkerNodeAmiUbuntuAddon => 99991,
+            Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu => 99992,
 
             Plugin::CleanupImage => u32::MAX - 1,
             Plugin::Unknown(_) => u32::MAX,
@@ -286,45 +295,46 @@ impl Plugin {
     /// Returns all the `&str` values of the enum members.
     pub fn values() -> &'static [&'static str] {
         &[
-            "imds",                      //
-            "provider-id",               //
-            "vercmp",                    //
-            "setup-local-disks",         //
-            "mount-bpf-fs",              //
-            "system-limit-bump",         //
-            "time-sync",                 //
-            "aws-cli",                   //
-            "ssm-agent",                 //
-            "cloudwatch-agent",          //
-            "static-volume-provisioner", //
-            "static-ip-provisioner",     //
-            "anaconda",                  //
-            "python",                    //
-            "rust",                      //
-            "go",                        //
-            "docker",                    //
-            "containerd",                //
-            "runc",                      //
-            "cni-plugins",               //
-            "protobuf-compiler",         //
-            "aws-cfn-helper",            //
-            "saml2aws",                  //
-            "aws-iam-authenticator",     //
-            "ecr-credential-provider",   //
-            "kubelet",                   //
-            "kubectl",                   //
-            "helm",                      //
-            "terraform",                 //
-            "ssh-key-with-email",        //
-            "nvidia-driver",             //
-            "nvidia-cuda-toolkit",       //
-            "nvidia-container-toolkit",  //
-            "cmake",                     //
-            "gcc7",                      //
-            "dev-bark",                  //
-            "dev-faiss-gpu",             //
-            "eks-worker-node-ami",       //
-            "cleanup-image",             //
+            "imds",                                          //
+            "provider-id",                                   //
+            "vercmp",                                        //
+            "setup-local-disks",                             //
+            "mount-bpf-fs",                                  //
+            "system-limit-bump",                             //
+            "time-sync",                                     //
+            "aws-cli",                                       //
+            "ssm-agent",                                     //
+            "cloudwatch-agent",                              //
+            "static-volume-provisioner",                     //
+            "static-ip-provisioner",                         //
+            "anaconda",                                      //
+            "python",                                        //
+            "rust",                                          //
+            "go",                                            //
+            "docker",                                        //
+            "containerd",                                    //
+            "runc",                                          //
+            "cni-plugins",                                   //
+            "protobuf-compiler",                             //
+            "aws-cfn-helper",                                //
+            "saml2aws",                                      //
+            "aws-iam-authenticator",                         //
+            "ecr-credential-provider",                       //
+            "kubelet",                                       //
+            "kubectl",                                       //
+            "helm",                                          //
+            "terraform",                                     //
+            "ssh-key-with-email",                            //
+            "nvidia-driver",                                 //
+            "nvidia-cuda-toolkit",                           //
+            "nvidia-container-toolkit",                      //
+            "cmake",                                         //
+            "gcc7",                                          //
+            "dev-bark",                                      //
+            "dev-faiss-gpu",                                 //
+            "eks-worker-node-ami",                           //
+            "eks-worker-node-ami-update-containerd-for-gpu", //
+            "cleanup-image",                                 //
         ]
     }
 
@@ -370,6 +380,9 @@ impl Plugin {
             Plugin::DevFaissGpu.as_str().to_string(),
             Plugin::EksWorkerNodeAmi.as_str().to_string(),
             Plugin::EksWorkerNodeAmiUbuntuAddon.as_str().to_string(),
+            Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu
+                .as_str()
+                .to_string(),
             Plugin::CleanupImage.as_str().to_string(),
         ]
     }
@@ -555,6 +568,32 @@ pub fn create(
                 "'{}' conflicts with '{}'",
                 Plugin::EksWorkerNodeAmi.as_str(),
                 Plugin::EksWorkerNodeAmiUbuntuAddon.as_str()
+            ),
+        ));
+    }
+    if plugins_set.contains(&Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu)
+        && !plugins_set.contains(&Plugin::EksWorkerNodeAmiUbuntuAddon)
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "'{}' requires '{}'",
+                Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu.as_str(),
+                Plugin::EksWorkerNodeAmiUbuntuAddon.as_str()
+            ),
+        ));
+    }
+    if plugins_set.contains(&Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu)
+        && (!plugins_set.contains(&Plugin::NvidiaDriver)
+            || !plugins_set.contains(&Plugin::NvidiaContainerToolkit))
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "'{}' requires '{}' or '{}'",
+                Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu.as_str(),
+                Plugin::NvidiaDriver.as_str(),
+                Plugin::NvidiaContainerToolkit.as_str()
             ),
         ));
     }
@@ -977,6 +1016,15 @@ pub fn create(
                 );
                 contents.push_str(&d);
             }
+            Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu => {
+                let d = scripts::eks_worker_node_ami_ubuntu_addon_update_containerd_for_nvidia_gpu(
+                    os_type.clone(),
+                )?;
+                contents.push_str(
+                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                );
+                contents.push_str(&d);
+            }
 
             Plugin::CleanupImage => {
                 log::info!("skipping cleanup-image plugin, saving it for the very last")
@@ -1062,6 +1110,8 @@ fn test_sort() {
         Plugin::Containerd,
         Plugin::Runc,
         Plugin::DevBark,
+        Plugin::EksWorkerNodeAmiUbuntuAddon,
+        Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu,
         Plugin::CleanupImage,
     ];
 
@@ -1075,6 +1125,8 @@ fn test_sort() {
         Plugin::SystemLimitBump,
         Plugin::Containerd,
         Plugin::Vercmp,
+        Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu,
+        Plugin::EksWorkerNodeAmiUbuntuAddon,
         Plugin::DevBark,
         Plugin::ProviderId,
         Plugin::TimeSync,

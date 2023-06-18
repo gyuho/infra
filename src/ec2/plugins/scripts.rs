@@ -60,7 +60,7 @@ while [ 1 ]; do
     sudo apt-get update -yq
     sudo apt-get upgrade -yq
     sudo apt-get install -yq \\
-    build-essential tmux git xclip htop \\
+    build-essential tmux git xclip htop zsh \\
     jq curl wget \\
     zip unzip gzip tar \\
     libssl-dev \\
@@ -92,6 +92,15 @@ iptables-restore --version
 /usr/bin/gcc --version
 /usr/bin/c++ -v
 lsb_release --all
+
+# sudo sh -c \"$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\"
+# chsh -s /bin/zsh
+# sudo chown -R ubuntu /home/ubuntu/.cache
+# sudo chown -R ubuntu /home/ubuntu/.zshrc
+# sudo chown -R ubuntu /home/ubuntu/.zsh_history
+
+mkdir -p /home/ubuntu/.vim
+sudo chown -R ubuntu /home/ubuntu/.vim
 "
         .to_string()),
         _ => Err(Error::new(
@@ -1574,6 +1583,9 @@ which nvidia-ctk
 # TODO: support other runtime?
 sudo nvidia-ctk runtime configure --runtime=docker
 
+# https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/getting-started.html#install-nvidia-gpu-operator
+cat /etc/nvidia-container-runtime/config.toml
+
 # restart docker
 sudo systemctl restart docker
 
@@ -1919,7 +1931,7 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl enable containerd
-sudo systemctl start containerd
+sudo systemctl restart containerd
 sudo ctr version || true
 
 
@@ -2039,7 +2051,7 @@ if [[ \"$EKS_CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS}
     sudo chown root:root /etc/systemd/system/sandbox-image.service
 
     sudo systemctl daemon-reload
-    sudo systemctl start containerd
+    sudo systemctl restart containerd
     sudo systemctl enable containerd sandbox-image
 
     # e.g., 1.26
@@ -2338,7 +2350,7 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl enable containerd
-sudo systemctl start containerd
+sudo systemctl restart containerd
 sudo ctr version || true
 
 
@@ -2423,7 +2435,7 @@ if [[ \"$EKS_CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS}
     sudo chown root:root /etc/systemd/system/sandbox-image.service
 
     sudo systemctl daemon-reload
-    sudo systemctl start containerd
+    sudo systemctl restart containerd
     sudo systemctl enable containerd sandbox-image
 
     # e.g., 1.26
@@ -2570,6 +2582,34 @@ sudo chmod 0444 /etc/release-full
     }
 }
 
+pub fn eks_worker_node_ami_ubuntu_addon_update_containerd_for_nvidia_gpu(
+    os_type: OsType,
+) -> io::Result<String> {
+    match os_type {
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
+###########################
+# set up containerd for NVIDIA GPU
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
+
+# https://josephb.org/blog/containerd-nvidia/
+cat /etc/containerd/config.toml
+sudo sed -i 's/default_runtime_name = \"runc\"/default_runtime_name = \"nvidia\"/g' /etc/containerd/config.toml
+cat /etc/containerd/config.toml
+
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
+cat /etc/nvidia-container-runtime/config.toml
+sudo sed -i 's/^#root/root/' /etc/nvidia-container-runtime/config.toml
+cat /etc/nvidia-container-runtime/config.toml
+
+"
+        .to_string()),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("os_type '{}' not supported", os_type.as_str()),
+        )),
+    }
+}
+
 pub fn aws_key(
     os_type: OsType,
     region: &str,
@@ -2585,18 +2625,21 @@ pub fn aws_key(
 # NOTE/SECURITY: this must be deleted when building AMI
 mkdir -p /home/ubuntu/.aws || true
 rm -f /home/ubuntu/.aws/config || true
+set +x
 cat << EOF > /home/ubuntu/.aws/config
 [default]
 region = {region}
 EOF
 
 rm -f /home/ubuntu/.aws/credentials || true
+set +x
 cat << EOF > /home/ubuntu/.aws/credentials
 [default]
 aws_access_key_id = {aws_secret_key_id}
 aws_secret_access_key = {aws_secret_access_key}
 EOF
 
+set -x
 aws sts get-caller-identity
 ",
         )),
