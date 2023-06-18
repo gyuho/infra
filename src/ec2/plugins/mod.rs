@@ -106,6 +106,8 @@ pub enum Plugin {
 
     #[serde(rename = "eks-worker-node-ami")]
     EksWorkerNodeAmi,
+    #[serde(rename = "eks-worker-node-ami-ubuntu-addon")]
+    EksWorkerNodeAmiUbuntuAddon,
 
     Unknown(String),
 }
@@ -152,6 +154,7 @@ impl std::convert::From<&str> for Plugin {
             "dev-bark" => Plugin::DevBark,
             "dev-faiss-gpu" => Plugin::DevFaissGpu,
             "eks-worker-node-ami" => Plugin::EksWorkerNodeAmi,
+            "eks-worker-node-ami-ubuntu-addon" => Plugin::EksWorkerNodeAmiUbuntuAddon,
             other => Plugin::Unknown(other.to_owned()),
         }
     }
@@ -208,6 +211,7 @@ impl Plugin {
             Plugin::DevBark => "dev-bark",
             Plugin::DevFaissGpu => "dev-faiss-gpu",
             Plugin::EksWorkerNodeAmi => "eks-worker-node-ami",
+            Plugin::EksWorkerNodeAmiUbuntuAddon => "eks-worker-node-ami-ubuntu-addon",
             Plugin::Unknown(s) => s.as_ref(),
         }
     }
@@ -266,7 +270,8 @@ impl Plugin {
             Plugin::DevBark => 80000,
             Plugin::DevFaissGpu => 80001,
 
-            Plugin::EksWorkerNodeAmi => 99999,
+            Plugin::EksWorkerNodeAmi => 99990,
+            Plugin::EksWorkerNodeAmiUbuntuAddon => 99991,
 
             Plugin::Unknown(_) => u32::MAX,
         }
@@ -357,6 +362,7 @@ impl Plugin {
             Plugin::DevBark.as_str().to_string(),
             Plugin::DevFaissGpu.as_str().to_string(),
             Plugin::EksWorkerNodeAmi.as_str().to_string(),
+            Plugin::EksWorkerNodeAmiUbuntuAddon.as_str().to_string(),
         ]
     }
 
@@ -532,6 +538,19 @@ pub fn create(
         }
     }
 
+    if plugins_set.contains(&Plugin::EksWorkerNodeAmi)
+        && plugins_set.contains(&Plugin::EksWorkerNodeAmiUbuntuAddon)
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "'{}' conflicts with '{}'",
+                Plugin::EksWorkerNodeAmi.as_str(),
+                Plugin::EksWorkerNodeAmiUbuntuAddon.as_str()
+            ),
+        ));
+    }
+
     let mut plugins = Vec::new();
     for p in plugins_set.iter() {
         plugins.push(p.clone());
@@ -593,10 +612,7 @@ pub fn create(
                 );
                 contents.push_str(&d);
 
-                // dev ubuntu
-                if !plugins_set.contains(&Plugin::CloudwatchAgent)
-                    && !plugins_set.contains(&Plugin::StaticVolumeProvisioner)
-                {
+                if !plugins_set.contains(&Plugin::StaticVolumeProvisioner) {
                     let d = scripts::update_bash_profile(
                         os_type.clone(),
                         plugins_set.contains(&Plugin::Anaconda),
@@ -642,32 +658,6 @@ pub fn create(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
                 contents.push_str(&d);
-
-                if !plugins_set.contains(&Plugin::StaticVolumeProvisioner) {
-                    let d = scripts::update_bash_profile(
-                        os_type.clone(),
-                        plugins_set.contains(&Plugin::Anaconda),
-                        plugins_set.contains(&Plugin::Python),
-                        plugins_set.contains(&Plugin::Rust),
-                        plugins_set.contains(&Plugin::Go),
-                        plugins_set.contains(&Plugin::Kubectl),
-                        plugins_set.contains(&Plugin::Helm),
-                        plugins_set.contains(&Plugin::StaticVolumeProvisioner),
-                    )?;
-                    contents.push_str(
-                        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                    );
-                    contents.push_str(&d);
-
-                    contents.push_str(
-                        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                    );
-                    contents.push_str(&scripts::write_cluster_data(
-                        s3_bucket,
-                        id,
-                        plugins_set.contains(&Plugin::StaticVolumeProvisioner),
-                    ));
-                }
             }
 
             Plugin::StaticVolumeProvisioner => {
@@ -951,6 +941,13 @@ pub fn create(
 
             Plugin::EksWorkerNodeAmi => {
                 let d = scripts::eks_worker_node_ami(os_type.clone())?;
+                contents.push_str(
+                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                );
+                contents.push_str(&d);
+            }
+            Plugin::EksWorkerNodeAmiUbuntuAddon => {
+                let d = scripts::eks_worker_node_ami_ubuntu_addon(os_type.clone())?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );

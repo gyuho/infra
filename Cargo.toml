@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.28.28" # https://crates.io/crates/aws-manager/versions
+version = "0.28.29" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.70"
@@ -40,7 +40,7 @@ tokio-stream = { version = "0.1.14", optional = true } # https://github.com/toki
 # [OPTIONAL] for "cloudwatch"
 aws-sdk-cloudwatch = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
 aws-sdk-cloudwatchlogs = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
-serde_json = { version = "1.0.96", optional = true }
+serde_json = { version = "1.0.97", optional = true }
 
 # [OPTIONAL] for "ec2"
 aws-sdk-ec2 = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
