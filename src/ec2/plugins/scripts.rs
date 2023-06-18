@@ -184,17 +184,17 @@ pub fn update_bash_profile(
 HISTSIZE=1000000
 HISTFILESIZE=2000000
 
-alias ..='cd ..'
-alias hh='history | grep'
-alias t=tmux
-alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
-alias kill-docker='docker kill $(docker ps -q)'
-alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
-alias pbcopy='xclip -selection clipboard'
-alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
+# alias ..='cd ..'
+# alias hh='history | grep'
+# alias t=tmux
+# alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
+# alias kill-docker='docker kill $(docker ps -q)'
+# alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
+# alias pbcopy='xclip -selection clipboard'
+# alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
 
 export VISUAL=vim
-export EDITOR=$VISUAL
+export EDITOR=vim
 export GPG_TTY=$(tty)
 
 ",
@@ -204,17 +204,17 @@ export GPG_TTY=$(tty)
 HISTSIZE=1000000
 HISTFILESIZE=2000000
 
-alias ..='cd ..'
-alias hh='history | grep'
-alias t=tmux
-alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
-alias kill-docker='docker kill $(docker ps -q)'
-alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
-alias pbcopy='xclip -selection clipboard'
-alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
+# alias ..='cd ..'
+# alias hh='history | grep'
+# alias t=tmux
+# alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
+# alias kill-docker='docker kill $(docker ps -q)'
+# alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
+# alias pbcopy='xclip -selection clipboard'
+# alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
 
 export VISUAL=vim
-export EDITOR=$VISUAL
+export EDITOR=vim
 export GPG_TTY=$(tty)
 
 ",
@@ -290,14 +290,12 @@ export GPG_TTY=$(tty)
 # set permissions
 sudo chown -R $(whoami) /data
 sudo chown -R ubuntu /data
-
 EOF
 
 {bashrc}
 # set permissions
 sudo chown -R $(whoami) /data
 sudo chown -R ubuntu /data
-
 EOF
 
 {path_line}"
@@ -309,12 +307,9 @@ EOF
 # setting up user bash profiles
 
 {profile}
-# set permissions
-
 EOF
 
 {bashrc}
-
 EOF
 
 {path_line}"
