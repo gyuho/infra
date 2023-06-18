@@ -109,6 +109,9 @@ pub enum Plugin {
     #[serde(rename = "eks-worker-node-ami-ubuntu-addon")]
     EksWorkerNodeAmiUbuntuAddon,
 
+    #[serde(rename = "cleanup-image")]
+    CleanupImage,
+
     Unknown(String),
 }
 
@@ -155,6 +158,7 @@ impl std::convert::From<&str> for Plugin {
             "dev-faiss-gpu" => Plugin::DevFaissGpu,
             "eks-worker-node-ami" => Plugin::EksWorkerNodeAmi,
             "eks-worker-node-ami-ubuntu-addon" => Plugin::EksWorkerNodeAmiUbuntuAddon,
+            "cleanup-image" => Plugin::CleanupImage,
             other => Plugin::Unknown(other.to_owned()),
         }
     }
@@ -212,6 +216,7 @@ impl Plugin {
             Plugin::DevFaissGpu => "dev-faiss-gpu",
             Plugin::EksWorkerNodeAmi => "eks-worker-node-ami",
             Plugin::EksWorkerNodeAmiUbuntuAddon => "eks-worker-node-ami-ubuntu-addon",
+            Plugin::CleanupImage => "cleanup-image",
             Plugin::Unknown(s) => s.as_ref(),
         }
     }
@@ -273,6 +278,7 @@ impl Plugin {
             Plugin::EksWorkerNodeAmi => 99990,
             Plugin::EksWorkerNodeAmiUbuntuAddon => 99991,
 
+            Plugin::CleanupImage => u32::MAX - 1,
             Plugin::Unknown(_) => u32::MAX,
         }
     }
@@ -318,6 +324,7 @@ impl Plugin {
             "dev-bark",                  //
             "dev-faiss-gpu",             //
             "eks-worker-node-ami",       //
+            "cleanup-image",             //
         ]
     }
 
@@ -363,6 +370,7 @@ impl Plugin {
             Plugin::DevFaissGpu.as_str().to_string(),
             Plugin::EksWorkerNodeAmi.as_str().to_string(),
             Plugin::EksWorkerNodeAmiUbuntuAddon.as_str().to_string(),
+            Plugin::CleanupImage.as_str().to_string(),
         ]
     }
 
@@ -925,6 +933,7 @@ pub fn create(
                     } else {
                         ""
                     },
+                    plugins_set.contains(&Plugin::StaticVolumeProvisioner),
                 )?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
@@ -932,7 +941,10 @@ pub fn create(
                 contents.push_str(&d);
             }
             Plugin::DevFaissGpu => {
-                let d = scripts::dev_faiss_gpu(os_type.clone())?;
+                let d = scripts::dev_faiss_gpu(
+                    os_type.clone(),
+                    plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+                )?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
@@ -948,6 +960,14 @@ pub fn create(
             }
             Plugin::EksWorkerNodeAmiUbuntuAddon => {
                 let d = scripts::eks_worker_node_ami_ubuntu_addon(os_type.clone())?;
+                contents.push_str(
+                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                );
+                contents.push_str(&d);
+            }
+
+            Plugin::CleanupImage => {
+                let d = scripts::cleanup_image(os_type.clone())?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
@@ -1032,10 +1052,12 @@ fn test_sort() {
         Plugin::Containerd,
         Plugin::Runc,
         Plugin::DevBark,
+        Plugin::CleanupImage,
     ];
 
     let mut unsorted: Vec<Plugin> = vec![
         Plugin::CloudwatchAgent,
+        Plugin::CleanupImage,
         Plugin::Runc,
         Plugin::SsmAgent,
         Plugin::MountBpfFs,

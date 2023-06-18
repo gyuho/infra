@@ -1672,24 +1672,35 @@ cmake --version
     }
 }
 
-pub fn dev_bark(os_type: OsType, python_pip_bin_path: &str) -> io::Result<String> {
+pub fn dev_bark(
+    os_type: OsType,
+    python_pip_bin_path: &str,
+    data_volume_mounted: bool,
+) -> io::Result<String> {
     match os_type {
-        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok(format!(
-            "
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => {
+            let clone_dir = if data_volume_mounted {
+                String::from("/data")
+            } else {
+                String::from("/home/ubuntu")
+            };
+            Ok(format!(
+                "
 ###########################
 # install bark
 # https://github.com/suno-ai/bark
 
-ls -lah /data/
-git clone https://github.com/suno-ai/bark.git /data/bark
-cd /data/bark
+ls -lah {clone_dir}/
+git clone https://github.com/suno-ai/bark.git {clone_dir}/bark
+cd {clone_dir}/bark
 
 which python
 {python_pip_bin_path}/python -m pip install .
 which pip
 {python_pip_bin_path}/pip install --verbose nltk
 "
-        )),
+            ))
+        }
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
             format!("os_type '{}' not supported", os_type.as_str()),
@@ -1723,9 +1734,15 @@ sudo ln -s /usr/bin/g++-7 /usr/bin/c++
     }
 }
 
-pub fn dev_faiss_gpu(os_type: OsType) -> io::Result<String> {
+pub fn dev_faiss_gpu(os_type: OsType, data_volume_mounted: bool) -> io::Result<String> {
     match os_type {
-        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => {
+            let clone_dir = if data_volume_mounted {
+                String::from("/data")
+            } else {
+                String::from("/home/ubuntu")
+            };
+            Ok(format!("
 ###########################
 # install faiss
 # https://github.com/facebookresearch/faiss#installing
@@ -1746,30 +1763,31 @@ sudo apt-get install -yq swig
 which cmake
 cmake --version
 
-ls -lah /data/
-git clone https://github.com/facebookresearch/faiss.git /data/faiss
+ls -lah {clone_dir}/
+git clone https://github.com/facebookresearch/faiss.git {clone_dir}/faiss
 
 # generates the system-dependent configuration/build files in the build/ subdirectory
-# cd /data/faiss
+# cd {clone_dir}/faiss
 # cmake -B build .
 
 # builds the C++ library
-# cd /data/faiss
+# cd {clone_dir}/faiss
 # make -C build -j faiss
 
 # builds the python bindings for Faiss
-# cd /data/faiss
+# cd {clone_dir}/faiss
 # make -C build -j swigfaiss
 
 # generates and installs the python package
-# cd /data/faiss/build/faiss/python
+# cd {clone_dir}/faiss/build/faiss/python
 # python setup.py install
 
 # make the compiled library (either libfaiss.a or libfaiss.so on Linux) available system-wide, as well as the C++ headers
-# cd /data/faiss
+# cd {clone_dir}/faiss
 # make -C build install
 "
-            .to_string()),
+        ))
+        }
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
             format!("os_type '{}' not supported", os_type.as_str()),
@@ -2190,44 +2208,6 @@ fi
 
 
 #######
-# clean up
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
-#######
-cat /etc/machine-id
-
-CLEANUP_IMAGE=${CLEANUP_IMAGE:-false}
-if [[ \"$CLEANUP_IMAGE\" == \"true\" ]]; then
-    sudo apt clean all
-    sudo apt-get clean
-
-    sudo rm -rf \\
-    /tmp/worker \\
-    /etc/hostname \\
-    /etc/machine-id \\
-    /etc/resolv.conf \\
-    /etc/ssh/ssh_host* \\
-    /home/ubuntu/.ssh/authorized_keys \\
-    /root/.ssh/authorized_keys \\
-    /var/lib/cloud/data \\
-    /var/lib/cloud/instance \\
-    /var/lib/cloud/instances \\
-    /var/lib/cloud/sem \\
-    /var/lib/dhclient/* \\
-    /var/lib/dhcp/dhclient.* \\
-    /var/lib/apt/history \\
-    /var/log/cloud-init-output.log \\
-    /var/log/cloud-init.log \\
-    /var/log/auth.log \\
-    /var/log/wtmp \\
-    /tmp/imds-tokens || true
-
-    sudo rm -rf /home/ubuntu/.aws
-    sudo rm -f /tmp/*
-    sudo touch /etc/machine-id
-fi
-
-
-#######
 # write release file
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
@@ -2612,44 +2592,6 @@ fi
 
 
 #######
-# clean up
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
-#######
-cat /etc/machine-id
-
-CLEANUP_IMAGE=${CLEANUP_IMAGE:-false}
-if [[ \"$CLEANUP_IMAGE\" == \"true\" ]]; then
-    sudo apt clean all
-    sudo apt-get clean
-
-    sudo rm -rf \\
-    /tmp/worker \\
-    /etc/hostname \\
-    /etc/machine-id \\
-    /etc/resolv.conf \\
-    /etc/ssh/ssh_host* \\
-    /home/ubuntu/.ssh/authorized_keys \\
-    /root/.ssh/authorized_keys \\
-    /var/lib/cloud/data \\
-    /var/lib/cloud/instance \\
-    /var/lib/cloud/instances \\
-    /var/lib/cloud/sem \\
-    /var/lib/dhclient/* \\
-    /var/lib/dhcp/dhclient.* \\
-    /var/lib/apt/history \\
-    /var/log/cloud-init-output.log \\
-    /var/log/cloud-init.log \\
-    /var/log/auth.log \\
-    /var/log/wtmp \\
-    /tmp/imds-tokens || true
-
-    sudo rm -rf /home/ubuntu/.aws
-    sudo rm -f /tmp/*
-    sudo touch /etc/machine-id
-fi
-
-
-#######
 # write release file
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
@@ -2713,6 +2655,50 @@ EOF
 aws sts get-caller-identity
 ",
         )),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("os_type '{}' not supported", os_type.as_str()),
+        )),
+    }
+}
+
+pub fn cleanup_image(os_type: OsType) -> io::Result<String> {
+    match os_type {
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
+###########################
+# clean up image (useful/required for AMI builds)
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
+
+cat /etc/machine-id
+sudo apt clean all
+sudo apt-get clean
+
+sudo rm -rf \\
+/tmp/worker \\
+/etc/hostname \\
+/etc/machine-id \\
+/etc/resolv.conf \\
+/etc/ssh/ssh_host* \\
+/home/ubuntu/.ssh/authorized_keys \\
+/root/.ssh/authorized_keys \\
+/var/lib/cloud/data \\
+/var/lib/cloud/instance \\
+/var/lib/cloud/instances \\
+/var/lib/cloud/sem \\
+/var/lib/dhclient/* \\
+/var/lib/dhcp/dhclient.* \\
+/var/lib/apt/history \\
+/var/log/cloud-init-output.log \\
+/var/log/cloud-init.log \\
+/var/log/auth.log \\
+/var/log/wtmp \\
+/tmp/imds-tokens || true
+
+sudo rm -rf /home/ubuntu/.aws
+sudo rm -f /tmp/*
+sudo touch /etc/machine-id
+"
+        .to_string()),
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
             format!("os_type '{}' not supported", os_type.as_str()),
