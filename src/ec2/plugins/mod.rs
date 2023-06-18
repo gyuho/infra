@@ -559,6 +559,18 @@ pub fn create(
         ));
     }
 
+    if plugins_set.contains(&Plugin::CleanupImage)
+        && (aws_secret_key_id.is_some() || aws_secret_access_key.is_some())
+    {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "'{}' removes the aws access key anyways... do not specify the aws access key",
+                Plugin::CleanupImage.as_str()
+            ),
+        ));
+    }
+
     let mut plugins = Vec::new();
     for p in plugins_set.iter() {
         plugins.push(p.clone());
@@ -967,11 +979,7 @@ pub fn create(
             }
 
             Plugin::CleanupImage => {
-                let d = scripts::cleanup_image(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
-                contents.push_str(&d);
+                log::info!("skipping cleanup-image plugin, saving it for the very last")
             }
 
             _ => {
@@ -993,12 +1001,17 @@ pub fn create(
     }
 
     contents.push_str(&scripts::end(os_type.clone())?);
+    if plugins_set.contains(&Plugin::CleanupImage) {
+        let d = scripts::cleanup_image(os_type.clone())?;
+        contents.push_str(
+                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                );
+        contents.push_str(&d);
+    }
 
     let fp = Path::new(file_path);
-
     let parent_dir = fp.parent().unwrap();
     fs::create_dir_all(parent_dir)?;
-
     let mut f = File::create(fp)?;
     f.write_all(contents.as_bytes())?;
 

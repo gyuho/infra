@@ -101,61 +101,6 @@ lsb_release --all
     }
 }
 
-pub fn end(os_type: OsType) -> io::Result<String> {
-    match os_type {
-        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("###########################
-
-
-
-
-
-
-###########################
-sudo apt clean
-sudo apt-get clean
-sudo find /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl list-units --type=service --no-pager
-df -h
-###########################
-
-
-
-
-
-
-
-set +x
-###########################
-echo SUCCESS
-
-BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
-sudo rm -f /tmp/release
-cat << EOF > /tmp/release
-BASE_AMI_ID=$BASE_AMI_ID
-BUILD_TIME=$(date)
-BUILD_KERNEL=$(uname -r)
-ARCH=$(uname -m)
-EOF
-cat /tmp/release
-
-sudo cp -v /tmp/release /etc/release
-sudo chmod 0444 /etc/release
-###########################
-
-
-
-
-
-"
-        .to_string()),
-        _ => Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!("os_type '{}' not supported", os_type.as_str()),
-        )),
-    }
-}
-
 pub fn update_bash_profile(
     os_type: OsType,
     anaconda_installed: bool,
@@ -2655,6 +2600,61 @@ EOF
 aws sts get-caller-identity
 ",
         )),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("os_type '{}' not supported", os_type.as_str()),
+        )),
+    }
+}
+
+pub fn end(os_type: OsType) -> io::Result<String> {
+    match os_type {
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("###########################
+
+
+
+
+
+
+###########################
+sudo apt clean
+sudo apt-get clean
+sudo find /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl list-units --type=service --no-pager
+df -h
+###########################
+
+
+
+
+
+
+
+set +x
+###########################
+echo SUCCESS
+
+BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
+sudo rm -f /tmp/release
+cat << EOF > /tmp/release
+BASE_AMI_ID=$BASE_AMI_ID
+BUILD_TIME=$(date)
+BUILD_KERNEL=$(uname -r)
+ARCH=$(uname -m)
+EOF
+cat /tmp/release
+
+sudo cp -v /tmp/release /etc/release
+sudo chmod 0444 /etc/release
+###########################
+
+
+
+
+
+"
+        .to_string()),
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
             format!("os_type '{}' not supported", os_type.as_str()),
