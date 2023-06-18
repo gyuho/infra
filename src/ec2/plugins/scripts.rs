@@ -181,7 +181,7 @@ pub fn update_bash_profile(
 
             let mut profile = String::from(
                 // https://stackoverflow.com/questions/27920806/how-to-avoid-heredoc-expanding-variables
-                "cat<<'EOF' >> /home/ubuntu/.profile
+                "cat << 'EOF' >> /home/ubuntu/.profile
 HISTSIZE=1000000
 HISTFILESIZE=2000000
 
@@ -202,7 +202,7 @@ export GPG_TTY=$(tty)
             );
             let mut bashrc = String::from(
                 // https://stackoverflow.com/questions/27920806/how-to-avoid-heredoc-expanding-variables
-                "cat<<'EOF' >> /home/ubuntu/.bashrc
+                "cat << 'EOF' >> /home/ubuntu/.bashrc
 HISTSIZE=1000000
 HISTFILESIZE=2000000
 
@@ -580,7 +580,7 @@ sudo snap install amazon-ssm-agent --classic
 sudo systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
 sudo systemctl restart snap.amazon-ssm-agent.amazon-ssm-agent.service
 mkdir -p /etc/systemd/system/snap.amazon-ssm-agent.amazon-ssm-agent.service.d
-cat > /tmp/amazon-ssm-agent-10-restart-always.conf <<EOF
+cat > /tmp/amazon-ssm-agent-10-restart-always.conf << EOF
 [Service]
 Restart=always
 RestartSec=60s
@@ -1942,7 +1942,7 @@ net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 EOF
 
-cat <<EOF | sudo tee /etc/systemd/system/containerd.service
+cat << EOF | sudo tee /etc/systemd/system/containerd.service
 [Unit]
 Description=containerd
 Documentation=https://containerd.io
@@ -2399,7 +2399,7 @@ net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 EOF
 
-cat <<EOF | sudo tee /etc/systemd/system/containerd.service
+cat << EOF | sudo tee /etc/systemd/system/containerd.service
 [Unit]
 Description=containerd
 Documentation=https://containerd.io
@@ -2698,13 +2698,13 @@ pub fn aws_key(
 # NOTE/SECURITY: this must be deleted when building AMI
 mkdir -p /home/ubuntu/.aws || true
 rm -f /home/ubuntu/.aws/config || true
-cat<<EOF >> /home/ubuntu/.aws/config
+cat << EOF > /home/ubuntu/.aws/config
 [default]
 region = {region}
 EOF
 
 rm -f /home/ubuntu/.aws/credentials || true
-cat<<EOF >> /home/ubuntu/.aws/credentials
+cat << EOF > /home/ubuntu/.aws/credentials
 [default]
 aws_access_key_id = {aws_secret_key_id}
 aws_secret_access_key = {aws_secret_access_key}
