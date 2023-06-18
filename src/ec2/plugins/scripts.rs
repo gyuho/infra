@@ -543,6 +543,34 @@ sudo sysctl -p
     }
 }
 
+pub fn aws_cli(os_type: OsType) -> io::Result<String> {
+    match os_type {
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok(
+            "
+###########################
+# install AWS CLI
+# https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+while [ 1 ]; do
+    sudo rm -f /tmp/awscli-exe-linux-$(uname -m).zip || true;
+    sudo apt-get update -yq && sudo apt-get install -yq wget unzip && wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
+unzip /tmp/awscli-exe-linux-$(uname -m).zip && sudo ./aws/install
+/usr/local/bin/aws --version
+
+# /usr/local/bin/aws
+which aws
+".to_string()),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("os_type '{}' not supported", os_type.as_str()),
+        )),
+    }
+}
+
 pub fn ssm_agent(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok(
@@ -814,7 +842,9 @@ pub fn rust(os_type: OsType) -> io::Result<String> {
 
 export RUSTUP_HOME=/opt/rust
 export CARGO_HOME=/opt/rust
-curl --proto '=https' --tlsv1.2 -sSf --retry 70 --retry-delay 1 https://sh.rustup.rs | bash -s -- -y --no-modify-path --default-toolchain stable --profile default
+sudo mkdir -p /opt/rust
+sudo chown -R ubuntu /opt/rust || true
+sudo curl --proto '=https' --tlsv1.2 -sSf --retry 70 --retry-delay 1 https://sh.rustup.rs | bash -s -- -y --no-modify-path --default-toolchain stable --profile default
 sudo -H -u ubuntu bash -c 'source /opt/rust/env && rustup default stable'
 
 . /opt/rust/env
@@ -1483,6 +1513,7 @@ sudo tail /var/log/nvidia-installer.log
 find /usr/lib/modules -name nvidia.ko
 find /usr/lib/modules -name nvidia.ko -exec modinfo {} \\;
 
+# /usr/bin/nvidia-smi
 which nvidia-smi
 nvidia-smi
 "
@@ -1499,6 +1530,7 @@ nvidia-smi
 # e.g.,
 # Release Date: 2023.6.14
 # DRIVER_VERSION=535.54.03
+# https://us.download.nvidia.com/XFree86/Linux-x86_64/535.54.03/NVIDIA-Linux-x86_64-535.54.03.run
 #
 # in case of rollback
 # original system76 ubuntu 22.04 ships
@@ -1523,6 +1555,7 @@ sudo tail /var/log/nvidia-installer.log
 find /usr/lib/modules -name nvidia.ko
 find /usr/lib/modules -name nvidia.ko -exec modinfo {} \\;
 
+# /usr/bin/nvidia-smi
 which nvidia-smi
 nvidia-smi
 "
@@ -1549,6 +1582,7 @@ CUDA_VERSION=12.1.1
 TOOL_KIT_VERSION=530.30.02
 BASE_URL=https://developer.download.nvidia.com/compute/cuda
 
+# add --override-driver-check to overwrite
 while [ 1 ]; do
     wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"${BASE_URL}/${CUDA_VERSION}/local_installers/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run\"
     if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
@@ -1561,6 +1595,7 @@ rm -f /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run
 which nvcc
 nvcc --version
 
+# /usr/bin/nvidia-smi
 which nvidia-smi
 nvidia-smi
 "
@@ -1590,9 +1625,11 @@ sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 sudo apt-get update
 sudo apt-get install -yq nvidia-container-toolkit
 
+# /usr/bin/nvidia-ctk
+which nvidia-ctk
+
 # checking nvidia container toolkit
 # TODO: support other runtime?
-which nvidia-ctk
 sudo nvidia-ctk runtime configure --runtime=docker
 
 # restart docker

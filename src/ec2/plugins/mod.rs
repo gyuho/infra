@@ -31,6 +31,8 @@ pub enum Plugin {
     TimeSync,
     #[serde(rename = "system-limit-bump")]
     SystemLimitBump,
+    #[serde(rename = "aws-cli")]
+    AwsCli,
     #[serde(rename = "ssm-agent")]
     SsmAgent,
     #[serde(rename = "cloudwatch-agent")]
@@ -118,6 +120,7 @@ impl std::convert::From<&str> for Plugin {
             "mount-bpf-fs" => Plugin::MountBpfFs,
             "time-sync" => Plugin::TimeSync,
             "system-limit-bump" => Plugin::SystemLimitBump,
+            "aws-cli" => Plugin::AwsCli,
             "ssm-agent" => Plugin::SsmAgent,
             "cloudwatch-agent" => Plugin::CloudwatchAgent,
             "static-volume-provisioner" => Plugin::StaticVolumeProvisioner,
@@ -173,6 +176,7 @@ impl Plugin {
             Plugin::MountBpfFs => "mount-bpf-fs",
             Plugin::TimeSync => "time-sync",
             Plugin::SystemLimitBump => "system-limit-bump",
+            Plugin::AwsCli => "aws-cli",
             Plugin::SsmAgent => "ssm-agent",
             Plugin::CloudwatchAgent => "cloudwatch-agent",
             Plugin::StaticVolumeProvisioner => "static-volume-provisioner",
@@ -220,35 +224,36 @@ impl Plugin {
             Plugin::MountBpfFs => 4,
             Plugin::TimeSync => 5,
             Plugin::SystemLimitBump => 6,
-            Plugin::SsmAgent => 7,
-            Plugin::CloudwatchAgent => 8,
+            Plugin::AwsCli => 7,
+            Plugin::SsmAgent => 8,
+            Plugin::CloudwatchAgent => 9,
 
-            Plugin::StaticVolumeProvisioner => 9,
-            Plugin::StaticIpProvisioner => 10,
+            Plugin::StaticVolumeProvisioner => 20,
+            Plugin::StaticIpProvisioner => 21,
 
-            Plugin::Anaconda => 11,
-            Plugin::Python => 11,
+            Plugin::Anaconda => 25,
+            Plugin::Python => 25,
 
-            Plugin::Rust => 13,
-            Plugin::Go => 14,
-            Plugin::Docker => 15,
-            Plugin::Containerd => 16,
-            Plugin::Runc => 17,
-            Plugin::CniPlugins => 18,
+            Plugin::Rust => 26,
+            Plugin::Go => 27,
+            Plugin::Docker => 28,
+            Plugin::Containerd => 29,
+            Plugin::Runc => 30,
+            Plugin::CniPlugins => 31,
 
-            Plugin::AwsCfnHelper => 19,
-            Plugin::Saml2Aws => 20,
+            Plugin::AwsCfnHelper => 32,
+            Plugin::Saml2Aws => 33,
 
-            Plugin::AwsIamAuthenticator => 21,
-            Plugin::EcrCredentialHelper => 22,
-            Plugin::EcrCredentialProvider => 23,
+            Plugin::AwsIamAuthenticator => 34,
+            Plugin::EcrCredentialHelper => 35,
+            Plugin::EcrCredentialProvider => 36,
 
-            Plugin::Kubelet => 24,
-            Plugin::Kubectl => 25,
-            Plugin::Helm => 26,
-            Plugin::Terraform => 27,
+            Plugin::Kubelet => 37,
+            Plugin::Kubectl => 38,
+            Plugin::Helm => 50,
+            Plugin::Terraform => 51,
 
-            Plugin::SshKeyWithEmail => 28,
+            Plugin::SshKeyWithEmail => 68,
 
             Plugin::NvidiaDriver => 100,
             Plugin::NvidiaCudaToolkit => 101,
@@ -277,6 +282,7 @@ impl Plugin {
             "mount-bpf-fs",              //
             "system-limit-bump",         //
             "time-sync",                 //
+            "aws-cli",                   //
             "ssm-agent",                 //
             "cloudwatch-agent",          //
             "static-volume-provisioner", //
@@ -319,6 +325,7 @@ impl Plugin {
             Plugin::MountBpfFs.as_str().to_string(),
             Plugin::TimeSync.as_str().to_string(),
             Plugin::SystemLimitBump.as_str().to_string(),
+            Plugin::AwsCli.as_str().to_string(),
             Plugin::SsmAgent.as_str().to_string(),
             Plugin::CloudwatchAgent.as_str().to_string(),
             Plugin::StaticVolumeProvisioner.as_str().to_string(),
@@ -614,6 +621,13 @@ pub fn create(
                         plugins_set.contains(&Plugin::StaticVolumeProvisioner),
                     ));
                 }
+            }
+            Plugin::AwsCli => {
+                let d = scripts::aws_cli(os_type.clone())?;
+                contents.push_str(
+                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                );
+                contents.push_str(&d);
             }
             Plugin::SsmAgent => {
                 let d = scripts::ssm_agent(os_type.clone())?;
@@ -1012,6 +1026,7 @@ fn test_sort() {
         Plugin::MountBpfFs,
         Plugin::TimeSync,
         Plugin::SystemLimitBump,
+        Plugin::AwsCli,
         Plugin::SsmAgent,
         Plugin::CloudwatchAgent,
         Plugin::Anaconda,
@@ -1038,6 +1053,7 @@ fn test_sort() {
         Plugin::SetupLocalDisks,
         Plugin::Anaconda,
         Plugin::Go,
+        Plugin::AwsCli,
     ];
     unsorted.sort();
 
