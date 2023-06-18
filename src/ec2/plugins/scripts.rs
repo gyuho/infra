@@ -180,18 +180,19 @@ pub fn update_bash_profile(
             }
 
             let mut profile = String::from(
-                "cat<<EOF >> /home/ubuntu/.profile
+                // https://stackoverflow.com/questions/27920806/how-to-avoid-heredoc-expanding-variables
+                "cat<<'EOF' >> /home/ubuntu/.profile
 HISTSIZE=1000000
 HISTFILESIZE=2000000
 
-# alias ..='cd ..'
-# alias hh='history | grep'
-# alias t=tmux
-# alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
-# alias kill-docker='docker kill $(docker ps -q)'
-# alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
-# alias pbcopy='xclip -selection clipboard'
-# alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
+alias ..='cd ..'
+alias hh='history | grep'
+alias t=tmux
+alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
+alias kill-docker='docker kill $(docker ps -q)'
+alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
+alias pbcopy='xclip -selection clipboard'
+alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
 
 export VISUAL=vim
 export EDITOR=vim
@@ -200,18 +201,19 @@ export GPG_TTY=$(tty)
 ",
             );
             let mut bashrc = String::from(
-                "cat<<EOF >> /home/ubuntu/.bashrc
+                // https://stackoverflow.com/questions/27920806/how-to-avoid-heredoc-expanding-variables
+                "cat<<'EOF' >> /home/ubuntu/.bashrc
 HISTSIZE=1000000
 HISTFILESIZE=2000000
 
-# alias ..='cd ..'
-# alias hh='history | grep'
-# alias t=tmux
-# alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
-# alias kill-docker='docker kill $(docker ps -q)'
-# alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
-# alias pbcopy='xclip -selection clipboard'
-# alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
+alias ..='cd ..'
+alias hh='history | grep'
+alias t=tmux
+alias kill-tmux='tmux list-sessions; tmux kill-session -a;'
+alias kill-docker='docker kill $(docker ps -q)'
+alias clean-docker='docker system prune --all --force; docker rmi $(docker images -a -q);'
+alias pbcopy='xclip -selection clipboard'
+alias gith='git rev-parse HEAD; git rev-parse HEAD | pbcopy'
 
 export VISUAL=vim
 export EDITOR=vim
@@ -1801,7 +1803,8 @@ done;
 # set up nvidia-smi check scriptsssss
 # https://github.com/awslabs/amazon-eks-ami/blob/master/files/bootstrap.sh
 #######
-cat << EOF > /tmp/check-nvidia-smi.sh
+# https://stackoverflow.com/questions/27920806/how-to-avoid-heredoc-expanding-variables
+cat << 'EOF' > /tmp/check-nvidia-smi.sh
 #!/usr/bin/env bash
 
 if command -v nvidia-smi &> /dev/null; then
@@ -2285,7 +2288,8 @@ done;
 # set up nvidia-smi check scriptsssss
 # https://github.com/awslabs/amazon-eks-ami/blob/master/files/bootstrap.sh
 #######
-cat << EOF > /tmp/check-nvidia-smi.sh
+# https://stackoverflow.com/questions/27920806/how-to-avoid-heredoc-expanding-variables
+cat << 'EOF' > /tmp/check-nvidia-smi.sh
 #!/usr/bin/env bash
 
 if command -v nvidia-smi &> /dev/null; then

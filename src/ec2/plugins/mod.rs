@@ -8,7 +8,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::ec2::{self};
+use crate::ec2;
 use serde::{Deserialize, Serialize};
 
 /// Defines the Arch type.
