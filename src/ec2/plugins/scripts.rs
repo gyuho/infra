@@ -2665,7 +2665,15 @@ sudo chmod 0444 /etc/release
 pub fn cleanup_image(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
+
+
+
+
+
+
+
 ###########################
+# WARN
 # clean up image (useful/required for AMI builds)
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
 
@@ -2697,6 +2705,14 @@ sudo rm -rf \\
 sudo rm -rf /home/ubuntu/.aws
 sudo rm -f /tmp/*
 sudo touch /etc/machine-id
+###########################
+
+
+
+
+
+
+
 "
         .to_string()),
         _ => Err(Error::new(

@@ -1003,9 +1003,6 @@ pub fn create(
     contents.push_str(&scripts::end(os_type.clone())?);
     if plugins_set.contains(&Plugin::CleanupImage) {
         let d = scripts::cleanup_image(os_type.clone())?;
-        contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
         contents.push_str(&d);
     }
 
