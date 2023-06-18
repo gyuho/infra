@@ -2292,66 +2292,7 @@ find /etc/eks
 # this may overwrite the one in official ubuntu AMI but it's ok
 # they are identical
 #######
-sudo mkdir -p /etc/eks
-sudo chown -R root:root /etc/eks
-sudo mkdir -p /etc/eks/containerd
-
-targets=(
-    containerd-config.toml
-    kubelet-containerd.service
-    sandbox-image.service
-    pull-sandbox-image.sh
-    pull-image.sh
-)
-for target in \"${targets[@]}\"
-do
-    while [ 1 ]; do
-        rm -f /tmp/${target} || true;
-        wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://raw.githubusercontent.com/awslabs/amazon-eks-ami/master/files/${target}\"
-        if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
-        sleep 2s;
-    done;
-    chmod +x /tmp/${target}
-    sudo mv /tmp/${target} /etc/eks/containerd/${target}
-done
-
-sudo chown -R root:root /etc/eks
-sudo chown -R ubuntu:ubuntu /etc/eks
-find /etc/eks
-
-sudo mkdir -p /etc/systemd/system/containerd.service.d
-cat << EOF | sudo tee /etc/systemd/system/containerd.service.d/10-compat-symlink.conf
-[Service]
-ExecStartPre=/bin/ln -sf /run/containerd/containerd.sock /run/dockershim.sock
-EOF
-
-cat << EOF | sudo tee -a /etc/modules-load.d/containerd.conf
-overlay
-br_netfilter
-EOF
-
-cat << EOF | sudo tee -a /etc/sysctl.d/99-kubernetes-cri.conf
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-EOF
-
-cat << EOF | sudo tee /etc/systemd/system/containerd.service
-[Unit]
-Description=containerd
-Documentation=https://containerd.io
-
-[Service]
-Type=notify
-ExecStart=/usr/bin/containerd
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl enable containerd
-sudo systemctl restart containerd
-sudo ctr version || true
+# SKIP THIS, WE DO NOT WANT TO OVERWRITE
 
 
 #######
@@ -2405,7 +2346,7 @@ sudo chown root:root /etc/logrotate.conf
 # set up kubernetes
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
-# SKIP THIS, WE DO NOT WANT TO OVERWRITE KUBELET CONFIG FROM THE ONE IN UBUNTU AMI
+# SKIP THIS, WE DO NOT WANT TO OVERWRITE
 
 
 #######
@@ -2413,139 +2354,7 @@ sudo chown root:root /etc/logrotate.conf
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 # TODO: cache more images
 #######
-ISOLATED_REGIONS=${ISOLATED_REGIONS:-us-iso-east-1 us-iso-west-1 us-isob-east-1}
-EKS_CACHE_CONTAINER_IMAGES=${EKS_CACHE_CONTAINER_IMAGES:-false}
-BINARY_BUCKET_REGION=${BINARY_BUCKET_REGION:-us-west-2}
-PAUSE_CONTAINER_VERSION=${PAUSE_CONTAINER_VERSION:-3.5}
-KUBERNETES_VERSION=${KUBERNETES_VERSION:-1.26}
-
-if [[ \"$EKS_CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS} =~ $BINARY_BUCKET_REGION ]]; then
-    AWS_DOMAIN=$(imds 'latest/meta-data/services/domain')
-    ECR_URI=$(/etc/eks/get-ecr-uri.sh \"${BINARY_BUCKET_REGION}\" \"${AWS_DOMAIN}\")
-
-    PAUSE_CONTAINER=\"${ECR_URI}/eks/pause:${PAUSE_CONTAINER_VERSION}\"
-    echo \"PAUSE_CONTAINER: ${PAUSE_CONTAINER}\"
-
-    cat /etc/eks/containerd/containerd-config.toml | sed s,SANDBOX_IMAGE,$PAUSE_CONTAINER,g | sudo tee /etc/eks/containerd/containerd-cached-pause-config.toml
-
-    sudo mkdir -p /etc/containerd
-    sudo chown -R root:root /etc/containerd
-    sudo cp -v /etc/eks/containerd/containerd-cached-pause-config.toml /etc/containerd/config.toml
-    sudo cp -v /etc/eks/containerd/sandbox-image.service /etc/systemd/system/sandbox-image.service
-    sudo chown root:root /etc/systemd/system/sandbox-image.service
-
-    sudo systemctl daemon-reload
-    sudo systemctl restart containerd
-    sudo systemctl enable containerd sandbox-image
-
-    # e.g., 1.26
-    K8S_MINOR_VERSION=$(echo \"${KUBERNETES_VERSION}\" | cut -d'.' -f1-2)
-    echo \"K8S_MINOR_VERSION: ${K8S_MINOR_VERSION}\"
-
-    #### Cache kube-proxy images starting with the addon default version and the latest version
-    KUBE_PROXY_ADDON_VERSIONS=$(aws eks describe-addon-versions --addon-name kube-proxy --kubernetes-version=${K8S_MINOR_VERSION})
-    echo \"KUBE_PROXY_ADDON_VERSIONS: ${KUBE_PROXY_ADDON_VERSIONS}\"
-
-    KUBE_PROXY_IMGS=()
-    if [[ $(jq '.addons | length' <<< $KUBE_PROXY_ADDON_VERSIONS) -gt 0 ]]; then
-        DEFAULT_KUBE_PROXY_FULL_VERSION=$(echo \"${KUBE_PROXY_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] | select(.compatibilities[] .defaultVersion==true).addonVersion')
-        DEFAULT_KUBE_PROXY_VERSION=$(echo \"${DEFAULT_KUBE_PROXY_FULL_VERSION}\" | cut -d\"-\" -f1)
-        DEFAULT_KUBE_PROXY_PLATFORM_VERSION=$(echo \"${DEFAULT_KUBE_PROXY_FULL_VERSION}\" | cut -d\"-\" -f2)
-
-        LATEST_KUBE_PROXY_FULL_VERSION=$(echo \"${KUBE_PROXY_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] .addonVersion' | sort -V | tail -n1)
-        LATEST_KUBE_PROXY_VERSION=$(echo \"${LATEST_KUBE_PROXY_FULL_VERSION}\" | cut -d\"-\" -f1)
-        LATEST_KUBE_PROXY_PLATFORM_VERSION=$(echo \"${LATEST_KUBE_PROXY_FULL_VERSION}\" | cut -d\"-\" -f2)
-
-        KUBE_PROXY_IMGS=(
-            ## Default kube-proxy images
-            \"${ECR_URI}/eks/kube-proxy:${DEFAULT_KUBE_PROXY_VERSION}-${DEFAULT_KUBE_PROXY_PLATFORM_VERSION}\"
-            \"${ECR_URI}/eks/kube-proxy:${DEFAULT_KUBE_PROXY_VERSION}-minimal-${DEFAULT_KUBE_PROXY_PLATFORM_VERSION}\"
-
-            ## Latest kube-proxy images
-            \"${ECR_URI}/eks/kube-proxy:${LATEST_KUBE_PROXY_VERSION}-${LATEST_KUBE_PROXY_PLATFORM_VERSION}\"
-            \"${ECR_URI}/eks/kube-proxy:${LATEST_KUBE_PROXY_VERSION}-minimal-${LATEST_KUBE_PROXY_PLATFORM_VERSION}\"
-        )
-    fi
-    echo \"KUBE_PROXY_IMGS: ${KUBE_PROXY_IMGS}\"
-
-    #### Cache VPC CNI images starting with the addon default version and the latest version
-    VPC_CNI_ADDON_VERSIONS=$(aws eks describe-addon-versions --addon-name vpc-cni --kubernetes-version=${K8S_MINOR_VERSION})
-    echo \"VPC_CNI_ADDON_VERSIONS: ${VPC_CNI_ADDON_VERSIONS}\"
-
-    VPC_CNI_IMGS=()
-    if [[ $(jq '.addons | length' <<< $VPC_CNI_ADDON_VERSIONS) -gt 0 ]]; then
-        DEFAULT_VPC_CNI_VERSION=$(echo \"${VPC_CNI_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] | select(.compatibilities[] .defaultVersion==true).addonVersion')
-        LATEST_VPC_CNI_VERSION=$(echo \"${VPC_CNI_ADDON_VERSIONS}\" | jq -r '.addons[] .addonVersions[] .addonVersion' | sort -V | tail -n1)
-        CNI_IMG=\"${ECR_URI}/amazon-k8s-cni\"
-        CNI_INIT_IMG=\"${CNI_IMG}-init\"
-
-        VPC_CNI_IMGS=(
-            ## Default VPC CNI Images
-            \"${CNI_IMG}:${DEFAULT_VPC_CNI_VERSION}\"
-            \"${CNI_INIT_IMG}:${DEFAULT_VPC_CNI_VERSION}\"
-
-            ## Latest VPC CNI Images
-            \"${CNI_IMG}:${LATEST_VPC_CNI_VERSION}\"
-            \"${CNI_INIT_IMG}:${LATEST_VPC_CNI_VERSION}\"
-        )
-    fi
-    echo \"VPC_CNI_IMGS: ${VPC_CNI_IMGS}\"
-
-    CACHE_IMGS=(
-        \"${PAUSE_CONTAINER}\"
-        ${KUBE_PROXY_IMGS[@]+\"${KUBE_PROXY_IMGS[@]}\"}
-        ${VPC_CNI_IMGS[@]+\"${VPC_CNI_IMGS[@]}\"}
-    )
-    echo \"CACHE_IMGS: ${CACHE_IMGS}\"
-
-    PULLED_IMGS=()
-    for img in \"${CACHE_IMGS[@]}\"; do
-        ## only kube-proxy-minimal is vended for K8s 1.24+
-        if [[ \"${img}\" == *\"kube-proxy:\"* ]] && [[ \"${img}\" != *\"-minimal-\"* ]] && vercmp \"${K8S_MINOR_VERSION}\" gteq \"1.24\"; then
-            continue
-        fi
-
-        ## Since eksbuild.x version may not match the image tag, we need to decrement the eksbuild version until we find the latest image tag within the app semver
-        eksbuild_version=\"1\"
-        if [[ ${img} == *'eksbuild.'* ]]; then
-            eksbuild_version=$(echo \"${img}\" | grep -o 'eksbuild\\.[0-9]\\+' | cut -d'.' -f2)
-        fi
-
-        ## iterate through decrementing the build version each time
-        for build_version in $(seq \"${eksbuild_version}\" -1 1); do
-            img=$(echo \"${img}\" | sed -E \"s/eksbuild.[0-9]+/eksbuild.${build_version}/\")
-            echo \"ctr pulling/fetching an image ${img}\"
-            if /etc/eks/containerd/pull-image.sh \"${img}\"; then
-                PULLED_IMGS+=(\"${img}\")
-                break
-            elif [[ \"${build_version}\" -eq 1 ]]; then
-                exit 1
-            fi
-        done
-    done
-    echo \"PULLED_IMGS: ${PULLED_IMGS}\"
-
-    #### Tag the pulled down image for all other regions in the partition
-    for region in $(aws ec2 describe-regions --all-regions | jq -r '.Regions[] .RegionName'); do
-        for img in \"${PULLED_IMGS[@]}\"; do
-            regional_img=\"${img/$BINARY_BUCKET_REGION/$region}\"
-            echo \"tagging a pulled image ${regional_img}\"
-            sudo ctr -n k8s.io image tag \"${img}\" \"${regional_img}\" || :
-
-            ## Tag ECR fips endpoint for supported regions
-            if [[ \"${region}\" =~ (us-east-1|us-east-2|us-west-1|us-west-2|us-gov-east-1|us-gov-east-2) ]]; then
-                regional_fips_img=\"${regional_img/.ecr./.ecr-fips.}\"
-                sudo ctr -n k8s.io image tag \"${img}\" \"${regional_fips_img}\" || :
-                sudo ctr -n k8s.io image tag \"${img}\" \"${regional_fips_img/-eksbuild.1/}\" || :
-            fi
-
-            ## Cache the non-addon VPC CNI images since \"v*.*.*-eksbuild.1\" is equivalent to leaving off the eksbuild suffix
-            if [[ \"${img}\" == *\"-cni\"*\"-eksbuild.1\" ]]; then
-                sudo ctr -n k8s.io image tag \"${img}\" \"${regional_img/-eksbuild.1/}\" || :
-            fi
-        done
-    done
-fi
+# SKIP THIS, WE DO NOT WANT TO OVERWRITE
 
 
 #######
