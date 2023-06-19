@@ -115,6 +115,7 @@ pub fn update_bash_profile(
     anaconda_installed: bool,
     python_installed: bool,
     rust_installed: bool,
+    cuda_toolkit_installed: bool,
     go_installed: bool,
     kubectl_installed: bool,
     helm_installed: bool,
@@ -131,6 +132,9 @@ pub fn update_bash_profile(
             }
             if rust_installed {
                 paths.push("/home/ubuntu/.cargo/bin".to_string());
+            }
+            if cuda_toolkit_installed {
+                paths.push("/usr/local/cuda-12.1/bin".to_string());
             }
 
             let mut profile = String::from(
@@ -1500,7 +1504,7 @@ done;
 
 sudo sh /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run --silent --ui=none --no-questions
 rm -f /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run
-sudo tail /var/log/nvidia-installer.log
+tail /var/log/nvidia-installer.log
 
 # check the driver
 find /usr/lib/modules -name nvidia.ko
@@ -1526,6 +1530,7 @@ pub fn nvidia_cuda_toolkit(os_type: OsType) -> io::Result<String> {
 # install nvidia cuda toolkit
 # this installs cuda 11 by default on ubuntu 20.04
 # sudo apt install -yq nvidia-cuda-toolkit
+# https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=runfile_local
 # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=runfile_local
 
 # this upgrades to CUDA Version: 12.1
@@ -1542,9 +1547,12 @@ done;
 
 sudo sh /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run --silent
 rm -f /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run
+tail /var/log/cuda-installer.log
 
-which nvcc
-nvcc --version
+# /usr/local/cuda-12.1/bin
+which nvcc || true
+nvcc --version || true
+/usr/local/cuda-12.1/bin/nvcc --version
 
 # /usr/bin/nvidia-smi
 which nvidia-smi
@@ -1578,6 +1586,7 @@ sudo apt-get install -yq nvidia-container-toolkit
 
 # /usr/bin/nvidia-ctk
 which nvidia-ctk
+nvidia-ctk --version
 
 # checking nvidia container toolkit
 # TODO: support other runtime?
@@ -1775,7 +1784,7 @@ done;
 
 
 #######
-# set up nvidia-smi check scriptsssss
+# set up nvidia-smi check scripts
 # https://github.com/awslabs/amazon-eks-ami/blob/master/files/bootstrap.sh
 #######
 # https://stackoverflow.com/questions/27920806/how-to-avoid-heredoc-expanding-variables
@@ -1805,12 +1814,14 @@ if command -v nvidia-smi &> /dev/null; then
         elif [[ $GPUNAME == *\"M60\"* ]]; then
             nvidia-smi -ac 2505,1177
         else
-            echo \"unsupported gpu\"
+            echo \"WARN: unsupported GPU\"
         fi
     else
         echo \"ERROR: nvidia-smi check failed!\"
         cat /tmp/nvidia-smi-check
     fi
+else
+    echo \"INFO: nvidia-smi NOT found\"
 fi
 EOF
 cat /tmp/check-nvidia-smi.sh
@@ -2222,7 +2233,7 @@ done;
 
 
 #######
-# set up nvidia-smi check scriptsssss
+# set up nvidia-smi check scripts
 # https://github.com/awslabs/amazon-eks-ami/blob/master/files/bootstrap.sh
 #######
 # https://stackoverflow.com/questions/27920806/how-to-avoid-heredoc-expanding-variables
@@ -2252,12 +2263,14 @@ if command -v nvidia-smi &> /dev/null; then
         elif [[ $GPUNAME == *\"M60\"* ]]; then
             nvidia-smi -ac 2505,1177
         else
-            echo \"unsupported gpu\"
+            echo \"WARN: unsupported GPU\"
         fi
     else
         echo \"ERROR: nvidia-smi check failed!\"
         cat /tmp/nvidia-smi-check
     fi
+else
+    echo \"INFO: nvidia-smi NOT found\"
 fi
 EOF
 cat /tmp/check-nvidia-smi.sh
