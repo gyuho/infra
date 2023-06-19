@@ -91,6 +91,12 @@ iptables-restore --version
 
 /usr/bin/gcc --version
 /usr/bin/c++ -v
+
+if ! command -v lsb_release &> /dev/null
+then
+    echo \"lsb_release could not be found\"
+    exit 1
+fi
 lsb_release --all
 
 # sudo sh -c \"$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\"
@@ -869,6 +875,13 @@ pub fn docker(os_type: OsType) -> io::Result<String> {
 ###########################
 # install docker
 # 'dpkg --print-architecture' to decide amd64/arm64
+# 'lsb_release -cs' to decide jammy/focal/*
+
+if ! command -v lsb_release &> /dev/null
+then
+    echo \"lsb_release could not be found\"
+    exit 1
+fi
 
 while [ 1 ]; do
     sudo apt-get install -yq ca-certificates gnupg
@@ -1381,6 +1394,13 @@ pub fn terraform(os_type: OsType) -> io::Result<String> {
 # install terraform
 # https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli
 # 'dpkg --print-architecture' to decide amd64/arm64
+# 'lsb_release -cs' to decide jammy/focal/*
+
+if ! command -v lsb_release &> /dev/null
+then
+    echo \"lsb_release could not be found\"
+    exit 1
+fi
 
 while [ 1 ]; do
     sudo apt-get install -yq gnupg software-properties-common
@@ -1441,6 +1461,56 @@ sudo chown -R ubuntu /home/ubuntu/.ssh
     }
 }
 
+pub fn ena(os_type: OsType) -> io::Result<String> {
+    match  &os_type {
+        OsType::Ubuntu2004 |  OsType::Ubuntu2204 => Ok("
+###########################
+# enable enhanced networking
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#enhanced-networking-ena-ubuntu
+
+while [ 1 ]; do
+    sudo apt-get update && sudo apt-get upgrade -y linux-aws
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
+if ! command -v imds &> /dev/null
+then
+    echo \"imds could not be found\"
+    exit 1
+fi
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+INSTANCE_ID=$(imds /latest/meta-data/instance-id)
+
+if ! command -v aws &> /dev/null
+then
+    echo \"aws could not be found\"
+    exit 1
+fi
+aws ec2 modify-instance-attribute --instance-id ${INSTANCE_ID} --ena-support
+sleep 3
+aws ec2 describe-instances --instance-ids ${INSTANCE_ID} --query \"Reservations[].Instances[].EnaSupport\"
+
+# https://docs.aws.amazon.com/cli/latest/reference/ec2/register-image.html
+# aws ec2 register-image --ena-support --name random
+
+# TODO: get region
+imds /latest/dynamic/instance-identity/document | jq .region -r
+
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#test-enhanced-networking-ena
+# TODO: this may not work... need pre-installed AMI or restart
+modinfo ena || true
+ethtool -i eth0 || true
+"
+        .to_string()),
+
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("os_type '{}' not supported",  os_type.as_str()),
+        )),
+    }
+}
+
 pub fn nvidia_driver(arch_type: ArchType, os_type: OsType) -> io::Result<String> {
     match (&arch_type, &os_type) {
         (ArchType::Amd64GpuG3NvidiaTeslaM60 | ArchType::Amd64GpuG4dnNvidiaT4 | ArchType::Amd64GpuG5NvidiaA10G , OsType::Ubuntu2004) => Ok("
@@ -1467,6 +1537,12 @@ sudo tail /var/log/nvidia-installer.log
 # check the driver
 find /usr/lib/modules -name nvidia.ko
 find /usr/lib/modules -name nvidia.ko -exec modinfo {} \\;
+
+if ! command -v nvidia-smi &> /dev/null
+then
+    echo \"nvidia-smi could not be found\"
+    exit 1
+fi
 
 # /usr/bin/nvidia-smi
 which nvidia-smi
@@ -1510,6 +1586,12 @@ tail /var/log/nvidia-installer.log
 find /usr/lib/modules -name nvidia.ko
 find /usr/lib/modules -name nvidia.ko -exec modinfo {} \\;
 
+if ! command -v nvidia-smi &> /dev/null
+then
+    echo \"nvidia-smi could not be found\"
+    exit 1
+fi
+
 # /usr/bin/nvidia-smi
 which nvidia-smi
 nvidia-smi
@@ -1549,10 +1631,22 @@ sudo sh /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run --silent
 rm -f /tmp/cuda_${CUDA_VERSION}_${TOOL_KIT_VERSION}_linux.run
 tail /var/log/cuda-installer.log
 
+if ! command -v nvcc &> /dev/null
+then
+    echo \"nvcc could not be found\"
+    exit 1
+fi
+
 # /usr/local/cuda-12.1/bin
-which nvcc || true
-nvcc --version || true
+which nvcc
+nvcc --version
 /usr/local/cuda-12.1/bin/nvcc --version
+
+if ! command -v nvidia-smi &> /dev/null
+then
+    echo \"nvidia-smi could not be found\"
+    exit 1
+fi
 
 # /usr/bin/nvidia-smi
 which nvidia-smi
@@ -1584,9 +1678,21 @@ sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 sudo apt-get update
 sudo apt-get install -yq nvidia-container-toolkit
 
+if ! command -v nvidia-ctk &> /dev/null
+then
+    echo \"nvidia-ctk could not be found\"
+    exit 1
+fi
+
 # /usr/bin/nvidia-ctk
 which nvidia-ctk
 nvidia-ctk --version
+
+if ! command -v docker &> /dev/null
+then
+    echo \"docker could not be found\"
+    exit 1
+fi
 
 # checking nvidia container toolkit
 # TODO: support other runtime?
@@ -1606,6 +1712,56 @@ sudo docker run --rm --runtime=nvidia --gpus all nvidia/cuda:11.6.2-base-ubuntu2
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
             format!("os_type '{}' not supported", os_type.as_str()),
+        )),
+    }
+}
+
+pub fn amd_radeon_gpu_driver(arch_type: ArchType, os_type: OsType) -> io::Result<String> {
+    match (&arch_type, &os_type) {
+        (ArchType::Amd64GpuG4adRadeon, OsType::Ubuntu2004 | OsType::Ubuntu2204) => Ok("
+###########################
+# install AMD Radeon driver for ubuntu
+# https://www.amd.com/en/support/kb/faq/amdgpupro-install
+# https://amdgpu-install.readthedocs.io/en/latest/install-prereq.html#downloading-the-installer-package
+# https://amdgpu-install.readthedocs.io/en/latest/install-script.html
+
+while [ 1 ]; do
+    sudo apt-get -y install linux-modules-extra-aws
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
+DRIVER_VERSION1=5.4
+DRIVER_VERSION2=5.4.50403-1_all
+BASE_URL=https://repo.radeon.com
+
+while [ 1 ]; do
+    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"${BASE_URL}/${DRIVER_VERSION1}/ubuntu/$(lsb_release -cs)/amdgpu-install_${DRIVER_VERSION2}.deb\"
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
+sudo apt-get -y install /tmp/amdgpu-install_${DRIVER_VERSION2}.deb
+sudo sh /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run --silent --ui=none --no-questions
+
+if ! command -v amdgpu-install &> /dev/null
+then
+    echo \"amdgpu-install could not be found\"
+    exit 1
+fi
+
+# https://amdgpu-install.readthedocs.io/en/latest/install-script.html
+sudo amdgpu-install -y --accept-eula --usecase=dkms
+
+# /usr/bin/amdgpu-install
+which amdgpu-install
+amdgpu-install -h
+"
+        .to_string()),
+
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("arch_type '{}', os_type '{}' not supported", arch_type.as_str(), os_type.as_str()),
         )),
     }
 }
@@ -2484,9 +2640,11 @@ pub fn end(os_type: OsType) -> io::Result<String> {
 ###########################
 sudo apt clean
 sudo apt-get clean
-sudo find /etc/systemd/system/
+
+# sudo find /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl list-units --type=service --no-pager
+
 df -h
 ###########################
 

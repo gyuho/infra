@@ -85,12 +85,18 @@ pub enum Plugin {
     #[serde(rename = "ssh-key-with-email")]
     SshKeyWithEmail,
 
+    #[serde(rename = "ena")]
+    Ena,
+
     #[serde(rename = "nvidia-driver")]
     NvidiaDriver,
     #[serde(rename = "nvidia-cuda-toolkit")]
     NvidiaCudaToolkit,
     #[serde(rename = "nvidia-container-toolkit")]
     NvidiaContainerToolkit,
+
+    #[serde(rename = "amd-radeon-gpu-driver")]
+    AmdRadeonGpuDriver,
 
     #[serde(rename = "protobuf-compiler")]
     ProtobufCompiler,
@@ -150,9 +156,11 @@ impl std::convert::From<&str> for Plugin {
             "helm" => Plugin::Helm,
             "terraform" => Plugin::Terraform,
             "ssh-key-with-email" => Plugin::SshKeyWithEmail,
+            "ena" => Plugin::Ena,
             "nvidia-driver" => Plugin::NvidiaDriver,
             "nvidia-cuda-toolkit" => Plugin::NvidiaCudaToolkit,
             "nvidia-container-toolkit" => Plugin::NvidiaContainerToolkit,
+            "amd-radeon-gpu-driver" => Plugin::AmdRadeonGpuDriver,
             "protobuf-compiler" => Plugin::ProtobufCompiler,
             "cmake" => Plugin::Cmake,
             "gcc7" => Plugin::Gcc7,
@@ -211,9 +219,11 @@ impl Plugin {
             Plugin::Helm => "helm",
             Plugin::Terraform => "terraform",
             Plugin::SshKeyWithEmail => "ssh-key-with-email",
+            Plugin::Ena => "ena",
             Plugin::NvidiaDriver => "nvidia-driver",
             Plugin::NvidiaCudaToolkit => "nvidia-cuda-toolkit",
             Plugin::NvidiaContainerToolkit => "nvidia-container-toolkit",
+            Plugin::AmdRadeonGpuDriver => "amd-radeon-gpu-driver",
             Plugin::ProtobufCompiler => "protobuf-compiler",
             Plugin::Cmake => "cmake",
             Plugin::Gcc7 => "gcc7",
@@ -272,9 +282,13 @@ impl Plugin {
 
             Plugin::SshKeyWithEmail => 68,
 
-            Plugin::NvidiaDriver => 100,
-            Plugin::NvidiaCudaToolkit => 101,
-            Plugin::NvidiaContainerToolkit => 102,
+            Plugin::Ena => 100,
+
+            Plugin::NvidiaDriver => 200,
+            Plugin::NvidiaCudaToolkit => 201,
+            Plugin::NvidiaContainerToolkit => 202,
+
+            Plugin::AmdRadeonGpuDriver => 300,
 
             Plugin::ProtobufCompiler => 60000,
             Plugin::Cmake => 60001,
@@ -328,6 +342,7 @@ impl Plugin {
             "nvidia-driver",                                 //
             "nvidia-cuda-toolkit",                           //
             "nvidia-container-toolkit",                      //
+            "amd-radeon-gpu-driver",                         //
             "cmake",                                         //
             "gcc7",                                          //
             "dev-bark",                                      //
@@ -370,9 +385,11 @@ impl Plugin {
             Plugin::Helm.as_str().to_string(),
             Plugin::Terraform.as_str().to_string(),
             Plugin::SshKeyWithEmail.as_str().to_string(),
+            Plugin::Ena.as_str().to_string(),
             Plugin::NvidiaDriver.as_str().to_string(),
             Plugin::NvidiaCudaToolkit.as_str().to_string(),
             Plugin::NvidiaContainerToolkit.as_str().to_string(),
+            Plugin::AmdRadeonGpuDriver.as_str().to_string(),
             Plugin::ProtobufCompiler.as_str().to_string(),
             Plugin::Cmake.as_str().to_string(),
             Plugin::Gcc7.as_str().to_string(),
@@ -399,8 +416,6 @@ impl Plugin {
             Plugin::SsmAgent.as_str().to_string(),
             Plugin::CloudwatchAgent.as_str().to_string(),
             Plugin::Anaconda.as_str().to_string(),
-            Plugin::NvidiaDriver.as_str().to_string(),
-            Plugin::NvidiaCudaToolkit.as_str().to_string(),
             Plugin::AwsCfnHelper.as_str().to_string(),
         ]
     }
@@ -476,6 +491,16 @@ pub fn create(
                 "'{}' requires '{}' plugin",
                 Plugin::EcrCredentialProvider.as_str(),
                 Plugin::Go.as_str(),
+            ),
+        ));
+    }
+    if plugins_set.contains(&Plugin::Ena) && !plugins_set.contains(&Plugin::Imds) {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "'{}' requires '{}' plugin",
+                Plugin::Ena.as_str(),
+                Plugin::Imds.as_str(),
             ),
         ));
     }
@@ -620,6 +645,7 @@ pub fn create(
     let provisioner_initial_wait_random_seconds = 10;
 
     let mut contents = scripts::start(os_type.clone())?;
+    let mut updated_bash_profile = false;
     for p in plugins.iter() {
         match p {
             Plugin::Imds => {
@@ -671,7 +697,9 @@ pub fn create(
                 );
                 contents.push_str(&d);
 
-                if !plugins_set.contains(&Plugin::StaticVolumeProvisioner) {
+                if !updated_bash_profile {
+                    updated_bash_profile = true;
+
                     let d = scripts::update_bash_profile(
                         os_type.clone(),
                         plugins_set.contains(&Plugin::Anaconda),
@@ -745,30 +773,34 @@ pub fn create(
                 );
                 contents.push_str(&d);
 
-                let d = scripts::update_bash_profile(
-                    os_type.clone(),
-                    plugins_set.contains(&Plugin::Anaconda),
-                    plugins_set.contains(&Plugin::Python),
-                    plugins_set.contains(&Plugin::Rust),
-                    plugins_set.contains(&Plugin::NvidiaCudaToolkit),
-                    plugins_set.contains(&Plugin::Go),
-                    plugins_set.contains(&Plugin::Kubectl),
-                    plugins_set.contains(&Plugin::Helm),
-                    plugins_set.contains(&Plugin::StaticVolumeProvisioner),
-                )?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
-                contents.push_str(&d);
+                if !updated_bash_profile {
+                    updated_bash_profile = true;
 
-                contents.push_str(
+                    let d = scripts::update_bash_profile(
+                        os_type.clone(),
+                        plugins_set.contains(&Plugin::Anaconda),
+                        plugins_set.contains(&Plugin::Python),
+                        plugins_set.contains(&Plugin::Rust),
+                        plugins_set.contains(&Plugin::NvidiaCudaToolkit),
+                        plugins_set.contains(&Plugin::Go),
+                        plugins_set.contains(&Plugin::Kubectl),
+                        plugins_set.contains(&Plugin::Helm),
+                        plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+                    )?;
+                    contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
-                contents.push_str(&scripts::write_cluster_data(
-                    s3_bucket,
-                    id,
-                    plugins_set.contains(&Plugin::StaticVolumeProvisioner),
-                ));
+                    contents.push_str(&d);
+
+                    contents.push_str(
+                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                );
+                    contents.push_str(&scripts::write_cluster_data(
+                        s3_bucket,
+                        id,
+                        plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+                    ));
+                }
             }
             Plugin::StaticIpProvisioner => {
                 let d = scripts::static_ip_provisioner(
@@ -927,6 +959,14 @@ pub fn create(
                 contents.push_str(&d);
             }
 
+            Plugin::Ena => {
+                let d = scripts::ena(os_type.clone())?;
+                contents.push_str(
+                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                );
+                contents.push_str(&d);
+            }
+
             Plugin::NvidiaDriver => {
                 let d = scripts::nvidia_driver(arch_type.clone(), os_type.clone())?;
                 contents.push_str(
@@ -943,6 +983,14 @@ pub fn create(
             }
             Plugin::NvidiaContainerToolkit => {
                 let d = scripts::nvidia_container_toolkit(os_type.clone())?;
+                contents.push_str(
+                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+                );
+                contents.push_str(&d);
+            }
+
+            Plugin::AmdRadeonGpuDriver => {
+                let d = scripts::amd_radeon_gpu_driver(arch_type.clone(), os_type.clone())?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
@@ -1041,6 +1089,33 @@ pub fn create(
         }
     }
 
+    if !updated_bash_profile {
+        let d = scripts::update_bash_profile(
+            os_type.clone(),
+            plugins_set.contains(&Plugin::Anaconda),
+            plugins_set.contains(&Plugin::Python),
+            plugins_set.contains(&Plugin::Rust),
+            plugins_set.contains(&Plugin::NvidiaCudaToolkit),
+            plugins_set.contains(&Plugin::Go),
+            plugins_set.contains(&Plugin::Kubectl),
+            plugins_set.contains(&Plugin::Helm),
+            plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+        )?;
+        contents.push_str(
+            "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+        );
+        contents.push_str(&d);
+
+        contents.push_str(
+            "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+        );
+        contents.push_str(&scripts::write_cluster_data(
+            s3_bucket,
+            id,
+            plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+        ));
+    }
+
     if let Some(secret_key_id) = &aws_secret_key_id {
         let access_key = aws_secret_access_key.clone().unwrap();
 
@@ -1111,6 +1186,8 @@ fn test_sort() {
         Plugin::Docker,
         Plugin::Containerd,
         Plugin::Runc,
+        Plugin::Ena,
+        Plugin::NvidiaDriver,
         Plugin::DevBark,
         Plugin::EksWorkerNodeAmiUbuntuAddon,
         Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu,
@@ -1118,8 +1195,10 @@ fn test_sort() {
     ];
 
     let mut unsorted: Vec<Plugin> = vec![
+        Plugin::NvidiaDriver,
         Plugin::CloudwatchAgent,
         Plugin::CleanupImage,
+        Plugin::Ena,
         Plugin::Runc,
         Plugin::SsmAgent,
         Plugin::MountBpfFs,
