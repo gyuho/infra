@@ -2,9 +2,7 @@ pub mod scripts;
 
 use std::{
     collections::HashSet,
-    fs::{self, File},
-    io::{self, Error, ErrorKind, Write},
-    path::Path,
+    io::{self, Error, ErrorKind},
     str::FromStr,
 };
 
@@ -432,7 +430,6 @@ pub fn create(
     os_type: ec2::OsType,
     plugins_str: Vec<String>,
     require_static_ip_provisioner: bool,
-    file_path: &str,
     s3_bucket: &str,
     id: &str,
     region: &str,
@@ -443,7 +440,7 @@ pub fn create(
     ssh_key_email: Option<String>,
     aws_secret_key_id: Option<String>,
     aws_secret_access_key: Option<String>,
-) -> io::Result<Vec<Plugin>> {
+) -> io::Result<(Vec<Plugin>, String)> {
     let mut plugins_set = HashSet::new();
     for p in plugins_str.iter() {
         let plugin = Plugin::from_str(p).map_err(|e| {
@@ -1131,14 +1128,7 @@ pub fn create(
         contents.push_str(&d);
     }
 
-    let fp = Path::new(file_path);
-    let parent_dir = fp.parent().unwrap();
-    fs::create_dir_all(parent_dir)?;
-    let mut f = File::create(fp)?;
-    f.write_all(contents.as_bytes())?;
-
-    log::info!("wrote init bash script '{}'", fp.display());
-    Ok(plugins)
+    Ok((plugins, contents))
 }
 
 pub fn to_strings(plugins: Vec<Plugin>) -> Vec<String> {
