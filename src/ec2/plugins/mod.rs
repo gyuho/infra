@@ -108,12 +108,12 @@ pub enum Plugin {
     #[serde(rename = "dev-faiss-gpu")]
     DevFaissGpu,
 
-    #[serde(rename = "eks-worker-node-ami")]
-    EksWorkerNodeAmi,
-    #[serde(rename = "eks-worker-node-ami-ubuntu-addon")]
-    EksWorkerNodeAmiUbuntuAddon,
-    #[serde(rename = "eks-worker-node-ami-ubuntu-addon-update-containerd-for-nvidia-gpu")]
-    EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu,
+    #[serde(rename = "eks-worker-node-ami-scratch")]
+    EksWorkerNodeAmiScratch,
+    #[serde(rename = "eks-worker-node-ami-reuse")]
+    EksWorkerNodeAmiReuse,
+    #[serde(rename = "eks-worker-node-ami-update-containerd-for-nvidia-gpu")]
+    EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
 
     #[serde(rename = "cleanup-image")]
     CleanupImage,
@@ -164,10 +164,10 @@ impl std::convert::From<&str> for Plugin {
             "gcc7" => Plugin::Gcc7,
             "dev-bark" => Plugin::DevBark,
             "dev-faiss-gpu" => Plugin::DevFaissGpu,
-            "eks-worker-node-ami" => Plugin::EksWorkerNodeAmi,
-            "eks-worker-node-ami-ubuntu-addon" => Plugin::EksWorkerNodeAmiUbuntuAddon,
-            "eks-worker-node-ami-ubuntu-addon-update-containerd-for-nvidia-gpu" => {
-                Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu
+            "eks-worker-node-ami-scratch" => Plugin::EksWorkerNodeAmiScratch,
+            "eks-worker-node-ami-reuse" => Plugin::EksWorkerNodeAmiReuse,
+            "eks-worker-node-ami-update-containerd-for-nvidia-gpu" => {
+                Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu
             }
             "cleanup-image" => Plugin::CleanupImage,
             other => Plugin::Unknown(other.to_owned()),
@@ -227,10 +227,10 @@ impl Plugin {
             Plugin::Gcc7 => "gcc7",
             Plugin::DevBark => "dev-bark",
             Plugin::DevFaissGpu => "dev-faiss-gpu",
-            Plugin::EksWorkerNodeAmi => "eks-worker-node-ami",
-            Plugin::EksWorkerNodeAmiUbuntuAddon => "eks-worker-node-ami-ubuntu-addon",
-            Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu => {
-                "eks-worker-node-ami-ubuntu-addon-update-containerd-for-nvidia-gpu"
+            Plugin::EksWorkerNodeAmiScratch => "eks-worker-node-ami-scratch",
+            Plugin::EksWorkerNodeAmiReuse => "eks-worker-node-ami-reuse",
+            Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => {
+                "eks-worker-node-ami-update-containerd-for-nvidia-gpu"
             }
             Plugin::CleanupImage => "cleanup-image",
             Plugin::Unknown(s) => s.as_ref(),
@@ -295,9 +295,9 @@ impl Plugin {
             Plugin::DevBark => 80000,
             Plugin::DevFaissGpu => 80001,
 
-            Plugin::EksWorkerNodeAmi => 99990,
-            Plugin::EksWorkerNodeAmiUbuntuAddon => 99991,
-            Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu => 99992,
+            Plugin::EksWorkerNodeAmiScratch => 99990,
+            Plugin::EksWorkerNodeAmiReuse => 99991,
+            Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => 99992,
 
             Plugin::CleanupImage => u32::MAX - 1,
             Plugin::Unknown(_) => u32::MAX,
@@ -345,7 +345,7 @@ impl Plugin {
             "gcc7",                                          //
             "dev-bark",                                      //
             "dev-faiss-gpu",                                 //
-            "eks-worker-node-ami",                           //
+            "eks-worker-node-ami-scratch",                   //
             "eks-worker-node-ami-update-containerd-for-gpu", //
             "cleanup-image",                                 //
         ]
@@ -393,9 +393,9 @@ impl Plugin {
             Plugin::Gcc7.as_str().to_string(),
             Plugin::DevBark.as_str().to_string(),
             Plugin::DevFaissGpu.as_str().to_string(),
-            Plugin::EksWorkerNodeAmi.as_str().to_string(),
-            Plugin::EksWorkerNodeAmiUbuntuAddon.as_str().to_string(),
-            Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu
+            Plugin::EksWorkerNodeAmiScratch.as_str().to_string(),
+            Plugin::EksWorkerNodeAmiReuse.as_str().to_string(),
+            Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu
                 .as_str()
                 .to_string(),
             Plugin::CleanupImage.as_str().to_string(),
@@ -581,31 +581,31 @@ pub fn create(
         }
     }
 
-    if plugins_set.contains(&Plugin::EksWorkerNodeAmi)
-        && plugins_set.contains(&Plugin::EksWorkerNodeAmiUbuntuAddon)
+    if plugins_set.contains(&Plugin::EksWorkerNodeAmiScratch)
+        && plugins_set.contains(&Plugin::EksWorkerNodeAmiReuse)
     {
         return Err(Error::new(
             ErrorKind::InvalidInput,
             format!(
                 "'{}' conflicts with '{}'",
-                Plugin::EksWorkerNodeAmi.as_str(),
-                Plugin::EksWorkerNodeAmiUbuntuAddon.as_str()
+                Plugin::EksWorkerNodeAmiScratch.as_str(),
+                Plugin::EksWorkerNodeAmiReuse.as_str()
             ),
         ));
     }
-    if plugins_set.contains(&Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu)
-        && !plugins_set.contains(&Plugin::EksWorkerNodeAmiUbuntuAddon)
+    if plugins_set.contains(&Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu)
+        && !plugins_set.contains(&Plugin::EksWorkerNodeAmiReuse)
     {
         return Err(Error::new(
             ErrorKind::InvalidInput,
             format!(
                 "'{}' requires '{}'",
-                Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu.as_str(),
-                Plugin::EksWorkerNodeAmiUbuntuAddon.as_str()
+                Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu.as_str(),
+                Plugin::EksWorkerNodeAmiReuse.as_str()
             ),
         ));
     }
-    if plugins_set.contains(&Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu)
+    if plugins_set.contains(&Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu)
         && (!plugins_set.contains(&Plugin::NvidiaDriver)
             || !plugins_set.contains(&Plugin::NvidiaContainerToolkit))
     {
@@ -613,7 +613,7 @@ pub fn create(
             ErrorKind::InvalidInput,
             format!(
                 "'{}' requires '{}' or '{}'",
-                Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu.as_str(),
+                Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu.as_str(),
                 Plugin::NvidiaDriver.as_str(),
                 Plugin::NvidiaContainerToolkit.as_str()
             ),
@@ -1049,24 +1049,23 @@ pub fn create(
                 contents.push_str(&d);
             }
 
-            Plugin::EksWorkerNodeAmi => {
-                let d = scripts::eks_worker_node_ami(os_type.clone())?;
+            Plugin::EksWorkerNodeAmiScratch => {
+                let d = scripts::eks_worker_node_ami_scratch(os_type.clone())?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
                 contents.push_str(&d);
             }
-            Plugin::EksWorkerNodeAmiUbuntuAddon => {
-                let d = scripts::eks_worker_node_ami_ubuntu_addon(os_type.clone())?;
+            Plugin::EksWorkerNodeAmiReuse => {
+                let d = scripts::eks_worker_node_ami_reuse(os_type.clone())?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
                 contents.push_str(&d);
             }
-            Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu => {
-                let d = scripts::eks_worker_node_ami_ubuntu_addon_update_containerd_for_nvidia_gpu(
-                    os_type.clone(),
-                )?;
+            Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => {
+                let d =
+                    scripts::eks_worker_node_ami_update_containerd_for_nvidia_gpu(os_type.clone())?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
@@ -1179,8 +1178,8 @@ fn test_sort() {
         Plugin::Ena,
         Plugin::NvidiaDriver,
         Plugin::DevBark,
-        Plugin::EksWorkerNodeAmiUbuntuAddon,
-        Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu,
+        Plugin::EksWorkerNodeAmiReuse,
+        Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
         Plugin::CleanupImage,
     ];
 
@@ -1196,8 +1195,8 @@ fn test_sort() {
         Plugin::SystemLimitBump,
         Plugin::Containerd,
         Plugin::Vercmp,
-        Plugin::EksWorkerNodeAmiUbuntuAddonUpdateContainerdForNvidiaGpu,
-        Plugin::EksWorkerNodeAmiUbuntuAddon,
+        Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
+        Plugin::EksWorkerNodeAmiReuse,
         Plugin::DevBark,
         Plugin::ProviderId,
         Plugin::TimeSync,
