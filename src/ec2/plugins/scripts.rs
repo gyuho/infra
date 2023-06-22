@@ -2489,10 +2489,67 @@ find /etc/eks
 #######
 # set up containerd
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-# this may overwrite the one in official ubuntu AMI but it's ok
-# they are identical
 #######
-# SKIP THIS, WE DO NOT WANT TO OVERWRITE
+sudo mkdir -p /etc/eks
+sudo chown -R root:root /etc/eks
+sudo mkdir -p /etc/eks/containerd
+
+targets=(
+    containerd-config.toml
+    kubelet-containerd.service
+    sandbox-image.service
+    pull-sandbox-image.sh
+    pull-image.sh
+)
+for target in \"${targets[@]}\"
+do
+    while [ 1 ]; do
+        rm -f /tmp/${target} || true;
+        wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://raw.githubusercontent.com/awslabs/amazon-eks-ami/master/files/${target}\"
+        if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+        sleep 2s;
+    done;
+    chmod +x /tmp/${target}
+    sudo mv /tmp/${target} /etc/eks/containerd/${target}
+done
+
+sudo chown -R root:root /etc/eks
+sudo chown -R ubuntu:ubuntu /etc/eks
+find /etc/eks
+
+sudo mkdir -p /etc/systemd/system/containerd.service.d
+cat << EOF | sudo tee /etc/systemd/system/containerd.service.d/10-compat-symlink.conf
+[Service]
+ExecStartPre=/bin/ln -sf /run/containerd/containerd.sock /run/dockershim.sock
+EOF
+
+cat << EOF | sudo tee -a /etc/modules-load.d/containerd.conf
+overlay
+br_netfilter
+EOF
+
+cat << EOF | sudo tee -a /etc/sysctl.d/99-kubernetes-cri.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+net.ipv4.ip_forward = 1
+EOF
+
+cat << EOF | sudo tee /etc/systemd/system/containerd.service
+[Unit]
+Description=containerd
+Documentation=https://containerd.io
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/containerd
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl enable containerd
+sudo systemctl restart containerd
+sudo ctr version || true
 
 
 #######
