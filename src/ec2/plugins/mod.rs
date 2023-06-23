@@ -115,10 +115,10 @@ pub enum Plugin {
     #[serde(rename = "eks-worker-node-ami-update-containerd-for-nvidia-gpu")]
     EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
 
-    #[serde(rename = "cleanup-image")]
-    CleanupImage,
     #[serde(rename = "post-init-script")]
     PostInitScript,
+    #[serde(rename = "cleanup-image")]
+    CleanupImage,
 
     Unknown(String),
 }
@@ -171,8 +171,8 @@ impl std::convert::From<&str> for Plugin {
             "eks-worker-node-ami-update-containerd-for-nvidia-gpu" => {
                 Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu
             }
-            "cleanup-image" => Plugin::CleanupImage,
             "post-init-script" => Plugin::PostInitScript,
+            "cleanup-image" => Plugin::CleanupImage,
             other => Plugin::Unknown(other.to_owned()),
         }
     }
@@ -235,8 +235,8 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => {
                 "eks-worker-node-ami-update-containerd-for-nvidia-gpu"
             }
-            Plugin::CleanupImage => "cleanup-image",
             Plugin::PostInitScript => "post-init-script",
+            Plugin::CleanupImage => "cleanup-image",
             Plugin::Unknown(s) => s.as_ref(),
         }
     }
@@ -303,8 +303,8 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiReuse => 99991,
             Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => 99992,
 
-            Plugin::CleanupImage => u32::MAX - 2,
-            Plugin::PostInitScript => u32::MAX - 1,
+            Plugin::PostInitScript => u32::MAX - 2,
+            Plugin::CleanupImage => u32::MAX - 1,
 
             Plugin::Unknown(_) => u32::MAX,
         }
@@ -405,8 +405,8 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu
                 .as_str()
                 .to_string(),
-            Plugin::CleanupImage.as_str().to_string(),
             Plugin::PostInitScript.as_str().to_string(),
+            Plugin::CleanupImage.as_str().to_string(),
         ]
     }
 
@@ -629,6 +629,25 @@ pub fn create(
         ));
     }
 
+    if plugins_set.contains(&Plugin::PostInitScript) && post_init_script.is_none() {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "'{}' but no post init script specified",
+                Plugin::PostInitScript.as_str()
+            ),
+        ));
+    }
+    if !plugins_set.contains(&Plugin::PostInitScript) && post_init_script.is_some() {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "post init script specified but no '{}'",
+                Plugin::PostInitScript.as_str()
+            ),
+        ));
+    }
+
     if plugins_set.contains(&Plugin::CleanupImage)
         && (aws_secret_key_id.is_some() || aws_secret_access_key.is_some())
     {
@@ -637,15 +656,6 @@ pub fn create(
             format!(
                 "'{}' removes the aws access key anyways... do not specify the aws access key",
                 Plugin::CleanupImage.as_str()
-            ),
-        ));
-    }
-    if plugins_set.contains(&Plugin::PostInitScript) && post_init_script.is_none() {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!(
-                "'{}' but no post init script specified",
-                Plugin::PostInitScript.as_str()
             ),
         ));
     }
@@ -1090,11 +1100,11 @@ pub fn create(
                 contents.push_str(&d);
             }
 
-            Plugin::CleanupImage => {
-                log::info!("skipping cleanup-image plugin, saving it for the very last")
-            }
             Plugin::PostInitScript => {
                 log::info!("skipping post-init-script plugin, saving it for the very last")
+            }
+            Plugin::CleanupImage => {
+                log::info!("skipping cleanup-image plugin, saving it for the very last")
             }
 
             _ => {
@@ -1143,13 +1153,17 @@ pub fn create(
     }
 
     contents.push_str(&scripts::end(os_type.clone())?);
+
+    if plugins_set.contains(&Plugin::PostInitScript) {
+        contents
+        .push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
+
+        contents.push_str("###########################\n# USER-DEFINED POST INIT SCRIPT\n");
+        contents.push_str(&post_init_script.unwrap());
+    }
     if plugins_set.contains(&Plugin::CleanupImage) {
         let d = scripts::cleanup_image(os_type.clone())?;
         contents.push_str(&d);
-    }
-    if plugins_set.contains(&Plugin::PostInitScript) {
-        contents.push_str("###########################\n# USER-DEFINED POST INIT SCRIPT\n");
-        contents.push_str(&post_init_script.unwrap());
     }
 
     Ok((plugins, contents))

@@ -2936,6 +2936,7 @@ pub fn cleanup_image(os_type: OsType) -> io::Result<String> {
 # WARN
 # clean up image (useful/required for AMI builds)
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/validate.sh
 
 cat /etc/machine-id
 sudo apt clean all
