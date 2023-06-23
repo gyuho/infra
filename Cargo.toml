@@ -73,7 +73,7 @@ default = [
     # "autoscaling",
     # "cloudformation",
     # "cloudwatch",
-    # "ec2",
+    "ec2",
     # "kms",
     # "s3",
     # "sqs",

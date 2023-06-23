@@ -1219,8 +1219,8 @@ fn test_sort() {
         Plugin::DevBark,
         Plugin::EksWorkerNodeAmiReuse,
         Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
-        Plugin::CleanupImage,
         Plugin::PostInitScript,
+        Plugin::CleanupImage,
     ];
 
     let mut unsorted: Vec<Plugin> = vec![
