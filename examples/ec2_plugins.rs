@@ -32,6 +32,7 @@ async fn main() {
             "rust".to_string(),
             "go".to_string(),
             "docker".to_string(),
+            "post-init-script".to_string(),
         ],
         false,
         "s3_bucket",
@@ -44,6 +45,13 @@ async fn main() {
         None,
         None,
         None,
+        Some(String::from(
+            "
+
+echo 123
+
+",
+        )),
     )
     .unwrap();
 

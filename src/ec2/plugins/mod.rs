@@ -117,6 +117,8 @@ pub enum Plugin {
 
     #[serde(rename = "cleanup-image")]
     CleanupImage,
+    #[serde(rename = "post-init-script")]
+    PostInitScript,
 
     Unknown(String),
 }
@@ -170,6 +172,7 @@ impl std::convert::From<&str> for Plugin {
                 Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu
             }
             "cleanup-image" => Plugin::CleanupImage,
+            "post-init-script" => Plugin::PostInitScript,
             other => Plugin::Unknown(other.to_owned()),
         }
     }
@@ -233,6 +236,7 @@ impl Plugin {
                 "eks-worker-node-ami-update-containerd-for-nvidia-gpu"
             }
             Plugin::CleanupImage => "cleanup-image",
+            Plugin::PostInitScript => "post-init-script",
             Plugin::Unknown(s) => s.as_ref(),
         }
     }
@@ -299,7 +303,9 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiReuse => 99991,
             Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => 99992,
 
-            Plugin::CleanupImage => u32::MAX - 1,
+            Plugin::CleanupImage => u32::MAX - 2,
+            Plugin::PostInitScript => u32::MAX - 1,
+
             Plugin::Unknown(_) => u32::MAX,
         }
     }
@@ -348,6 +354,7 @@ impl Plugin {
             "eks-worker-node-ami-scratch",                   //
             "eks-worker-node-ami-update-containerd-for-gpu", //
             "cleanup-image",                                 //
+            "post-init-script",                              //
         ]
     }
 
@@ -399,6 +406,7 @@ impl Plugin {
                 .as_str()
                 .to_string(),
             Plugin::CleanupImage.as_str().to_string(),
+            Plugin::PostInitScript.as_str().to_string(),
         ]
     }
 
@@ -440,6 +448,7 @@ pub fn create(
     ssh_key_email: Option<String>,
     aws_secret_key_id: Option<String>,
     aws_secret_access_key: Option<String>,
+    post_init_script: Option<String>,
 ) -> io::Result<(Vec<Plugin>, String)> {
     let mut plugins_set = HashSet::new();
     for p in plugins_str.iter() {
@@ -628,6 +637,15 @@ pub fn create(
             format!(
                 "'{}' removes the aws access key anyways... do not specify the aws access key",
                 Plugin::CleanupImage.as_str()
+            ),
+        ));
+    }
+    if plugins_set.contains(&Plugin::PostInitScript) && post_init_script.is_none() {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "'{}' but no post init script specified",
+                Plugin::PostInitScript.as_str()
             ),
         ));
     }
@@ -1075,6 +1093,9 @@ pub fn create(
             Plugin::CleanupImage => {
                 log::info!("skipping cleanup-image plugin, saving it for the very last")
             }
+            Plugin::PostInitScript => {
+                log::info!("skipping post-init-script plugin, saving it for the very last")
+            }
 
             _ => {
                 return Err(Error::new(
@@ -1125,6 +1146,10 @@ pub fn create(
     if plugins_set.contains(&Plugin::CleanupImage) {
         let d = scripts::cleanup_image(os_type.clone())?;
         contents.push_str(&d);
+    }
+    if plugins_set.contains(&Plugin::PostInitScript) {
+        contents.push_str("###########################\n# USER-DEFINED POST INIT SCRIPT\n");
+        contents.push_str(&post_init_script.unwrap());
     }
 
     Ok((plugins, contents))
@@ -1181,6 +1206,7 @@ fn test_sort() {
         Plugin::EksWorkerNodeAmiReuse,
         Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
         Plugin::CleanupImage,
+        Plugin::PostInitScript,
     ];
 
     let mut unsorted: Vec<Plugin> = vec![
@@ -1189,6 +1215,7 @@ fn test_sort() {
         Plugin::CleanupImage,
         Plugin::Ena,
         Plugin::Runc,
+        Plugin::PostInitScript,
         Plugin::SsmAgent,
         Plugin::MountBpfFs,
         Plugin::Imds,
