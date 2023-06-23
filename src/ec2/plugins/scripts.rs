@@ -2195,10 +2195,9 @@ sudo systemctl disable kubelet
 #######
 # cache images
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-# TODO: cache more images
 #######
 ISOLATED_REGIONS=${ISOLATED_REGIONS:-us-iso-east-1 us-iso-west-1 us-isob-east-1}
-EKS_CACHE_CONTAINER_IMAGES=${EKS_CACHE_CONTAINER_IMAGES:-false}
+EKS_CACHE_CONTAINER_IMAGES=${EKS_CACHE_CONTAINER_IMAGES:-true}
 BINARY_BUCKET_REGION=${BINARY_BUCKET_REGION:-us-west-2}
 PAUSE_CONTAINER_VERSION=${PAUSE_CONTAINER_VERSION:-3.5}
 KUBERNETES_VERSION=${KUBERNETES_VERSION:-1.26}
@@ -2609,10 +2608,9 @@ sudo chown root:root /etc/logrotate.conf
 #######
 # cache images
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-# TODO: cache more images
 #######
 ISOLATED_REGIONS=${ISOLATED_REGIONS:-us-iso-east-1 us-iso-west-1 us-isob-east-1}
-EKS_CACHE_CONTAINER_IMAGES=${EKS_CACHE_CONTAINER_IMAGES:-false}
+EKS_CACHE_CONTAINER_IMAGES=${EKS_CACHE_CONTAINER_IMAGES:-true}
 BINARY_BUCKET_REGION=${BINARY_BUCKET_REGION:-us-west-2}
 PAUSE_CONTAINER_VERSION=${PAUSE_CONTAINER_VERSION:-3.5}
 KUBERNETES_VERSION=${KUBERNETES_VERSION:-1.26}
