@@ -1941,6 +1941,17 @@ done;
 
 
 #######
+### Stuff required by \"protectKernelDefaults=true\"
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
+#######
+cat << EOF | sudo tee -a /etc/sysctl.d/99-amazon.conf
+vm.overcommit_memory=1
+kernel.panic=10
+kernel.panic_on_oops=1
+EOF
+
+
+#######
 # set up nvidia-smi check scripts
 # https://github.com/awslabs/amazon-eks-ami/blob/master/files/bootstrap.sh
 #######
@@ -2386,6 +2397,17 @@ while [ 1 ]; do
     if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
     sleep 2s;
 done;
+
+
+#######
+### Stuff required by \"protectKernelDefaults=true\"
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
+#######
+cat << EOF | sudo tee -a /etc/sysctl.d/99-amazon.conf
+vm.overcommit_memory=1
+kernel.panic=10
+kernel.panic_on_oops=1
+EOF
 
 
 #######
