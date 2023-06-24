@@ -531,16 +531,6 @@ pub fn create(
                 ),
             ));
         }
-        if !plugins_set.contains(&Plugin::Docker) {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                format!(
-                    "specified '{}' but not specified '{}'",
-                    Plugin::NvidiaCudaToolkit.as_str(),
-                    Plugin::Docker.as_str(),
-                ),
-            ));
-        }
         if !plugins_set.contains(&Plugin::NvidiaDriver) {
             return Err(Error::new(
                 ErrorKind::InvalidInput,

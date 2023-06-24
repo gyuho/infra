@@ -1691,24 +1691,23 @@ fi
 which nvidia-ctk
 nvidia-ctk --version
 
-if ! command -v docker &> /dev/null
+if command -v docker &> /dev/null
 then
-    echo \"docker could not be found\"
-    exit 1
+    echo \"checking nvidia container toolkit with docker\"
+    # TODO: support other runtime?
+    sudo nvidia-ctk runtime configure --runtime=docker
+
+    # https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/getting-started.html#install-nvidia-gpu-operator
+    cat /etc/nvidia-container-runtime/config.toml
+
+    # restart docker
+    sudo systemctl restart docker
+
+    # test nvidia container toolkit
+    sudo docker run --rm --runtime=nvidia --gpus all nvidia/cuda:11.6.2-base-ubuntu20.04 nvidia-smi
+else
+    echo \"docker not install -- skip checking 'nvidia-ctk runtime configure'\"
 fi
-
-# checking nvidia container toolkit
-# TODO: support other runtime?
-sudo nvidia-ctk runtime configure --runtime=docker
-
-# https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/getting-started.html#install-nvidia-gpu-operator
-cat /etc/nvidia-container-runtime/config.toml
-
-# restart docker
-sudo systemctl restart docker
-
-# test nvidia container toolkit
-sudo docker run --rm --runtime=nvidia --gpus all nvidia/cuda:11.6.2-base-ubuntu20.04 nvidia-smi
 "
             .to_string()),
 
