@@ -115,8 +115,10 @@ pub enum Plugin {
 
     #[serde(rename = "post-init-script")]
     PostInitScript,
-    #[serde(rename = "cleanup-image")]
-    CleanupImage,
+    #[serde(rename = "cleanup-image-ssh-keys")]
+    CleanupImageSshKeys,
+    #[serde(rename = "cleanup-image-aws-credentials")]
+    CleanupImageAwsCredentials,
 
     Unknown(String),
 }
@@ -167,7 +169,8 @@ impl std::convert::From<&str> for Plugin {
             "eks-worker-node-ami-scratch" => Plugin::EksWorkerNodeAmiScratch,
             "eks-worker-node-ami-reuse" => Plugin::EksWorkerNodeAmiReuse,
             "post-init-script" => Plugin::PostInitScript,
-            "cleanup-image" => Plugin::CleanupImage,
+            "cleanup-image-ssh-keys" => Plugin::CleanupImageSshKeys,
+            "cleanup-image-aws-credentials" => Plugin::CleanupImageAwsCredentials,
             other => Plugin::Unknown(other.to_owned()),
         }
     }
@@ -228,7 +231,8 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiScratch => "eks-worker-node-ami-scratch",
             Plugin::EksWorkerNodeAmiReuse => "eks-worker-node-ami-reuse",
             Plugin::PostInitScript => "post-init-script",
-            Plugin::CleanupImage => "cleanup-image",
+            Plugin::CleanupImageSshKeys => "cleanup-image-ssh-keys",
+            Plugin::CleanupImageAwsCredentials => "cleanup-image-aws-credentials",
             Plugin::Unknown(s) => s.as_ref(),
         }
     }
@@ -294,8 +298,10 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiScratch => 99990,
             Plugin::EksWorkerNodeAmiReuse => 99991,
 
-            Plugin::PostInitScript => u32::MAX - 2,
-            Plugin::CleanupImage => u32::MAX - 1,
+            Plugin::PostInitScript => u32::MAX - 100,
+
+            Plugin::CleanupImageSshKeys => u32::MAX - 2,
+            Plugin::CleanupImageAwsCredentials => u32::MAX - 1,
 
             Plugin::Unknown(_) => u32::MAX,
         }
@@ -344,7 +350,7 @@ impl Plugin {
             "dev-faiss-gpu",               //
             "eks-worker-node-ami-scratch", //
             "eks-worker-node-ami-reuse",   //
-            "cleanup-image",               //
+            "cleanup-image-ssh-keys",      //
             "post-init-script",            //
         ]
     }
@@ -394,7 +400,8 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiScratch.as_str().to_string(),
             Plugin::EksWorkerNodeAmiReuse.as_str().to_string(),
             Plugin::PostInitScript.as_str().to_string(),
-            Plugin::CleanupImage.as_str().to_string(),
+            Plugin::CleanupImageSshKeys.as_str().to_string(),
+            Plugin::CleanupImageAwsCredentials.as_str().to_string(),
         ]
     }
 
@@ -589,18 +596,6 @@ pub fn create(
             );
         }
         plugins_set.insert(Plugin::PostInitScript);
-    }
-
-    if plugins_set.contains(&Plugin::CleanupImage)
-        && (aws_secret_key_id.is_some() || aws_secret_access_key.is_some())
-    {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!(
-                "'{}' removes the aws access key anyways... do not specify the aws access key",
-                Plugin::CleanupImage.as_str()
-            ),
-        ));
     }
 
     let mut plugins = Vec::new();
@@ -1038,8 +1033,14 @@ pub fn create(
             Plugin::PostInitScript => {
                 log::info!("skipping post-init-script plugin, saving it for the very last")
             }
-            Plugin::CleanupImage => {
-                log::info!("skipping cleanup-image plugin, saving it for the very last")
+
+            Plugin::CleanupImageSshKeys => {
+                log::info!("skipping cleanup-image-ssh-keys plugin, saving it for the very last")
+            }
+            Plugin::CleanupImageAwsCredentials => {
+                log::info!(
+                    "skipping cleanup-image-aws-credentials plugin, saving it for the very last"
+                )
             }
 
             _ => {
@@ -1096,8 +1097,14 @@ pub fn create(
         contents.push_str("###########################\n# USER-DEFINED POST INIT SCRIPT\n");
         contents.push_str(&post_init_script.unwrap());
     }
-    if plugins_set.contains(&Plugin::CleanupImage) {
-        let d = scripts::cleanup_image(os_type.clone())?;
+
+    if plugins_set.contains(&Plugin::CleanupImageSshKeys) {
+        let d = scripts::cleanup_image_ssh_keys(os_type.clone())?;
+        contents.push_str(&d);
+    }
+
+    if plugins_set.contains(&Plugin::CleanupImageAwsCredentials) {
+        let d = scripts::cleanup_image_aws_credentials(os_type.clone())?;
         contents.push_str(&d);
     }
 
@@ -1154,17 +1161,19 @@ fn test_sort() {
         Plugin::DevBark,
         Plugin::EksWorkerNodeAmiReuse,
         Plugin::PostInitScript,
-        Plugin::CleanupImage,
+        Plugin::CleanupImageSshKeys,
+        Plugin::CleanupImageAwsCredentials,
     ];
 
     let mut unsorted: Vec<Plugin> = vec![
         Plugin::NvidiaDriver,
         Plugin::EksWorkerNodeAmiReuse,
         Plugin::CloudwatchAgent,
-        Plugin::CleanupImage,
+        Plugin::CleanupImageSshKeys,
         Plugin::Ena,
         Plugin::Runc,
         Plugin::PostInitScript,
+        Plugin::CleanupImageAwsCredentials,
         Plugin::SsmAgent,
         Plugin::MountBpfFs,
         Plugin::Imds,

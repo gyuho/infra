@@ -2783,59 +2783,38 @@ sudo chmod 0444 /etc/release
     }
 }
 
-pub fn cleanup_image(os_type: OsType) -> io::Result<String> {
+pub fn cleanup_image_ssh_keys(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
-
-
-
-
-
-
-
 ###########################
 # WARN
 # clean up image (useful/required for AMI builds)
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/validate.sh
 
-# cat /etc/machine-id
-sudo apt clean all
-sudo apt-get clean
-
 sudo rm -rf \\
-/tmp/worker \\
-/etc/hostname \\
-/etc/machine-id \\
-/etc/resolv.conf \\
 /etc/ssh/ssh_host* \\
 /home/ubuntu/.ssh/authorized_keys \\
-/root/.ssh/authorized_keys \\
-/var/lib/cloud/data \\
-/var/lib/cloud/instance \\
-/var/lib/cloud/instances \\
-/var/lib/cloud/sem \\
-/var/lib/dhclient/* \\
-/var/lib/dhcp/dhclient.* \\
-/var/lib/apt/history \\
-/var/log/cloud-init-output.log \\
-/var/log/cloud-init.log \\
-/var/log/auth.log \\
-/var/log/wtmp \\
-/tmp/imds-tokens || true
+/root/.ssh/authorized_keys 
+"
+        .to_string()),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("os_type '{}' not supported", os_type.as_str()),
+        )),
+    }
+}
 
-# sudo rm -rf /home/ubuntu/.aws
-sudo rm -rf /tmp/*
-
-sudo touch /etc/machine-id
+pub fn cleanup_image_aws_credentials(os_type: OsType) -> io::Result<String> {
+    match os_type {
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
 ###########################
+# WARN
+# clean up AWS credentials
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/validate.sh
 
-
-
-
-
-
-
+sudo rm -rf /home/ubuntu/.aws
 "
         .to_string()),
         _ => Err(Error::new(
