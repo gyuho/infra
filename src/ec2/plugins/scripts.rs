@@ -2938,7 +2938,7 @@ pub fn cleanup_image(os_type: OsType) -> io::Result<String> {
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/validate.sh
 
-cat /etc/machine-id
+# cat /etc/machine-id
 sudo apt clean all
 sudo apt-get clean
 
@@ -2963,8 +2963,9 @@ sudo rm -rf \\
 /var/log/wtmp \\
 /tmp/imds-tokens || true
 
-sudo rm -rf /home/ubuntu/.aws
-sudo rm -f /tmp/*
+# sudo rm -rf /home/ubuntu/.aws
+sudo rm -rf /tmp/*
+
 sudo touch /etc/machine-id
 ###########################
 
