@@ -112,8 +112,6 @@ pub enum Plugin {
     EksWorkerNodeAmiScratch,
     #[serde(rename = "eks-worker-node-ami-reuse")]
     EksWorkerNodeAmiReuse,
-    #[serde(rename = "eks-worker-node-ami-update-containerd-for-nvidia-gpu")]
-    EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
 
     #[serde(rename = "post-init-script")]
     PostInitScript,
@@ -168,9 +166,6 @@ impl std::convert::From<&str> for Plugin {
             "dev-faiss-gpu" => Plugin::DevFaissGpu,
             "eks-worker-node-ami-scratch" => Plugin::EksWorkerNodeAmiScratch,
             "eks-worker-node-ami-reuse" => Plugin::EksWorkerNodeAmiReuse,
-            "eks-worker-node-ami-update-containerd-for-nvidia-gpu" => {
-                Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu
-            }
             "post-init-script" => Plugin::PostInitScript,
             "cleanup-image" => Plugin::CleanupImage,
             other => Plugin::Unknown(other.to_owned()),
@@ -232,9 +227,6 @@ impl Plugin {
             Plugin::DevFaissGpu => "dev-faiss-gpu",
             Plugin::EksWorkerNodeAmiScratch => "eks-worker-node-ami-scratch",
             Plugin::EksWorkerNodeAmiReuse => "eks-worker-node-ami-reuse",
-            Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => {
-                "eks-worker-node-ami-update-containerd-for-nvidia-gpu"
-            }
             Plugin::PostInitScript => "post-init-script",
             Plugin::CleanupImage => "cleanup-image",
             Plugin::Unknown(s) => s.as_ref(),
@@ -301,7 +293,6 @@ impl Plugin {
 
             Plugin::EksWorkerNodeAmiScratch => 99990,
             Plugin::EksWorkerNodeAmiReuse => 99991,
-            Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => 99992,
 
             Plugin::PostInitScript => u32::MAX - 2,
             Plugin::CleanupImage => u32::MAX - 1,
@@ -313,48 +304,48 @@ impl Plugin {
     /// Returns all the `&str` values of the enum members.
     pub fn values() -> &'static [&'static str] {
         &[
-            "imds",                                          //
-            "provider-id",                                   //
-            "vercmp",                                        //
-            "setup-local-disks",                             //
-            "mount-bpf-fs",                                  //
-            "system-limit-bump",                             //
-            "time-sync",                                     //
-            "aws-cli",                                       //
-            "ssm-agent",                                     //
-            "cloudwatch-agent",                              //
-            "static-volume-provisioner",                     //
-            "static-ip-provisioner",                         //
-            "anaconda",                                      //
-            "python",                                        //
-            "rust",                                          //
-            "go",                                            //
-            "docker",                                        //
-            "containerd",                                    //
-            "runc",                                          //
-            "cni-plugins",                                   //
-            "protobuf-compiler",                             //
-            "aws-cfn-helper",                                //
-            "saml2aws",                                      //
-            "aws-iam-authenticator",                         //
-            "ecr-credential-provider",                       //
-            "kubelet",                                       //
-            "kubectl",                                       //
-            "helm",                                          //
-            "terraform",                                     //
-            "ssh-key-with-email",                            //
-            "nvidia-driver",                                 //
-            "nvidia-cuda-toolkit",                           //
-            "nvidia-container-toolkit",                      //
-            "amd-radeon-gpu-driver",                         //
-            "cmake",                                         //
-            "gcc7",                                          //
-            "dev-bark",                                      //
-            "dev-faiss-gpu",                                 //
-            "eks-worker-node-ami-scratch",                   //
-            "eks-worker-node-ami-update-containerd-for-gpu", //
-            "cleanup-image",                                 //
-            "post-init-script",                              //
+            "imds",                        //
+            "provider-id",                 //
+            "vercmp",                      //
+            "setup-local-disks",           //
+            "mount-bpf-fs",                //
+            "system-limit-bump",           //
+            "time-sync",                   //
+            "aws-cli",                     //
+            "ssm-agent",                   //
+            "cloudwatch-agent",            //
+            "static-volume-provisioner",   //
+            "static-ip-provisioner",       //
+            "anaconda",                    //
+            "python",                      //
+            "rust",                        //
+            "go",                          //
+            "docker",                      //
+            "containerd",                  //
+            "runc",                        //
+            "cni-plugins",                 //
+            "protobuf-compiler",           //
+            "aws-cfn-helper",              //
+            "saml2aws",                    //
+            "aws-iam-authenticator",       //
+            "ecr-credential-provider",     //
+            "kubelet",                     //
+            "kubectl",                     //
+            "helm",                        //
+            "terraform",                   //
+            "ssh-key-with-email",          //
+            "nvidia-driver",               //
+            "nvidia-cuda-toolkit",         //
+            "nvidia-container-toolkit",    //
+            "amd-radeon-gpu-driver",       //
+            "cmake",                       //
+            "gcc7",                        //
+            "dev-bark",                    //
+            "dev-faiss-gpu",               //
+            "eks-worker-node-ami-scratch", //
+            "eks-worker-node-ami-reuse",   //
+            "cleanup-image",               //
+            "post-init-script",            //
         ]
     }
 
@@ -402,9 +393,6 @@ impl Plugin {
             Plugin::DevFaissGpu.as_str().to_string(),
             Plugin::EksWorkerNodeAmiScratch.as_str().to_string(),
             Plugin::EksWorkerNodeAmiReuse.as_str().to_string(),
-            Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu
-                .as_str()
-                .to_string(),
             Plugin::PostInitScript.as_str().to_string(),
             Plugin::CleanupImage.as_str().to_string(),
         ]
@@ -602,50 +590,13 @@ pub fn create(
             ),
         ));
     }
-    if plugins_set.contains(&Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu)
-        && !plugins_set.contains(&Plugin::EksWorkerNodeAmiReuse)
-    {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!(
-                "'{}' requires '{}'",
-                Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu.as_str(),
-                Plugin::EksWorkerNodeAmiReuse.as_str()
-            ),
-        ));
-    }
-    if plugins_set.contains(&Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu)
-        && (!plugins_set.contains(&Plugin::NvidiaDriver)
-            || !plugins_set.contains(&Plugin::NvidiaContainerToolkit))
-    {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!(
-                "'{}' requires '{}' or '{}'",
-                Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu.as_str(),
-                Plugin::NvidiaDriver.as_str(),
-                Plugin::NvidiaContainerToolkit.as_str()
-            ),
-        ));
-    }
 
     if plugins_set.contains(&Plugin::PostInitScript) && post_init_script.is_none() {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!(
-                "'{}' but no post init script specified",
-                Plugin::PostInitScript.as_str()
-            ),
-        ));
-    }
-    if !plugins_set.contains(&Plugin::PostInitScript) && post_init_script.is_some() {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!(
-                "post init script specified but no '{}'",
-                Plugin::PostInitScript.as_str()
-            ),
-        ));
+        log::warn!(
+            "'{}' but no post init script specified -- adding to set",
+            Plugin::PostInitScript.as_str()
+        );
+        plugins_set.insert(Plugin::PostInitScript);
     }
 
     if plugins_set.contains(&Plugin::CleanupImage)
@@ -1091,14 +1042,6 @@ pub fn create(
                 );
                 contents.push_str(&d);
             }
-            Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu => {
-                let d =
-                    scripts::eks_worker_node_ami_update_containerd_for_nvidia_gpu(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
-                contents.push_str(&d);
-            }
 
             Plugin::PostInitScript => {
                 log::info!("skipping post-init-script plugin, saving it for the very last")
@@ -1218,13 +1161,13 @@ fn test_sort() {
         Plugin::NvidiaDriver,
         Plugin::DevBark,
         Plugin::EksWorkerNodeAmiReuse,
-        Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
         Plugin::PostInitScript,
         Plugin::CleanupImage,
     ];
 
     let mut unsorted: Vec<Plugin> = vec![
         Plugin::NvidiaDriver,
+        Plugin::EksWorkerNodeAmiReuse,
         Plugin::CloudwatchAgent,
         Plugin::CleanupImage,
         Plugin::Ena,
@@ -1236,8 +1179,6 @@ fn test_sort() {
         Plugin::SystemLimitBump,
         Plugin::Containerd,
         Plugin::Vercmp,
-        Plugin::EksWorkerNodeAmiUpdateContainerdForNvidiaGpu,
-        Plugin::EksWorkerNodeAmiReuse,
         Plugin::DevBark,
         Plugin::ProviderId,
         Plugin::TimeSync,

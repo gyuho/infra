@@ -1635,12 +1635,14 @@ tail /var/log/cuda-installer.log
 if ! command -v nvcc &> /dev/null
 then
     echo \"nvcc could not be found\"
-    exit 1
+
+    # PATH env might not been updated yet
+    # exit 1
 fi
 
 # /usr/local/cuda-12.1/bin
-which nvcc
-nvcc --version
+which nvcc || true
+nvcc --version || true
 /usr/local/cuda-12.1/bin/nvcc --version
 
 if ! command -v nvidia-smi &> /dev/null
@@ -1922,7 +1924,7 @@ pub fn eks_worker_node_ami_scratch(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
 ###########################
-# install EKS worker node AMI
+# install EKS worker node AMI (from scratch)
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 
 
@@ -2380,34 +2382,9 @@ pub fn eks_worker_node_ami_reuse(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
 ###########################
-# install EKS worker node AMI
+# install EKS worker node AMI (minimum)
 # to build on top of the existing ubuntu AMI
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-
-
-#######
-# install packages
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-#######
-while [ 1 ]; do
-    sudo apt-get update -yq
-    sudo apt-get upgrade -yq
-    sudo apt-get install -yq conntrack socat nfs-kernel-server ipvsadm
-    sudo apt-get clean
-    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
-    sleep 2s;
-done;
-
-
-#######
-### Stuff required by \"protectKernelDefaults=true\"
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-#######
-cat << EOF | sudo tee -a /etc/sysctl.d/99-amazon.conf
-vm.overcommit_memory=1
-kernel.panic=10
-kernel.panic_on_oops=1
-EOF
 
 
 #######
@@ -2459,65 +2436,14 @@ sudo mv /tmp/check-nvidia-smi.sh /etc/check-nvidia-smi.sh
 #######
 # set up files
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-# SKIP bootstrap.sh since Ubuntu AMI already has one
-#######
-sudo mkdir -p /etc/eks
-sudo chown -R root:root /etc/eks
-
-targets=(
-    get-ecr-uri.sh
-    eni-max-pods.txt
-    max-pods-calculator.sh
-)
-for target in \"${targets[@]}\"
-do
-    while [ 1 ]; do
-        rm -f /tmp/${target} || true;
-        wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://raw.githubusercontent.com/awslabs/amazon-eks-ami/master/files/${target}\"
-        if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
-        sleep 2s;
-    done;
-    chmod +x /tmp/${target}
-    sudo mv /tmp/${target} /etc/eks/${target}
-done
-
-sudo chown -R root:root /etc/eks
-sudo chown -R ubuntu:ubuntu /etc/eks
-find /etc/eks
-
-
-#######
-# set up iptables
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-#######
-sudo mkdir -p /etc/eks
-sudo chown -R root:root /etc/eks
-
-while [ 1 ]; do
-    rm -f /tmp/iptables-restore.service || true;
-    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://raw.githubusercontent.com/awslabs/amazon-eks-ami/master/files/iptables-restore.service\"
-    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
-    sleep 2s;
-done;
-chmod +x /tmp/iptables-restore.service
-sudo mv /tmp/iptables-restore.service /etc/eks/iptables-restore.service
-
-sudo chown -R root:root /etc/eks
-sudo chown -R ubuntu:ubuntu /etc/eks
-find /etc/eks
-
-
-#######
-# set up containerd
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 #######
 sudo mkdir -p /etc/eks
 sudo chown -R root:root /etc/eks
 sudo mkdir -p /etc/eks/containerd
 
 targets=(
+    get-ecr-uri.sh
     containerd-config.toml
-    kubelet-containerd.service
     sandbox-image.service
     pull-sandbox-image.sh
     pull-image.sh
@@ -2531,45 +2457,14 @@ do
         sleep 2s;
     done;
     chmod +x /tmp/${target}
-    sudo mv /tmp/${target} /etc/eks/containerd/${target}
+    sudo cp -v /tmp/${target} /etc/eks/containerd/${target}
+    sudo mv /tmp/${target} /etc/eks/${target}
 done
 
 sudo chown -R root:root /etc/eks
 sudo chown -R ubuntu:ubuntu /etc/eks
 find /etc/eks
 
-sudo mkdir -p /etc/systemd/system/containerd.service.d
-cat << EOF | sudo tee /etc/systemd/system/containerd.service.d/10-compat-symlink.conf
-[Service]
-ExecStartPre=/bin/ln -sf /run/containerd/containerd.sock /run/dockershim.sock
-EOF
-
-cat << EOF | sudo tee -a /etc/modules-load.d/containerd.conf
-overlay
-br_netfilter
-EOF
-
-cat << EOF | sudo tee -a /etc/sysctl.d/99-kubernetes-cri.conf
-net.bridge.bridge-nf-call-ip6tables = 1
-net.bridge.bridge-nf-call-iptables = 1
-net.ipv4.ip_forward = 1
-EOF
-
-cat << EOF | sudo tee /etc/systemd/system/containerd.service
-[Unit]
-Description=containerd
-Documentation=https://containerd.io
-
-[Service]
-Type=notify
-ExecStart=/usr/bin/containerd
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl enable containerd
-sudo systemctl restart containerd
 sudo ctr version || true
 
 
@@ -2618,13 +2513,6 @@ while [ 1 ]; do
 done;
 sudo mv /tmp/logrotate.conf /etc/logrotate.conf
 sudo chown root:root /etc/logrotate.conf
-
-
-#######
-# set up kubernetes
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-#######
-# SKIP THIS, WE DO NOT WANT TO OVERWRITE
 
 
 #######
@@ -2791,32 +2679,6 @@ cat /tmp/release-full
 
 sudo cp -v /tmp/release-full /etc/release-full
 sudo chmod 0444 /etc/release-full
-"
-        .to_string()),
-        _ => Err(Error::new(
-            ErrorKind::InvalidInput,
-            format!("os_type '{}' not supported", os_type.as_str()),
-        )),
-    }
-}
-
-pub fn eks_worker_node_ami_update_containerd_for_nvidia_gpu(os_type: OsType) -> io::Result<String> {
-    match os_type {
-        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
-###########################
-# set up containerd for NVIDIA GPU
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-
-# https://josephb.org/blog/containerd-nvidia/
-cat /etc/containerd/config.toml
-sudo sed -i 's/default_runtime_name = \"runc\"/default_runtime_name = \"nvidia\"/g' /etc/containerd/config.toml
-cat /etc/containerd/config.toml
-
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-cat /etc/nvidia-container-runtime/config.toml
-sudo sed -i 's/^#root/root/' /etc/nvidia-container-runtime/config.toml
-cat /etc/nvidia-container-runtime/config.toml
-
 "
         .to_string()),
         _ => Err(Error::new(
