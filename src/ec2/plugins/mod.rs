@@ -581,11 +581,13 @@ pub fn create(
         ));
     }
 
-    if plugins_set.contains(&Plugin::PostInitScript) && post_init_script.is_none() {
-        log::warn!(
-            "'{}' but no post init script specified -- adding to set",
-            Plugin::PostInitScript.as_str()
-        );
+    if post_init_script.is_some() {
+        if !plugins_set.contains(&Plugin::PostInitScript) {
+            log::warn!(
+                "'{}' but no post init script specified -- adding to set",
+                Plugin::PostInitScript.as_str()
+            );
+        }
         plugins_set.insert(Plugin::PostInitScript);
     }
 
