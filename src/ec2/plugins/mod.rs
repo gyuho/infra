@@ -115,6 +115,9 @@ pub enum Plugin {
 
     #[serde(rename = "ami-info")]
     AmiInfo,
+    #[serde(rename = "cluster-info")]
+    ClusterInfo,
+
     #[serde(rename = "post-init-script")]
     PostInitScript,
 
@@ -174,6 +177,7 @@ impl std::convert::From<&str> for Plugin {
             "eks-worker-node-ami-scratch" => Plugin::EksWorkerNodeAmiScratch,
             "eks-worker-node-ami-reuse" => Plugin::EksWorkerNodeAmiReuse,
             "ami-info" => Plugin::AmiInfo,
+            "cluster-info" => Plugin::ClusterInfo,
             "post-init-script" => Plugin::PostInitScript,
             "cleanup-image-packages" => Plugin::CleanupImagePackages,
             "cleanup-image-ssh-keys" => Plugin::CleanupImageSshKeys,
@@ -238,6 +242,7 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiScratch => "eks-worker-node-ami-scratch",
             Plugin::EksWorkerNodeAmiReuse => "eks-worker-node-ami-reuse",
             Plugin::AmiInfo => "ami-info",
+            Plugin::ClusterInfo => "cluster-info",
             Plugin::PostInitScript => "post-init-script",
             Plugin::CleanupImagePackages => "cleanup-image-packages",
             Plugin::CleanupImageSshKeys => "cleanup-image-ssh-keys",
@@ -307,8 +312,10 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiScratch => 99990,
             Plugin::EksWorkerNodeAmiReuse => 99991,
 
-            Plugin::AmiInfo => u32::MAX - 1000,
-            Plugin::PostInitScript => u32::MAX - 100,
+            Plugin::AmiInfo => u32::MAX - 2000,
+            Plugin::ClusterInfo => u32::MAX - 1999,
+
+            Plugin::PostInitScript => u32::MAX - 1000,
 
             Plugin::CleanupImagePackages => u32::MAX - 3,
             Plugin::CleanupImageSshKeys => u32::MAX - 2,
@@ -411,6 +418,7 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiScratch.as_str().to_string(),
             Plugin::EksWorkerNodeAmiReuse.as_str().to_string(),
             Plugin::AmiInfo.as_str().to_string(),
+            Plugin::ClusterInfo.as_str().to_string(),
             Plugin::PostInitScript.as_str().to_string(),
             Plugin::CleanupImagePackages.as_str().to_string(),
             Plugin::CleanupImageSshKeys.as_str().to_string(),
@@ -695,7 +703,7 @@ pub fn create(
                     contents.push_str(
                         "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                     );
-                    contents.push_str(&scripts::write_cluster_data(
+                    contents.push_str(&scripts::cluster_info(
                         s3_bucket,
                         id,
                         plugins_set.contains(&Plugin::StaticVolumeProvisioner),
@@ -771,7 +779,7 @@ pub fn create(
                     contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
-                    contents.push_str(&scripts::write_cluster_data(
+                    contents.push_str(&scripts::cluster_info(
                         s3_bucket,
                         id,
                         plugins_set.contains(&Plugin::StaticVolumeProvisioner),
@@ -1043,22 +1051,15 @@ pub fn create(
                 contents.push_str(&d);
             }
 
-            Plugin::AmiInfo => {
-                log::info!("skipping post-init-script plugin, saving it for the very last")
-            }
-            Plugin::PostInitScript => {
-                log::info!("skipping post-init-script plugin, saving it for the very last")
-            }
-
-            Plugin::CleanupImagePackages => {
-                log::info!("skipping cleanup-image-packages plugin, saving it for the very last")
-            }
-            Plugin::CleanupImageSshKeys => {
-                log::info!("skipping cleanup-image-ssh-keys plugin, saving it for the very last")
-            }
-            Plugin::CleanupImageAwsCredentials => {
+            Plugin::AmiInfo
+            | Plugin::ClusterInfo
+            | Plugin::PostInitScript
+            | Plugin::CleanupImagePackages
+            | Plugin::CleanupImageSshKeys
+            | Plugin::CleanupImageAwsCredentials => {
                 log::info!(
-                    "skipping cleanup-image-aws-credentials plugin, saving it for the very last"
+                    "skipping {}, saving it to write after bash profile at the end",
+                    p.as_str()
                 )
             }
 
@@ -1083,58 +1084,62 @@ pub fn create(
             plugins_set.contains(&Plugin::Helm),
             plugins_set.contains(&Plugin::StaticVolumeProvisioner),
         )?;
-        contents.push_str(
-            "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-        );
-        contents.push_str(&d);
 
-        contents.push_str(
-            "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-        );
-        contents.push_str(&scripts::write_cluster_data(
-            s3_bucket,
-            id,
-            plugins_set.contains(&Plugin::StaticVolumeProvisioner),
-        ));
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
+        contents.push_str(&d);
     }
 
     if let Some(secret_key_id) = &aws_secret_key_id {
         let access_key = aws_secret_access_key.clone().unwrap();
-
         let d = scripts::aws_key(os_type.clone(), region, secret_key_id.as_str(), &access_key)?;
-        contents
-            .push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
+
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
     }
 
     if plugins_set.contains(&Plugin::AmiInfo) {
         let d = scripts::ami_info(os_type.clone())?;
-        contents.push_str(
-        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-    );
+
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
     }
-    if plugins_set.contains(&Plugin::PostInitScript) {
-        contents
-        .push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
+    if plugins_set.contains(&Plugin::ClusterInfo) {
+        let d = scripts::cluster_info(
+            s3_bucket,
+            id,
+            plugins_set.contains(&Plugin::StaticVolumeProvisioner),
+        );
 
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
+        contents.push_str(&d);
+    }
+
+    if plugins_set.contains(&Plugin::PostInitScript) {
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str("###########################\n# USER-DEFINED POST INIT SCRIPT\n");
         contents.push_str(&post_init_script.unwrap());
     }
 
     if plugins_set.contains(&Plugin::CleanupImagePackages) {
         let d = scripts::cleanup_image_packages(os_type.clone())?;
+
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
     }
     if plugins_set.contains(&Plugin::CleanupImageSshKeys) {
         let d = scripts::cleanup_image_ssh_keys(os_type.clone())?;
+
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
     }
     if plugins_set.contains(&Plugin::CleanupImageAwsCredentials) {
         let d = scripts::cleanup_image_aws_credentials(os_type.clone())?;
+
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
     }
 
+    contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
     Ok((plugins, contents))
 }
 

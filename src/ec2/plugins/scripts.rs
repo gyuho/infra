@@ -289,30 +289,6 @@ EOF
     }
 }
 
-pub fn write_cluster_data(s3_bucket: &str, id: &str, data_directory_mounted: bool) -> String {
-    if data_directory_mounted {
-        format!(
-            "
-###########################
-# write cluster information, assume /data is mounted
-
-echo -n \"{s3_bucket}\" > /data/current_s3_bucket
-echo -n \"{id}\" > /data/current_id
-"
-        )
-    } else {
-        format!(
-            "
-###########################
-# write cluster information, assume /data is not mounted
-
-echo -n \"{s3_bucket}\" > /tmp/current_s3_bucket
-echo -n \"{id}\" > /tmp/current_id
-"
-        )
-    }
-}
-
 pub fn imds(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 | OsType::Al2023 => Ok("
@@ -2712,7 +2688,7 @@ aws sts get-caller-identity
 
 pub fn ami_info(os_type: OsType) -> io::Result<String> {
     match os_type {
-        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("###########################
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
 ###########################
 # print/write AMI info
 
@@ -2742,9 +2718,33 @@ sudo chmod 0444 /etc/release
     }
 }
 
+pub fn cluster_info(s3_bucket: &str, id: &str, data_directory_mounted: bool) -> String {
+    if data_directory_mounted {
+        format!(
+            "
+###########################
+# write cluster information, assume /data is mounted
+
+echo -n \"{s3_bucket}\" > /data/current_s3_bucket
+echo -n \"{id}\" > /data/current_id
+"
+        )
+    } else {
+        format!(
+            "
+###########################
+# write cluster information, assume /data is not mounted
+
+echo -n \"{s3_bucket}\" > /tmp/current_s3_bucket
+echo -n \"{id}\" > /tmp/current_id
+"
+        )
+    }
+}
+
 pub fn cleanup_image_packages(os_type: OsType) -> io::Result<String> {
     match os_type {
-        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("###########################
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
 ###########################
 # clean up packages
 
