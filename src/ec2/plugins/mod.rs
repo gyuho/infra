@@ -123,6 +123,8 @@ pub enum Plugin {
 
     #[serde(rename = "cleanup-image-packages")]
     CleanupImagePackages,
+    #[serde(rename = "cleanup-image-tmp-dir")]
+    CleanupImageTmpDir,
     #[serde(rename = "cleanup-image-ssh-keys")]
     CleanupImageSshKeys,
     #[serde(rename = "cleanup-image-aws-credentials")]
@@ -180,6 +182,7 @@ impl std::convert::From<&str> for Plugin {
             "cluster-info" => Plugin::ClusterInfo,
             "post-init-script" => Plugin::PostInitScript,
             "cleanup-image-packages" => Plugin::CleanupImagePackages,
+            "cleanup-image-tmp-dir" => Plugin::CleanupImageTmpDir,
             "cleanup-image-ssh-keys" => Plugin::CleanupImageSshKeys,
             "cleanup-image-aws-credentials" => Plugin::CleanupImageAwsCredentials,
             other => Plugin::Unknown(other.to_owned()),
@@ -245,6 +248,7 @@ impl Plugin {
             Plugin::ClusterInfo => "cluster-info",
             Plugin::PostInitScript => "post-init-script",
             Plugin::CleanupImagePackages => "cleanup-image-packages",
+            Plugin::CleanupImageTmpDir => "cleanup-image-tmp-dir",
             Plugin::CleanupImageSshKeys => "cleanup-image-ssh-keys",
             Plugin::CleanupImageAwsCredentials => "cleanup-image-aws-credentials",
             Plugin::Unknown(s) => s.as_ref(),
@@ -317,9 +321,10 @@ impl Plugin {
 
             Plugin::PostInitScript => u32::MAX - 1000,
 
-            Plugin::CleanupImagePackages => u32::MAX - 3,
-            Plugin::CleanupImageSshKeys => u32::MAX - 2,
-            Plugin::CleanupImageAwsCredentials => u32::MAX - 1,
+            Plugin::CleanupImagePackages => u32::MAX - 10,
+            Plugin::CleanupImageTmpDir => u32::MAX - 9,
+            Plugin::CleanupImageSshKeys => u32::MAX - 8,
+            Plugin::CleanupImageAwsCredentials => u32::MAX - 7,
 
             Plugin::Unknown(_) => u32::MAX,
         }
@@ -427,6 +432,7 @@ impl Plugin {
             Plugin::ClusterInfo.as_str().to_string(),
             Plugin::PostInitScript.as_str().to_string(),
             Plugin::CleanupImagePackages.as_str().to_string(),
+            Plugin::CleanupImageTmpDir.as_str().to_string(),
             Plugin::CleanupImageSshKeys.as_str().to_string(),
             Plugin::CleanupImageAwsCredentials.as_str().to_string(),
         ]
@@ -1061,6 +1067,7 @@ pub fn create(
             | Plugin::ClusterInfo
             | Plugin::PostInitScript
             | Plugin::CleanupImagePackages
+            | Plugin::CleanupImageTmpDir
             | Plugin::CleanupImageSshKeys
             | Plugin::CleanupImageAwsCredentials => {
                 log::info!(
@@ -1128,6 +1135,12 @@ pub fn create(
 
     if plugins_set.contains(&Plugin::CleanupImagePackages) {
         let d = scripts::cleanup_image_packages(os_type.clone())?;
+
+        contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
+        contents.push_str(&d);
+    }
+    if plugins_set.contains(&Plugin::CleanupImageTmpDir) {
+        let d = scripts::cleanup_image_tmp_dir(os_type.clone())?;
 
         contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
@@ -1200,6 +1213,8 @@ fn test_sort() {
         Plugin::EksWorkerNodeAmiReuse,
         Plugin::AmiInfo,
         Plugin::PostInitScript,
+        Plugin::CleanupImagePackages,
+        Plugin::CleanupImageTmpDir,
         Plugin::CleanupImageSshKeys,
         Plugin::CleanupImageAwsCredentials,
     ];
@@ -1209,8 +1224,9 @@ fn test_sort() {
         Plugin::EksWorkerNodeAmiReuse,
         Plugin::CloudwatchAgent,
         Plugin::CleanupImageSshKeys,
-        Plugin::Ena,
         Plugin::Runc,
+        Plugin::CleanupImagePackages,
+        Plugin::CleanupImageTmpDir,
         Plugin::PostInitScript,
         Plugin::CleanupImageAwsCredentials,
         Plugin::SsmAgent,
@@ -1228,6 +1244,7 @@ fn test_sort() {
         Plugin::AmiInfo,
         Plugin::Go,
         Plugin::AwsCli,
+        Plugin::Ena,
     ];
     unsorted.sort();
 

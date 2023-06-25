@@ -6,8 +6,6 @@ pub fn start(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("#!/usr/bin/env bash
 
-
-
 # print all executed commands to terminal
 set -x
 
@@ -22,8 +20,6 @@ set -o errexit
 
 # makes the  default answers be used for all questions
 export DEBIAN_FRONTEND=noninteractive
-
-
 
 ############################################
 ### Machine Architecture ###################
@@ -49,8 +45,6 @@ pwd
 lscpu
 cat /etc/os-release
 hostnamectl
-
-
 
 ############################################
 ### Basic packages #########################
@@ -2750,6 +2744,22 @@ pub fn cleanup_image_packages(os_type: OsType) -> io::Result<String> {
 
 sudo apt clean
 sudo apt-get clean
+"
+        .to_string()),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("os_type '{}' not supported", os_type.as_str()),
+        )),
+    }
+}
+
+pub fn cleanup_image_tmp_dir(os_type: OsType) -> io::Result<String> {
+    match os_type {
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
+###########################
+# clean up /tmp directory
+
+sudo rm -rf /tmp/*
 "
         .to_string()),
         _ => Err(Error::new(

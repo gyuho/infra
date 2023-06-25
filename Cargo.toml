@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.28.50" # https://crates.io/crates/aws-manager/versions
+version = "0.28.51" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.70"
@@ -40,7 +40,7 @@ tokio-stream = { version = "0.1.14", optional = true } # https://github.com/toki
 # [OPTIONAL] for "cloudwatch"
 aws-sdk-cloudwatch = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
 aws-sdk-cloudwatchlogs = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
-serde_json = { version = "1.0.97", optional = true }
+serde_json = { version = "1.0.99", optional = true } # https://github.com/serde-rs/json/releases
 
 # [OPTIONAL] for "ec2"
 aws-sdk-ec2 = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
@@ -48,7 +48,7 @@ chrono = { version = "0.4.26", optional = true } # https://github.com/chronotope
 command-manager = { version = "0.0.3", optional = true }
 reqwest = { version = "0.11.18", optional = true }
 rfc-manager = { version = "0.0.1", optional = true }
-serde_yaml = { version = "0.9.21", optional = true } # https://github.com/dtolnay/serde-yaml/releases
+serde_yaml = { version = "0.9.22", optional = true } # https://github.com/dtolnay/serde-yaml/releases
 
 # [OPTIONAL] for "kms"
 aws-sdk-kms = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
@@ -73,7 +73,7 @@ default = [
     # "autoscaling",
     # "cloudformation",
     # "cloudwatch",
-    # "ec2",
+    "ec2",
     # "kms",
     # "s3",
     # "sqs",
