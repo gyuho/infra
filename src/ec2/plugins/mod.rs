@@ -83,6 +83,8 @@ pub enum Plugin {
     #[serde(rename = "ssh-key-with-email")]
     SshKeyWithEmail,
 
+    /// ref. <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html>
+    /// ref. <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#enhanced-networking-ena-ubuntu>
     #[serde(rename = "ena")]
     Ena,
 
