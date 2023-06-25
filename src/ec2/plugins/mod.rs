@@ -113,8 +113,13 @@ pub enum Plugin {
     #[serde(rename = "eks-worker-node-ami-reuse")]
     EksWorkerNodeAmiReuse,
 
+    #[serde(rename = "ami-info")]
+    AmiInfo,
     #[serde(rename = "post-init-script")]
     PostInitScript,
+
+    #[serde(rename = "cleanup-image-packages")]
+    CleanupImagePackages,
     #[serde(rename = "cleanup-image-ssh-keys")]
     CleanupImageSshKeys,
     #[serde(rename = "cleanup-image-aws-credentials")]
@@ -168,7 +173,9 @@ impl std::convert::From<&str> for Plugin {
             "dev-faiss-gpu" => Plugin::DevFaissGpu,
             "eks-worker-node-ami-scratch" => Plugin::EksWorkerNodeAmiScratch,
             "eks-worker-node-ami-reuse" => Plugin::EksWorkerNodeAmiReuse,
+            "ami-info" => Plugin::AmiInfo,
             "post-init-script" => Plugin::PostInitScript,
+            "cleanup-image-packages" => Plugin::CleanupImagePackages,
             "cleanup-image-ssh-keys" => Plugin::CleanupImageSshKeys,
             "cleanup-image-aws-credentials" => Plugin::CleanupImageAwsCredentials,
             other => Plugin::Unknown(other.to_owned()),
@@ -230,7 +237,9 @@ impl Plugin {
             Plugin::DevFaissGpu => "dev-faiss-gpu",
             Plugin::EksWorkerNodeAmiScratch => "eks-worker-node-ami-scratch",
             Plugin::EksWorkerNodeAmiReuse => "eks-worker-node-ami-reuse",
+            Plugin::AmiInfo => "ami-info",
             Plugin::PostInitScript => "post-init-script",
+            Plugin::CleanupImagePackages => "cleanup-image-packages",
             Plugin::CleanupImageSshKeys => "cleanup-image-ssh-keys",
             Plugin::CleanupImageAwsCredentials => "cleanup-image-aws-credentials",
             Plugin::Unknown(s) => s.as_ref(),
@@ -298,8 +307,10 @@ impl Plugin {
             Plugin::EksWorkerNodeAmiScratch => 99990,
             Plugin::EksWorkerNodeAmiReuse => 99991,
 
+            Plugin::AmiInfo => u32::MAX - 1000,
             Plugin::PostInitScript => u32::MAX - 100,
 
+            Plugin::CleanupImagePackages => u32::MAX - 3,
             Plugin::CleanupImageSshKeys => u32::MAX - 2,
             Plugin::CleanupImageAwsCredentials => u32::MAX - 1,
 
@@ -399,7 +410,9 @@ impl Plugin {
             Plugin::DevFaissGpu.as_str().to_string(),
             Plugin::EksWorkerNodeAmiScratch.as_str().to_string(),
             Plugin::EksWorkerNodeAmiReuse.as_str().to_string(),
+            Plugin::AmiInfo.as_str().to_string(),
             Plugin::PostInitScript.as_str().to_string(),
+            Plugin::CleanupImagePackages.as_str().to_string(),
             Plugin::CleanupImageSshKeys.as_str().to_string(),
             Plugin::CleanupImageAwsCredentials.as_str().to_string(),
         ]
@@ -1030,10 +1043,16 @@ pub fn create(
                 contents.push_str(&d);
             }
 
+            Plugin::AmiInfo => {
+                log::info!("skipping post-init-script plugin, saving it for the very last")
+            }
             Plugin::PostInitScript => {
                 log::info!("skipping post-init-script plugin, saving it for the very last")
             }
 
+            Plugin::CleanupImagePackages => {
+                log::info!("skipping cleanup-image-packages plugin, saving it for the very last")
+            }
             Plugin::CleanupImageSshKeys => {
                 log::info!("skipping cleanup-image-ssh-keys plugin, saving it for the very last")
             }
@@ -1088,8 +1107,13 @@ pub fn create(
         contents.push_str(&d);
     }
 
-    contents.push_str(&scripts::end(os_type.clone())?);
-
+    if plugins_set.contains(&Plugin::AmiInfo) {
+        let d = scripts::ami_info(os_type.clone())?;
+        contents.push_str(
+        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
+    );
+        contents.push_str(&d);
+    }
     if plugins_set.contains(&Plugin::PostInitScript) {
         contents
         .push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
@@ -1098,11 +1122,14 @@ pub fn create(
         contents.push_str(&post_init_script.unwrap());
     }
 
+    if plugins_set.contains(&Plugin::CleanupImagePackages) {
+        let d = scripts::cleanup_image_packages(os_type.clone())?;
+        contents.push_str(&d);
+    }
     if plugins_set.contains(&Plugin::CleanupImageSshKeys) {
         let d = scripts::cleanup_image_ssh_keys(os_type.clone())?;
         contents.push_str(&d);
     }
-
     if plugins_set.contains(&Plugin::CleanupImageAwsCredentials) {
         let d = scripts::cleanup_image_aws_credentials(os_type.clone())?;
         contents.push_str(&d);
@@ -1160,6 +1187,7 @@ fn test_sort() {
         Plugin::NvidiaDriver,
         Plugin::DevBark,
         Plugin::EksWorkerNodeAmiReuse,
+        Plugin::AmiInfo,
         Plugin::PostInitScript,
         Plugin::CleanupImageSshKeys,
         Plugin::CleanupImageAwsCredentials,
@@ -1186,6 +1214,7 @@ fn test_sort() {
         Plugin::Docker,
         Plugin::SetupLocalDisks,
         Plugin::Anaconda,
+        Plugin::AmiInfo,
         Plugin::Go,
         Plugin::AwsCli,
     ];

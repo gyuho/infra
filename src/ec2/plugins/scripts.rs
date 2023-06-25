@@ -1926,7 +1926,6 @@ pub fn eks_worker_node_ami_scratch(os_type: OsType) -> io::Result<String> {
 # install EKS worker node AMI (from scratch)
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 
-
 #######
 # install packages
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
@@ -1940,7 +1939,6 @@ while [ 1 ]; do
     sleep 2s;
 done;
 
-
 #######
 ### Stuff required by \"protectKernelDefaults=true\"
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
@@ -1950,7 +1948,6 @@ vm.overcommit_memory=1
 kernel.panic=10
 kernel.panic_on_oops=1
 EOF
-
 
 #######
 # set up nvidia-smi check scripts
@@ -1997,7 +1994,6 @@ cat /tmp/check-nvidia-smi.sh
 chmod +x /tmp/check-nvidia-smi.sh
 sudo mv /tmp/check-nvidia-smi.sh /etc/check-nvidia-smi.sh
 
-
 #######
 # set up files
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
@@ -2027,7 +2023,6 @@ sudo chown -R root:root /etc/eks
 sudo chown -R ubuntu:ubuntu /etc/eks
 find /etc/eks
 
-
 #######
 # set up iptables
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
@@ -2047,7 +2042,6 @@ sudo mv /tmp/iptables-restore.service /etc/eks/iptables-restore.service
 sudo chown -R root:root /etc/eks
 sudo chown -R ubuntu:ubuntu /etc/eks
 find /etc/eks
-
 
 #######
 # set up containerd
@@ -2114,7 +2108,6 @@ sudo systemctl enable containerd
 sudo systemctl restart containerd
 sudo ctr version || true
 
-
 #######
 # set up log-collector for EKS
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
@@ -2135,7 +2128,6 @@ sudo mv /tmp/eks-log-collector.sh /etc/eks/log-collector-script/eks-log-collecto
 sudo chown -R root:root /etc/eks
 sudo chown -R ubuntu:ubuntu /etc/eks
 find /etc/eks
-
 
 #######
 # set up logrotate for kube-proxy
@@ -2160,7 +2152,6 @@ while [ 1 ]; do
 done;
 sudo mv /tmp/logrotate.conf /etc/logrotate.conf
 sudo chown root:root /etc/logrotate.conf
-
 
 #######
 # set up kubernetes
@@ -2202,7 +2193,6 @@ sudo chown root:root /etc/kubernetes/kubelet/kubelet-config.json
 
 sudo systemctl daemon-reload
 sudo systemctl disable kubelet
-
 
 #######
 # cache images
@@ -2342,7 +2332,6 @@ if [[ \"$EKS_CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS}
     done
 fi
 
-
 #######
 # write release file
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
@@ -2384,7 +2373,6 @@ pub fn eks_worker_node_ami_reuse(os_type: OsType) -> io::Result<String> {
 # install EKS worker node AMI (minimum)
 # to build on top of the existing ubuntu AMI
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-
 
 #######
 # set up nvidia-smi check scripts
@@ -2431,7 +2419,6 @@ cat /tmp/check-nvidia-smi.sh
 chmod +x /tmp/check-nvidia-smi.sh
 sudo mv /tmp/check-nvidia-smi.sh /etc/check-nvidia-smi.sh
 
-
 #######
 # set up files
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
@@ -2466,7 +2453,6 @@ find /etc/eks
 
 sudo ctr version || true
 
-
 #######
 # set up log-collector for EKS
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
@@ -2487,7 +2473,6 @@ sudo mv /tmp/eks-log-collector.sh /etc/eks/log-collector-script/eks-log-collecto
 sudo chown -R root:root /etc/eks
 sudo chown -R ubuntu:ubuntu /etc/eks
 find /etc/eks
-
 
 #######
 # set up logrotate for kube-proxy
@@ -2512,7 +2497,6 @@ while [ 1 ]; do
 done;
 sudo mv /tmp/logrotate.conf /etc/logrotate.conf
 sudo chown root:root /etc/logrotate.conf
-
 
 #######
 # cache images
@@ -2651,7 +2635,6 @@ if [[ \"$EKS_CACHE_CONTAINER_IMAGES\" == \"true\" ]] && ! [[ ${ISOLATED_REGIONS}
         done
     done
 fi
-
 
 #######
 # write release file
@@ -2727,34 +2710,16 @@ aws sts get-caller-identity
     }
 }
 
-pub fn end(os_type: OsType) -> io::Result<String> {
+pub fn ami_info(os_type: OsType) -> io::Result<String> {
     match os_type {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("###########################
-
-
-
-
-
-
 ###########################
-sudo apt clean
-sudo apt-get clean
+# print/write AMI info
 
 # sudo find /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl list-units --type=service --no-pager
-
 df -h
-###########################
-
-
-
-
-
-
-
-###########################
-echo SUCCESS
 
 BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
 sudo rm -f /tmp/release
@@ -2768,12 +2733,23 @@ cat /tmp/release
 
 sudo cp -v /tmp/release /etc/release
 sudo chmod 0444 /etc/release
+"
+        .to_string()),
+        _ => Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!("os_type '{}' not supported", os_type.as_str()),
+        )),
+    }
+}
+
+pub fn cleanup_image_packages(os_type: OsType) -> io::Result<String> {
+    match os_type {
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("###########################
 ###########################
+# clean up packages
 
-
-
-
-
+sudo apt clean
+sudo apt-get clean
 "
         .to_string()),
         _ => Err(Error::new(
