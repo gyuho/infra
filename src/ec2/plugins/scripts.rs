@@ -1055,6 +1055,13 @@ pub fn aws_cfn_helper(os_type: OsType, python_pip_bin_path: &str) -> io::Result<
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-helper-scripts-reference.html
 # https://repost.aws/knowledge-center/install-cloudformation-scripts
 
+# install for root
+while [ 1 ]; do
+    pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+
 # pip3 install --user aws-cfn-bootstrap doesn't work
 # pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
 # install for user
@@ -1064,17 +1071,9 @@ while [ 1 ]; do
     sleep 2s;
 done;
 
-# install for root
-while [ 1 ]; do
-    pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
-    sleep 2s;
-done;
-
 # /home/ubuntu/.local/bin/cfn-hup
 which cfn-hup
 cfn-hup --help
-ls /home/ubuntu/.local/bin/
 
 # sudo /sbin/service cfn-hup restart
 # sudo ln -s /home/ubuntu/.local/bin/cfn-hup /etc/init.d/cfn-hup
