@@ -1451,8 +1451,6 @@ then
     echo \"imds could not be found\"
     exit 1
 fi
-# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
-INSTANCE_ID=$(imds /latest/meta-data/instance-id)
 
 if ! command -v aws &> /dev/null
 then
@@ -1465,7 +1463,8 @@ fi
 ethtool -i eth0 || true
 modinfo ena || true
 
-# TODO: get region
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+INSTANCE_ID=$(imds /latest/meta-data/instance-id)
 REGION=$(imds /latest/dynamic/instance-identity/document | jq .region -r)
 
 # must stop the instance first
