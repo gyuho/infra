@@ -1047,9 +1047,9 @@ sudo apt-get install -yq protobuf-compiler
     }
 }
 
-pub fn aws_cfn_helper(os_type: OsType) -> io::Result<String> {
+pub fn aws_cfn_helper(os_type: OsType, python_pip_bin_path: &str) -> io::Result<String> {
     match os_type {
-        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
+        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok(format!("
 ###########################
 # install aws-cfn-bootstrap and other helpers
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-helper-scripts-reference.html
@@ -1059,7 +1059,7 @@ pub fn aws_cfn_helper(os_type: OsType) -> io::Result<String> {
 # pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
 # install for user
 while [ 1 ]; do
-    sudo -H -u ubuntu bash -c 'pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
+    sudo -H -u ubuntu bash -c '{python_pip_bin_path}/pip3 install --user https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz'
     if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
     sleep 2s;
 done;
@@ -1083,7 +1083,7 @@ ls /home/ubuntu/.local/bin/
 # sudo systemctl daemon-reload
 # sudo systemctl status cfn-hup
 "
-        .to_string()),
+        )),
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
             format!("os_type '{}' not supported", os_type.as_str()),

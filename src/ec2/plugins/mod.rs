@@ -874,7 +874,14 @@ pub fn create(
             }
 
             Plugin::AwsCfnHelper => {
-                let d = scripts::aws_cfn_helper(os_type.clone())?;
+                let d = scripts::aws_cfn_helper(
+                    os_type.clone(),
+                    if plugins_set.contains(&Plugin::Anaconda) {
+                        "/home/ubuntu/anaconda3/bin"
+                    } else {
+                        ""
+                    },
+                )?;
                 contents.push_str(
                     "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                 );
