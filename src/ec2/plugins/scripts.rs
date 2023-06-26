@@ -1458,9 +1458,10 @@ then
     exit 1
 fi
 
+ip link show
+
 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#test-enhanced-networking-ena
 # TODO: this may not work... need pre-installed AMI or restart
-ethtool -i eth0 || true
 modinfo ena || true
 
 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
@@ -1483,7 +1484,8 @@ aws ec2 describe-instances --region ${REGION} --instance-ids ${INSTANCE_ID} --qu
 
 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#test-enhanced-networking-ena
 # TODO: this may not work... need pre-installed AMI or restart
-ethtool -i eth0 || true
+ip link show
+ethtool -i ens5 || true
 modinfo ena
 "
         .to_string()),
