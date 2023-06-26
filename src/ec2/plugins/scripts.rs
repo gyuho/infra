@@ -1459,16 +1459,26 @@ then
     echo \"aws could not be found\"
     exit 1
 fi
-echo \"modifying the instance attribute ${INSTANCE_ID} with ena-support\"
-aws ec2 modify-instance-attribute --instance-id ${INSTANCE_ID} --ena-support
-sleep 3
-aws ec2 describe-instances --instance-ids ${INSTANCE_ID} --query \"Reservations[].Instances[].EnaSupport\"
 
-# https://docs.aws.amazon.com/cli/latest/reference/ec2/register-image.html
-# aws ec2 register-image --ena-support --name random
+# https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#test-enhanced-networking-ena
+# TODO: this may not work... need pre-installed AMI or restart
+modinfo ena || true
+ethtool -i eth0 || true
 
 # TODO: get region
 imds /latest/dynamic/instance-identity/document | jq .region -r
+
+# must stop the instance first
+# aws ec2 stop-instances --instance-ids ${INSTANCE_ID}
+#
+# run this outside of EC2
+# An error occurred (IncorrectInstanceState) when calling the ModifyInstanceAttribute operation: The instance 'i-05f974ac421d49bc2' is not in the 'stopped' state.
+# aws ec2 modify-instance-attribute --instance-id ${INSTANCE_ID} --ena-support
+
+aws ec2 describe-instances --instance-ids ${INSTANCE_ID} --query \"Reservations[].Instances[].EnaSupport\"
+
+# https://docs.aws.amazon.com/cli/latest/reference/ec2/register-image.html
+# aws ec2 register-image --ena-support --name random-ami-name
 
 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#test-enhanced-networking-ena
 # TODO: this may not work... need pre-installed AMI or restart
