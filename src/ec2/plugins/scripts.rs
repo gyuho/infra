@@ -1431,6 +1431,9 @@ sudo chown -R ubuntu /home/ubuntu/.ssh
     }
 }
 
+/// ref. <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#ena-requirements>
+/// ref. <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html>
+/// ref. <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html#enhanced-networking-ena-ubuntu>
 pub fn ena(os_type: OsType) -> io::Result<String> {
     match  &os_type {
         OsType::Ubuntu2004 |  OsType::Ubuntu2204 => Ok("
