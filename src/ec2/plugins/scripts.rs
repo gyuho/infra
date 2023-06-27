@@ -2818,6 +2818,18 @@ pub fn cleanup_image_aws_credentials(os_type: OsType) -> io::Result<String> {
 sudo rm -rf /home/ubuntu/.aws
 "
         .to_string()),
+
+        OsType::Al2023 => Ok("
+###########################
+# WARN
+# clean up AWS credentials
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
+# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/validate.sh
+
+sudo rm -rf /home/ec2-user/.aws
+"
+        .to_string()),
+
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
             format!("os_type '{}' not supported", os_type.as_str()),

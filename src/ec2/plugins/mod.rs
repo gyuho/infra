@@ -649,51 +649,37 @@ pub fn create(
         match p {
             Plugin::Imds => {
                 let d = scripts::imds(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::ProviderId => {
                 let d = scripts::provider_id(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Vercmp => {
                 let d = scripts::vercmp(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::SetupLocalDisks => {
                 let d = scripts::setup_local_disks(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::MountBpfFs => {
                 let d = scripts::mount_bpf_fs(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::TimeSync => {
                 let d = scripts::time_sync(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::SystemLimitBump => {
                 let d = scripts::system_limit_bump(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
 
                 if !updated_bash_profile {
@@ -714,36 +700,21 @@ pub fn create(
                         "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
                     );
                     contents.push_str(&d);
-
-                    contents.push_str(
-                        "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                    );
-                    contents.push_str(&scripts::cluster_info(
-                        s3_bucket,
-                        id,
-                        plugins_set.contains(&Plugin::StaticVolumeProvisioner),
-                    ));
                 }
             }
             Plugin::AwsCli => {
                 let d = scripts::aws_cli(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::SsmAgent => {
                 let d = scripts::ssm_agent(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::CloudwatchAgent => {
                 let d = scripts::cloudwatch_agent(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
@@ -767,9 +738,7 @@ pub fn create(
                     "/dev/xvdb",
                     provisioner_initial_wait_random_seconds,
                 )?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
 
                 if !updated_bash_profile {
@@ -786,19 +755,8 @@ pub fn create(
                         plugins_set.contains(&Plugin::Helm),
                         plugins_set.contains(&Plugin::StaticVolumeProvisioner),
                     )?;
-                    contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                    contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                     contents.push_str(&d);
-
-                    contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
-                    contents.push_str(&scripts::cluster_info(
-                        s3_bucket,
-                        id,
-                        plugins_set.contains(&Plugin::StaticVolumeProvisioner),
-                    ));
                 }
             }
             Plugin::StaticIpProvisioner => {
@@ -808,68 +766,50 @@ pub fn create(
                     region,
                     provisioner_initial_wait_random_seconds,
                 )?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::Anaconda => {
                 let d = scripts::anaconda(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Python => {
                 let d = scripts::python(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::Rust => {
                 let d = scripts::rust(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Go => {
                 let d = scripts::go(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::Docker => {
                 let d = scripts::docker(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Containerd => {
                 let d = scripts::containerd(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Runc => {
                 let d = scripts::runc(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::CniPlugins => {
                 let d = scripts::cni_plugins(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
@@ -882,66 +822,48 @@ pub fn create(
                         ""
                     },
                 )?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Saml2Aws => {
                 let d = scripts::saml2aws(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::AwsIamAuthenticator => {
                 let d = scripts::aws_iam_authenticator(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::EcrCredentialHelper => {
                 let d = scripts::ecr_credential_helper(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::EcrCredentialProvider => {
                 let d = scripts::ecr_credential_provider(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::Kubelet => {
                 let d = scripts::kubelet(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Kubectl => {
                 let d = scripts::kubectl(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Helm => {
                 let d = scripts::helm(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Terraform => {
                 let d = scripts::terraform(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
@@ -959,55 +881,41 @@ pub fn create(
                     os_type.clone(),
                     ssh_key_email.clone().unwrap().as_str(),
                 )?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::Ena => {
                 let d = scripts::ena(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::NvidiaDriver => {
                 let d = scripts::nvidia_driver(arch_type.clone(), os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::NvidiaCudaToolkit => {
                 let d = scripts::nvidia_cuda_toolkit(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::NvidiaContainerToolkit => {
                 let d = scripts::nvidia_container_toolkit(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::AmdRadeonGpuDriver => {
                 let d = scripts::amd_radeon_gpu_driver(arch_type.clone(), os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::ProtobufCompiler => {
                 let d = scripts::protobuf_compiler(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Cmake => {
@@ -1019,16 +927,12 @@ pub fn create(
                         ""
                     },
                 )?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::Gcc7 => {
                 let d = scripts::gcc7(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
@@ -1042,9 +946,7 @@ pub fn create(
                     },
                     plugins_set.contains(&Plugin::StaticVolumeProvisioner),
                 )?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::DevFaissGpu => {
@@ -1052,24 +954,18 @@ pub fn create(
                     os_type.clone(),
                     plugins_set.contains(&Plugin::StaticVolumeProvisioner),
                 )?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
             Plugin::EksWorkerNodeAmiScratch => {
                 let d = scripts::eks_worker_node_ami_scratch(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
             Plugin::EksWorkerNodeAmiReuse => {
                 let d = scripts::eks_worker_node_ami_reuse(os_type.clone())?;
-                contents.push_str(
-                    "###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n",
-                );
+                contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
 
