@@ -128,10 +128,10 @@ pub enum Plugin {
     CleanupImagePackages,
     #[serde(rename = "cleanup-image-tmp-dir")]
     CleanupImageTmpDir,
-    #[serde(rename = "cleanup-image-ssh-keys")]
-    CleanupImageSshKeys,
     #[serde(rename = "cleanup-image-aws-credentials")]
     CleanupImageAwsCredentials,
+    #[serde(rename = "cleanup-image-ssh-keys")]
+    CleanupImageSshKeys,
 
     Unknown(String),
 }
@@ -186,8 +186,8 @@ impl std::convert::From<&str> for Plugin {
             "post-init-script" => Plugin::PostInitScript,
             "cleanup-image-packages" => Plugin::CleanupImagePackages,
             "cleanup-image-tmp-dir" => Plugin::CleanupImageTmpDir,
-            "cleanup-image-ssh-keys" => Plugin::CleanupImageSshKeys,
             "cleanup-image-aws-credentials" => Plugin::CleanupImageAwsCredentials,
+            "cleanup-image-ssh-keys" => Plugin::CleanupImageSshKeys,
             other => Plugin::Unknown(other.to_owned()),
         }
     }
@@ -252,8 +252,8 @@ impl Plugin {
             Plugin::PostInitScript => "post-init-script",
             Plugin::CleanupImagePackages => "cleanup-image-packages",
             Plugin::CleanupImageTmpDir => "cleanup-image-tmp-dir",
-            Plugin::CleanupImageSshKeys => "cleanup-image-ssh-keys",
             Plugin::CleanupImageAwsCredentials => "cleanup-image-aws-credentials",
+            Plugin::CleanupImageSshKeys => "cleanup-image-ssh-keys",
             Plugin::Unknown(s) => s.as_ref(),
         }
     }
@@ -326,8 +326,8 @@ impl Plugin {
 
             Plugin::CleanupImagePackages => u32::MAX - 10,
             Plugin::CleanupImageTmpDir => u32::MAX - 9,
-            Plugin::CleanupImageSshKeys => u32::MAX - 8,
-            Plugin::CleanupImageAwsCredentials => u32::MAX - 7,
+            Plugin::CleanupImageAwsCredentials => u32::MAX - 8,
+            Plugin::CleanupImageSshKeys => u32::MAX - 5,
 
             Plugin::Unknown(_) => u32::MAX,
         }
@@ -436,8 +436,8 @@ impl Plugin {
             Plugin::PostInitScript.as_str().to_string(),
             Plugin::CleanupImagePackages.as_str().to_string(),
             Plugin::CleanupImageTmpDir.as_str().to_string(),
-            Plugin::CleanupImageSshKeys.as_str().to_string(),
             Plugin::CleanupImageAwsCredentials.as_str().to_string(),
+            Plugin::CleanupImageSshKeys.as_str().to_string(),
         ]
     }
 
@@ -463,6 +463,9 @@ impl AsRef<str> for Plugin {
         self.as_str()
     }
 }
+
+/// To be printed/echoed before clean up process (e.g., before cleaning up SSH keys).
+pub const INIT_SCRIPT_COMPLETE_MSG: &str = "INIT SCRIPT COMPLETE";
 
 pub fn create(
     arch_type: ec2::ArchType,
@@ -974,8 +977,8 @@ pub fn create(
             | Plugin::PostInitScript
             | Plugin::CleanupImagePackages
             | Plugin::CleanupImageTmpDir
-            | Plugin::CleanupImageSshKeys
-            | Plugin::CleanupImageAwsCredentials => {
+            | Plugin::CleanupImageAwsCredentials
+            | Plugin::CleanupImageSshKeys => {
                 log::info!(
                     "skipping {}, saving it to write after bash profile at the end",
                     p.as_str()
@@ -1051,14 +1054,22 @@ pub fn create(
         contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
     }
-    if plugins_set.contains(&Plugin::CleanupImageSshKeys) {
-        let d = scripts::cleanup_image_ssh_keys(os_type.clone())?;
+
+    if plugins_set.contains(&Plugin::CleanupImageAwsCredentials) {
+        let d = scripts::cleanup_image_aws_credentials(os_type.clone())?;
 
         contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
     }
-    if plugins_set.contains(&Plugin::CleanupImageAwsCredentials) {
-        let d = scripts::cleanup_image_aws_credentials(os_type.clone())?;
+
+    // do before the SSH key clean-ups
+    contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
+    contents
+        .push_str(format!("###########################\n# {INIT_SCRIPT_COMPLETE_MSG}\n").as_str());
+    contents.push_str(format!("echo \"{INIT_SCRIPT_COMPLETE_MSG}\"").as_str());
+
+    if plugins_set.contains(&Plugin::CleanupImageSshKeys) {
+        let d = scripts::cleanup_image_ssh_keys(os_type.clone())?;
 
         contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
         contents.push_str(&d);
@@ -1121,8 +1132,8 @@ fn test_sort() {
         Plugin::PostInitScript,
         Plugin::CleanupImagePackages,
         Plugin::CleanupImageTmpDir,
-        Plugin::CleanupImageSshKeys,
         Plugin::CleanupImageAwsCredentials,
+        Plugin::CleanupImageSshKeys,
     ];
 
     let mut unsorted: Vec<Plugin> = vec![
