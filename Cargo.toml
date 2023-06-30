@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.28.60" # https://crates.io/crates/aws-manager/versions
+version = "0.28.61" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.70"
@@ -50,6 +50,9 @@ reqwest = { version = "0.11.18", optional = true }
 rfc-manager = { version = "0.0.1", optional = true }
 serde_yaml = { version = "0.9.22", optional = true } # https://github.com/dtolnay/serde-yaml/releases
 
+# [OPTIONAL] for "ec2-openssl"
+openssl = { version = "0.10", features = ["vendored"], optional = true }
+
 # [OPTIONAL] for "kms"
 aws-sdk-kms = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
 byteorder = { version = "1.4.3", optional = true } # https://github.com/briansmith/ring
@@ -74,6 +77,7 @@ default = [
     # "cloudformation",
     # "cloudwatch",
     "ec2",
+    # "ec2-openssl",
     # "kms",
     # "s3",
     # "sqs",
@@ -110,6 +114,9 @@ ec2 = [
     "serde",
     "serde_json",
     "serde_yaml",
+]
+ec2-openssl = [
+    "openssl"
 ]
 kms = [
     "aws-sdk-kms",
@@ -168,6 +175,10 @@ required-features = ["ec2"]
 [[example]]
 name = "ec2_key_pair"
 required-features = ["ec2"]
+
+[[example]]
+name = "ec2_key_pair_import_openssl"
+required-features = ["ec2", "ec2-openssl"]
 
 [[example]]
 name = "ec2_plugins"

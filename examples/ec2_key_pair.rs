@@ -22,16 +22,23 @@ async fn main() {
     ec2_manager.delete_key_pair(&key_name).await.unwrap();
 
     let f = tempfile::NamedTempFile::new().unwrap();
-    let key_path = f.path().to_str().unwrap();
-    fs::remove_file(key_path).unwrap();
-    log::info!("created file path {}", key_path);
+    let priv_key_path = f.path().to_str().unwrap();
+    fs::remove_file(priv_key_path).unwrap();
+    log::info!("created private key path {priv_key_path}");
 
     ec2_manager
-        .create_key_pair(&key_name, key_path)
+        .create_key_pair(&key_name, priv_key_path)
         .await
         .unwrap();
 
-    sleep(Duration::from_secs(2)).await;
+    let priv_key_raw = fs::read(priv_key_path).unwrap();
+    println!(
+        "created private key: {}",
+        String::from_utf8(priv_key_raw).unwrap()
+    );
 
+    sleep(Duration::from_secs(1)).await;
+
+    fs::remove_file(priv_key_path).unwrap();
     ec2_manager.delete_key_pair(&key_name).await.unwrap();
 }

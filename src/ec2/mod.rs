@@ -2,6 +2,9 @@ pub mod disk;
 pub mod metadata;
 pub mod plugins;
 
+#[cfg(feature = "ec2-openssl")]
+pub mod ssl;
+
 use std::{
     collections::{HashMap, HashSet},
     fs::{self, File},
@@ -14,9 +17,9 @@ use crate::errors::{self, Error, Result};
 use aws_sdk_ec2::{
     operation::delete_key_pair::DeleteKeyPairError,
     types::{
-        Address, AttachmentStatus, Filter, Instance, InstanceState, InstanceStateName,
-        ResourceType, SecurityGroup, Subnet, Tag, TagSpecification, Volume, VolumeAttachmentState,
-        VolumeState, Vpc,
+        Address, AttachmentStatus, Filter, Instance, InstanceState, InstanceStateName, KeyFormat,
+        KeyType, ResourceType, SecurityGroup, Subnet, Tag, TagSpecification, Volume,
+        VolumeAttachmentState, VolumeState, Vpc,
     },
     Client,
 };
@@ -594,22 +597,123 @@ impl Manager {
         }
     }
 
+    /// Imports a public key to EC2 key.
+    pub async fn import_key(&self, key_name: &str, pubkey_path: &str) -> Result<String> {
+        let path = Path::new(pubkey_path);
+        if !path.exists() {
+            return Err(Error::Other {
+                message: format!("public key path {pubkey_path} does not exist"),
+                retryable: false,
+            });
+        }
+        let pubkey_raw = fs::read(pubkey_path).map_err(|e| Error::Other {
+            message: format!("failed to read {} {:?}", pubkey_path, e),
+            retryable: false,
+        })?;
+        let pubkey_material = aws_smithy_types::Blob::new(pubkey_raw);
+
+        log::info!(
+            "importing a public key '{pubkey_path}' with key name '{key_name}' in region '{}'",
+            self.region
+        );
+
+        let out = self
+            .cli
+            .import_key_pair()
+            .key_name(key_name)
+            .public_key_material(pubkey_material)
+            .send()
+            .await
+            .map_err(|e| Error::API {
+                message: format!("failed import_key_pair {} {:?}", pubkey_path, e),
+                retryable: errors::is_sdk_err_retryable(&e),
+            })?;
+
+        let key_pair_id = out.key_pair_id().unwrap().clone();
+        log::info!("imported key pair id '{key_pair_id}' -- describing");
+
+        let out = self
+            .cli
+            .describe_key_pairs()
+            .key_pair_ids(key_pair_id)
+            .send()
+            .await
+            .map_err(|e| Error::API {
+                message: format!("failed describe_key_pairs {} {:?}", pubkey_path, e),
+                retryable: errors::is_sdk_err_retryable(&e),
+            })?;
+        if let Some(kps) = out.key_pairs() {
+            if kps.len() != 1 {
+                return Err(Error::API {
+                    message: format!("unexpected {} key pairs from describe_key_pairs", kps.len()),
+                    retryable: false,
+                });
+            }
+
+            let described_key_name = kps[0].key_name().clone().unwrap().to_string();
+            let described_key_pair_id = kps[0].key_pair_id().clone().unwrap().to_string();
+            log::info!("described imported key name {described_key_name} and key pair id {described_key_pair_id}");
+
+            if described_key_name != key_name {
+                return Err(Error::API {
+                    message: format!(
+                        "unexpected described key name {} != {}",
+                        described_key_name, key_name
+                    ),
+                    retryable: false,
+                });
+            }
+            if described_key_pair_id != key_pair_id {
+                return Err(Error::API {
+                    message: format!(
+                        "unexpected described key pair id {} != {}",
+                        described_key_pair_id, key_pair_id
+                    ),
+                    retryable: false,
+                });
+            }
+        } else {
+            return Err(Error::API {
+                message: format!("unexpected empty key pair from describe_key_pairs"),
+                retryable: false,
+            });
+        }
+
+        log::info!(
+            "successfully imported the key {key_name} with the public key file {pubkey_path}"
+        );
+        Ok(key_pair_id.to_string())
+    }
+
     /// Creates an AWS EC2 key-pair and saves the private key to disk.
     /// It overwrites "key_path" file with the newly created key.
     pub async fn create_key_pair(&self, key_name: &str, key_path: &str) -> Result<()> {
         let path = Path::new(key_path);
         if path.exists() {
             return Err(Error::Other {
-                message: format!("key path {} already exists", key_path),
+                message: format!(
+                    "private key path {} already exists, can't overwrite with a new key",
+                    key_path
+                ),
                 retryable: false,
             });
         }
 
+        // "KeyType::Rsa" is the default
+        // "KeyFormat::Pem" is the default
         log::info!(
-            "creating EC2 key-pair '{key_name}' in region '{}'",
+            "creating EC2 key-pair '{}' '{key_name}' in region '{}'",
+            KeyType::Rsa.as_str(),
             self.region
         );
-        let ret = self.cli.create_key_pair().key_name(key_name).send().await;
+        let ret = self
+            .cli
+            .create_key_pair()
+            .key_name(key_name)
+            .key_type(KeyType::Rsa)
+            .key_format(KeyFormat::Pem)
+            .send()
+            .await;
         let resp = match ret {
             Ok(v) => v,
             Err(e) => {
