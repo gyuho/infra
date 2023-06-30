@@ -3,6 +3,15 @@ use aws_sdk_ssm::{types::CommandInvocationStatus, Client};
 use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::time::{sleep, Duration, Instant};
 
+#[derive(Debug, Clone)]
+pub struct Ami {
+    pub arn: String,
+    pub name: String,
+    pub version: i64,
+    pub image_id: String,
+    pub last_modified_date: aws_smithy_types::DateTime,
+}
+
 /// Implements AWS SSM manager.
 #[derive(Debug, Clone)]
 pub struct Manager {
@@ -15,6 +24,42 @@ impl Manager {
         Self {
             region: shared_config.region().unwrap().to_string(),
             cli: Client::new(shared_config),
+        }
+    }
+
+    pub async fn fetch_ami(&self, key: &str) -> Result<Ami> {
+        log::info!("polling ssm parameter for AMI {key}");
+        let out = self
+            .cli
+            .get_parameters()
+            .names(key)
+            .send()
+            .await
+            .map_err(|e| Error::Other {
+                message: format!("failed get_parameters {}", e),
+                retryable: errors::is_sdk_err_retryable(&e),
+            })?;
+
+        if let Some(ps) = out.parameters() {
+            if ps.len() == 1 {
+                Ok(Ami {
+                    arn: ps[0].arn().clone().unwrap().to_string(),
+                    name: ps[0].name().clone().unwrap().to_string(),
+                    version: ps[0].version(),
+                    image_id: ps[0].value().clone().unwrap().to_string(),
+                    last_modified_date: *ps[0].last_modified_date().clone().unwrap(),
+                })
+            } else {
+                Err(Error::Other {
+                    message: "no parameter found".to_string(),
+                    retryable: false,
+                })
+            }
+        } else {
+            Err(Error::Other {
+                message: "no parameter found".to_string(),
+                retryable: false,
+            })
         }
     }
 
