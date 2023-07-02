@@ -1553,7 +1553,6 @@ impl Manager {
             } else {
                 Vec::new()
             };
-            log::info!("successfully described {} images", images.len());
             if images.len() != 1 {
                 return Err(Error::Other {
                     message: format!(
@@ -1567,7 +1566,12 @@ impl Manager {
             if state.eq(&ImageState::Available) {
                 return Ok(images[0].clone());
             }
-            log::warn!("image {image_id} is still {}", state.as_str());
+
+            log::info!(
+                "image {image_id} is still {} (elapsed {:?})",
+                state.as_str(),
+                elapsed
+            );
 
             cnt += 1;
         }
