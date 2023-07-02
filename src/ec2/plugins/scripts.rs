@@ -2799,6 +2799,10 @@ pub fn cleanup_image_ssh_keys(os_type: OsType) -> io::Result<String> {
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/cleanup.sh
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/validate.sh
 
+# sleep enough time for poller
+# to grab the successful init completion
+sleep 120
+
 sudo rm -rf \\
 /etc/ssh/ssh_host* \\
 /home/ubuntu/.ssh/authorized_keys \\

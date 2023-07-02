@@ -1076,7 +1076,7 @@ pub fn create(
     contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
     contents
         .push_str(format!("###########################\n# {INIT_SCRIPT_COMPLETE_MSG}\n").as_str());
-    contents.push_str(format!("echo \"{INIT_SCRIPT_COMPLETE_MSG}\"").as_str());
+    contents.push_str(format!("echo \"{INIT_SCRIPT_COMPLETE_MSG}\"\n\n").as_str());
 
     if plugins_set.contains(&Plugin::CleanupImageSshKeys) {
         let d = scripts::cleanup_image_ssh_keys(os_type.clone())?;
