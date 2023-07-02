@@ -17,9 +17,9 @@ use crate::errors::{self, Error, Result};
 use aws_sdk_ec2::{
     operation::delete_key_pair::DeleteKeyPairError,
     types::{
-        Address, AttachmentStatus, Filter, Instance, InstanceState, InstanceStateName, KeyFormat,
-        KeyType, ResourceType, SecurityGroup, Subnet, Tag, TagSpecification, Volume,
-        VolumeAttachmentState, VolumeState, Vpc,
+        Address, AttachmentStatus, Filter, Image, ImageState, Instance, InstanceState,
+        InstanceStateName, KeyFormat, KeyType, ResourceType, SecurityGroup, Subnet, Tag,
+        TagSpecification, Volume, VolumeAttachmentState, VolumeState, Vpc,
     },
     Client,
 };
@@ -1487,6 +1487,93 @@ impl Manager {
             message: format!(
                 "failed to poll describe_address elastic IP association Id {association_id} for EC2 instance {instance_id} in time",
             ),
+            retryable: true,
+        })
+    }
+
+    /// Creates an image and returns the AMI ID.
+    pub async fn create_image(&self, instance_id: &str, image_name: &str) -> Result<String> {
+        log::info!("creating an image '{image_name}' in instance '{instance_id}'");
+        let ami = self
+            .cli
+            .create_image()
+            .instance_id(instance_id)
+            .name(image_name)
+            .send()
+            .await
+            .map_err(|e| Error::API {
+                message: format!("failed create_image {:?}", e),
+                retryable: errors::is_sdk_err_retryable(&e),
+            })?;
+
+        let ami_id = ami.image_id().clone().unwrap().to_string();
+        log::info!("created AMI '{ami_id}' from the instance '{instance_id}'");
+
+        Ok(ami_id)
+    }
+
+    /// Polls the image until the state is "Available".
+    pub async fn poll_image_until_available(
+        &self,
+        image_id: &str,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<Image> {
+        log::info!("describing AMI {image_id} until available");
+
+        let start = Instant::now();
+        let mut cnt: u128 = 0;
+        loop {
+            let elapsed = start.elapsed();
+            if elapsed.gt(&timeout) {
+                break;
+            }
+
+            let itv = {
+                if cnt == 0 {
+                    // first poll with no wait
+                    Duration::from_secs(1)
+                } else {
+                    interval
+                }
+            };
+            sleep(itv).await;
+
+            let resp = match self.cli.describe_images().image_ids(image_id).send().await {
+                Ok(r) => r,
+                Err(e) => {
+                    return Err(Error::API {
+                        message: format!("failed describe_images {:?}", e),
+                        retryable: errors::is_sdk_err_retryable(&e),
+                    });
+                }
+            };
+            let images = if let Some(images) = resp.images() {
+                images.to_vec()
+            } else {
+                Vec::new()
+            };
+            log::info!("successfully described {} images", images.len());
+            if images.len() != 1 {
+                return Err(Error::Other {
+                    message: format!(
+                        "unexpected output from describe_images, expected 1 image but got {}",
+                        images.len()
+                    ),
+                    retryable: false,
+                });
+            }
+            let state = images[0].state().clone().unwrap();
+            if state.eq(&ImageState::Available) {
+                return Ok(images[0].clone());
+            }
+            log::warn!("image {image_id} is still {}", state.as_str());
+
+            cnt += 1;
+        }
+
+        Err(Error::Other {
+            message: format!("failed to poll image state {image_id} in time",),
             retryable: true,
         })
     }
