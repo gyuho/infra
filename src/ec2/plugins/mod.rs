@@ -534,6 +534,16 @@ pub fn create(
             ),
         ));
     }
+    if plugins_set.contains(&Plugin::TimeSync) && !plugins_set.contains(&Plugin::Imds) {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            format!(
+                "'{}' requires '{}' plugin",
+                Plugin::TimeSync.as_str(),
+                Plugin::Imds.as_str(),
+            ),
+        ));
+    }
     if plugins_set.contains(&Plugin::Ena) && !plugins_set.contains(&Plugin::Imds) {
         return Err(Error::new(
             ErrorKind::InvalidInput,

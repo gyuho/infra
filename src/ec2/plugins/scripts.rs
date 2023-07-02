@@ -50,6 +50,9 @@ hostnamectl
 ### Basic packages #########################
 ############################################
 
+sudo mkdir -p /etc/systemd/system
+sudo chown -R ubuntu:ubuntu /etc/systemd/system
+
 while [ 1 ]; do
     sudo apt-get update -yq
     sudo apt-get upgrade -yq
@@ -419,26 +422,27 @@ pub fn time_sync(os_type: OsType) -> io::Result<String> {
 ###########################
 # install time sync utils
 
-sudo timedatectl set-ntp on
+# https://github.com/awslabs/amazon-eks-ami/tree/master/files/bin/configure-clocksource
+while [ 1 ]; do
+    rm -f /tmp/configure-clocksource || true;
+    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://raw.githubusercontent.com/awslabs/amazon-eks-ami/master/files/bin/configure-clocksource\"
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+chmod +x /tmp/configure-clocksource
+sudo mv /tmp/configure-clocksource /usr/bin/configure-clocksource
 
-# https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
-sudo apt-get install -yq chrony
-# https://manpages.ubuntu.com/manpages/trusty/man8/update-rc.d.8.html
-update-rc.d chrony defaults 80 20
-find /etc/init.d/
-
-cat /etc/chrony/chrony.conf
-
-# already tsc
-cat /sys/devices/system/clocksource/clocksource0/current_clocksource
-
-# If current clocksource is xen, switch to tsc
-if grep --quiet xen /sys/devices/system/clocksource/clocksource0/current_clocksource \\
-    && grep --quiet tsc /sys/devices/system/clocksource/clocksource0/available_clocksource; then
-    echo \"tsc\" | sudo tee /sys/devices/system/clocksource/clocksource0/current_clocksource
-else
-    echo \"tsc as a clock source is not applicable, skipping.\"
-fi
+# https://github.com/awslabs/amazon-eks-ami/commit/056e31f8c7477e893424abce468cb32bbcd1f079#diff-049390d14bc3ea2d7882ff0f108e2802ad9b043336c5fa637e93581d9a7fdfc2
+while [ 1 ]; do
+    rm -f /tmp/configure-clocksource.service || true;
+    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://raw.githubusercontent.com/awslabs/amazon-eks-ami/master/files/configure-clocksource.service\"
+    if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+    sleep 2s;
+done;
+sudo mv /tmp/configure-clocksource.service /etc/systemd/system/configure-clocksource.service
+sudo chown root:root /etc/systemd/system/configure-clocksource.service
+systemctl daemon-reload
+systemctl enable --now configure-clocksource
 "
         .to_string()),
         _ => Err(Error::new(
@@ -2412,12 +2416,14 @@ sudo mkdir -p /etc/eks
 sudo chown -R root:root /etc/eks
 sudo mkdir -p /etc/eks/containerd
 
+# https://github.com/awslabs/amazon-eks-ami/commit/7c45ddef58bbb50c869095eeb2185e41a745db6f
 targets=(
-    get-ecr-uri.sh
     containerd-config.toml
-    sandbox-image.service
-    pull-sandbox-image.sh
+    eni-max-pods.txt
+    get-ecr-uri.sh
     pull-image.sh
+    pull-sandbox-image.sh
+    sandbox-image.service
 )
 for target in \"${targets[@]}\"
 do
