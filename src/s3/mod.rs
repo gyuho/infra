@@ -938,8 +938,12 @@ fn explain_err_delete_bucket(e: &SdkError<DeleteBucketError>) -> String {
 fn is_err_does_not_exist_delete_bucket(e: &SdkError<DeleteBucketError>) -> bool {
     match e {
         SdkError::ServiceError(err) => {
-            let msg = format!("{:?}", err);
-            msg.contains("bucket does not exist")
+            let msg = format!(
+                "delete_bucket [code '{:?}', message '{:?}']",
+                err.err().meta().code(),
+                err.err().meta().message(),
+            );
+            msg.contains("bucket does not exist") || msg.contains("NoSuchBucket")
         }
         _ => false,
     }
