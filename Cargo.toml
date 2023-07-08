@@ -63,7 +63,7 @@ env_logger = "0.10.0"
 id-manager = "0.0.3"
 rcgen = "0.11.1"
 rust-embed = "6.8.1" # https://github.com/pyrossh/rust-embed
-ssh-scp-manager = "0.0.0"
+ssh-scp-manager = "0.0.1"
 tempfile = "3.6.0"
 tokio-test = "0.4.2"
 
