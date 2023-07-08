@@ -3,13 +3,10 @@ use std::{
     io::Write,
 };
 
-use aws_manager::{
-    self,
-    ec2::{self, ssl::ssh},
-};
+use aws_manager::{self, ec2};
 use tokio::time::{sleep, Duration};
 
-/// cargo run --example ec2_key_pair_import_openssl --features="ec2 ec2-openssl"
+/// cargo run --example ec2_key_pair_import --features="ec2"
 #[tokio::main]
 async fn main() {
     // ref. https://github.com/env-logger-rs/env_logger/issues/47
@@ -17,7 +14,7 @@ async fn main() {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    let (encoded_pk, encoded_pubkey) = ssh::new_rsa_key().unwrap();
+    let (encoded_pk, encoded_pubkey) = ssh_scp_manager::rsa::new_key(None).unwrap();
     log::info!("encoded private key: {encoded_pk}");
     log::info!("encoded public key: {encoded_pubkey}");
 

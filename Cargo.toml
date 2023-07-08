@@ -3,7 +3,7 @@ name = "aws-manager"
 
 # must be consistent with the "aws-sdk*" version
 # e.g., "0.0.x" in "aws-manager" maps to "0.x.y" in "aws-sdk*" 
-version = "0.28.67" # https://crates.io/crates/aws-manager/versions
+version = "0.28.68" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
 rust-version = "1.70"
@@ -17,7 +17,7 @@ aws-config = "0.55.3" # https://github.com/awslabs/aws-sdk-rust/releases
 aws-smithy-client = "0.55.3"
 aws-smithy-types = "0.55.3"
 aws-types = "0.55.3" # https://crates.io/crates/aws-types/versions
-log = "0.4.18"
+log = "0.4.19"
 thiserror = "1.0.43" # https://github.com/dtolnay/thiserror/releases
 tokio = { version = "1.29.1", features = ["full"] } # https://github.com/tokio-rs/tokio/releases
 
@@ -40,7 +40,7 @@ tokio-stream = { version = "0.1.14", optional = true } # https://github.com/toki
 # [OPTIONAL] for "cloudwatch"
 aws-sdk-cloudwatch = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
 aws-sdk-cloudwatchlogs = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
-serde_json = { version = "1.0.99", optional = true } # https://github.com/serde-rs/json/releases
+serde_json = { version = "1.0.100", optional = true } # https://github.com/serde-rs/json/releases
 
 # [OPTIONAL] for "ec2"
 aws-sdk-ec2 = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
@@ -49,9 +49,6 @@ command-manager = { version = "0.0.3", optional = true }
 reqwest = { version = "0.11.18", optional = true }
 rfc-manager = { version = "0.0.1", optional = true }
 serde_yaml = { version = "0.9.22", optional = true } # https://github.com/dtolnay/serde-yaml/releases
-
-# [OPTIONAL] for "ec2-openssl"
-openssl = { version = "0.10", features = ["vendored"], optional = true }
 
 # [OPTIONAL] for "kms"
 aws-sdk-kms = { version = "0.28.0", optional = true } # https://crates.io/crates/aws-sdk-kms/versions
@@ -64,9 +61,10 @@ cert-manager = "0.0.10"
 cmp-manager = "0.0.1"
 env_logger = "0.10.0"
 id-manager = "0.0.3"
-rcgen = "0.10.0"
+rcgen = "0.11.1"
 rust-embed = "6.8.1" # https://github.com/pyrossh/rust-embed
-tempfile = "3.5.0"
+ssh-scp-manager = "0.0.0"
+tempfile = "3.6.0"
 tokio-test = "0.4.2"
 
 [features]
@@ -77,7 +75,6 @@ default = [
     # "cloudformation",
     # "cloudwatch",
     "ec2",
-    # "ec2-openssl",
     # "kms",
     # "s3",
     # "sqs",
@@ -114,9 +111,6 @@ ec2 = [
     "serde",
     "serde_json",
     "serde_yaml",
-]
-ec2-openssl = [
-    "openssl"
 ]
 kms = [
     "aws-sdk-kms",
@@ -177,8 +171,8 @@ name = "ec2_key_pair"
 required-features = ["ec2"]
 
 [[example]]
-name = "ec2_key_pair_import_openssl"
-required-features = ["ec2", "ec2-openssl"]
+name = "ec2_key_pair_import"
+required-features = ["ec2"]
 
 [[example]]
 name = "ec2_plugins"
