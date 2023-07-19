@@ -26,6 +26,7 @@ export DEBIAN_FRONTEND=noninteractive
 ############################################
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
 # 'dpkg --print-architecture' to decide amd64/arm64
+# 'uname -m' to decide x86_64/aarch64
 
 MACHINE=$(uname -m)
 if [ \"$MACHINE\" == \"x86_64\" ]; then
@@ -478,14 +479,19 @@ sudo sysctl -p
     }
 }
 
-pub fn aws_cli(os_type: OsType) -> io::Result<String> {
-    match os_type {
-        OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok(
+pub fn aws_cli(arch_type: ArchType, os_type: OsType) -> io::Result<String> {
+    match (arch_type, os_type) {
+        (ArchType::Amd64
+            | ArchType::Amd64GpuP4NvidiaTeslaA100
+            | ArchType::Amd64GpuG3NvidiaTeslaM60
+            | ArchType::Amd64GpuG4adRadeon
+            | ArchType::Amd64GpuG5NvidiaA10G, OsType::Ubuntu2004 | OsType::Ubuntu2204) => Ok(
             "
 ###########################
 # install AWS CLI
 # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 
+# 'uname -m' to decide x86_64/aarch64
 while [ 1 ]; do
     sudo rm -f /tmp/awscli-exe-linux-$(uname -m).zip || true;
     sudo apt-get update -yq && sudo apt-get install -yq wget unzip && wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip
@@ -493,15 +499,53 @@ while [ 1 ]; do
     sleep 2s;
 done;
 
+# 'uname -m' to decide x86_64/aarch64
 unzip /tmp/awscli-exe-linux-$(uname -m).zip && sudo ./aws/install
 /usr/local/bin/aws --version
 
 # /usr/local/bin/aws
 which aws
+
+# AWS CLI SSM session manager
+# https://docs.aws.amazon.com/systems-manager/latest/userguide/install-plugin-debian.html
+# 'uname -m' to decide x86_64/aarch64
+curl https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb -o /tmp/session-manager-plugin.deb
+sudo dpkg -i /tmp/session-manager-plugin.deb
+rm -f /tmp/session-manager-plugin.deb
 ".to_string()),
+
+    (ArchType::Arm64, OsType::Ubuntu2004 | OsType::Ubuntu2204) => Ok(
+    "
+###########################
+# install AWS CLI
+# https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+# 'uname -m' to decide x86_64/aarch64
+while [ 1 ]; do
+sudo rm -f /tmp/awscli-exe-linux-$(uname -m).zip || true;
+sudo apt-get update -yq && sudo apt-get install -yq wget unzip && wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip
+if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
+sleep 2s;
+done;
+
+# 'uname -m' to decide x86_64/aarch64
+unzip /tmp/awscli-exe-linux-$(uname -m).zip && sudo ./aws/install
+/usr/local/bin/aws --version
+
+# /usr/local/bin/aws
+which aws
+
+# AWS CLI SSM session manager
+# https://docs.aws.amazon.com/systems-manager/latest/userguide/install-plugin-debian.html
+# 'uname -m' to decide x86_64/aarch64
+curl https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_arm64/session-manager-plugin.deb -o /tmp/session-manager-plugin.deb
+sudo dpkg -i /tmp/session-manager-plugin.deb
+rm -f /tmp/session-manager-plugin.deb
+".to_string()),
+
         _ => Err(Error::new(
             ErrorKind::InvalidInput,
-            format!("os_type '{}' not supported", os_type.as_str()),
+            "os_type not supported",
         )),
     }
 }
@@ -582,6 +626,7 @@ pub fn static_volume_provisioner(
 # install aws-volume-manager for x86_64 (mac, linux x86), arm64 (M*), aarch64 (graviton)
 # https://github.com/ava-labs/volume-manager/releases
 
+# 'uname -m' to decide x86_64/aarch64
 while [ 1 ]; do
     rm -f /tmp/aws-volume-provisioner.$(uname -m)-{os_type}-linux-gnu || true;
     wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://github.com/ava-labs/volume-manager/releases/download/latest/aws-volume-provisioner.$(uname -m)-{os_type}-linux-gnu\"
@@ -645,6 +690,7 @@ pub fn static_ip_provisioner(
 # install aws-ip-manager for x86_64 (mac, linux x86), arm64 (M*), aarch64 (graviton)
 # https://github.com/ava-labs/ip-manager/releases
 
+# 'uname -m' to decide x86_64/aarch64
 while [ 1 ]; do
     rm -f /tmp/aws-ip-provisioner.$(uname -m)-{os_type}-linux-gnu || true;
     wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://github.com/ava-labs/ip-manager/releases/download/latest/aws-ip-provisioner.$(uname -m)-{os_type}-linux-gnu\"
@@ -690,7 +736,8 @@ pub fn anaconda(os_type: OsType) -> io::Result<String> {
 
 wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-$(uname -m).sh\"
 
-# batch mode to not interrup
+# batch mode to not interrupt
+# 'uname -m' to decide x86_64/aarch64
 export PREFIX=/home/ubuntu/anaconda3
 PREFIX=/home/ubuntu/anaconda3 HOME=/home/ubuntu sh /tmp/Anaconda3-2023.03-1-Linux-$(uname -m).sh -b || true
 rm -f /tmp/Anaconda3-2023.03-1-Linux-$(uname -m).sh
@@ -1520,6 +1567,7 @@ while [ 1 ]; do
     sleep 2s;
 done;
 
+# 'uname -m' to decide x86_64/aarch64
 sudo sh /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run --silent --ui=none --no-questions
 rm -f /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run
 sudo tail /var/log/nvidia-installer.log
@@ -1568,6 +1616,7 @@ while [ 1 ]; do
     sleep 2s;
 done;
 
+# 'uname -m' to decide x86_64/aarch64
 sudo sh /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run --silent --ui=none --no-questions
 rm -f /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run
 tail /var/log/nvidia-installer.log
@@ -1732,6 +1781,7 @@ while [ 1 ]; do
     sleep 2s;
 done;
 
+# 'uname -m' to decide x86_64/aarch64
 sudo apt-get -y install /tmp/amdgpu-install_${DRIVER_VERSION2}.deb
 sudo sh /tmp/NVIDIA-Linux-$(uname -m)-${DRIVER_VERSION}.run --silent --ui=none --no-questions
 
@@ -2324,6 +2374,7 @@ fi
 #######
 # write release file
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
+# 'uname -m' to decide x86_64/aarch64
 #######
 BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
 sudo rm -f /tmp/release-full
@@ -2630,6 +2681,7 @@ fi
 #######
 # write release file
 # https://github.com/awslabs/amazon-eks-ami/blob/master/scripts/install-worker.sh
+# 'uname -m' to decide x86_64/aarch64
 #######
 BASE_AMI_ID=$(imds /latest/meta-data/ami-id)
 sudo rm -f /tmp/release-full
@@ -2706,6 +2758,7 @@ pub fn ami_info(os_type: OsType) -> io::Result<String> {
         OsType::Ubuntu2004 | OsType::Ubuntu2204 => Ok("
 ###########################
 # print/write AMI info
+# 'uname -m' to decide x86_64/aarch64
 
 # sudo find /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -2806,7 +2859,7 @@ sleep 120
 sudo rm -rf \\
 /etc/ssh/ssh_host* \\
 /home/ubuntu/.ssh/authorized_keys \\
-/root/.ssh/authorized_keys 
+/root/.ssh/authorized_keys
 "
         .to_string()),
         _ => Err(Error::new(

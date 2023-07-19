@@ -341,8 +341,8 @@ impl Plugin {
             "vercmp",                        //
             "setup-local-disks",             //
             "mount-bpf-fs",                  //
-            "system-limit-bump",             //
             "time-sync",                     //
+            "system-limit-bump",             //
             "aws-cli",                       //
             "ssm-agent",                     //
             "cloudwatch-agent",              //
@@ -716,7 +716,7 @@ pub fn create(
                 }
             }
             Plugin::AwsCli => {
-                let d = scripts::aws_cli(os_type.clone())?;
+                let d = scripts::aws_cli(arch_type.clone(), os_type.clone())?;
                 contents.push_str("###########################\nset +x\necho \"\"\necho \"\"\necho \"\"\necho \"\"\necho \"\"\nset -x\n\n\n\n\n");
                 contents.push_str(&d);
             }
