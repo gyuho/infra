@@ -33,6 +33,12 @@ async fn main() {
     println!();
     println!();
     sleep(Duration::from_secs(2)).await;
+    assert!(!s3_manager.bucket_exists(&s3_bucket).await.unwrap());
+
+    println!();
+    println!();
+    println!();
+    sleep(Duration::from_secs(2)).await;
     s3_manager.create_bucket(&s3_bucket).await.unwrap();
 
     println!();

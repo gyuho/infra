@@ -9,6 +9,7 @@ use aws_sdk_s3::{
         create_bucket::CreateBucketError,
         delete_bucket::DeleteBucketError,
         delete_objects::DeleteObjectsError,
+        head_bucket::HeadBucketError,
         head_object::{HeadObjectError, HeadObjectOutput},
         put_bucket_lifecycle_configuration::PutBucketLifecycleConfigurationError,
     },
@@ -214,6 +215,26 @@ impl Manager {
         Ok(())
     }
 
+    /// Returns true if the bucket exists.
+    pub async fn bucket_exists(&self, s3_bucket: &str) -> Result<bool> {
+        log::info!("checking whether bucket '{s3_bucket}' exists");
+
+        match self.cli.head_bucket().bucket(s3_bucket).send().await {
+            Ok(_) => {}
+            Err(e) => {
+                if is_err_head_bucket_not_found(&e) {
+                    return Ok(false);
+                }
+                return Err(Error::API {
+                    message: format!("failed head_bucket '{}'", e),
+                    retryable: errors::is_sdk_err_retryable(&e),
+                });
+            }
+        }
+
+        Ok(true)
+    }
+
     /// Deletes objects by "prefix".
     /// If "prefix" is "None", empties a S3 bucket, deleting all files.
     /// ref. https://github.com/awslabs/aws-sdk-rust/blob/main/examples/s3/src/bin/delete-objects.rs
@@ -228,6 +249,13 @@ impl Manager {
             prefix,
         );
 
+        if !self.bucket_exists(s3_bucket).await? {
+            return Err(Error::API {
+                message: format!("bucket '{s3_bucket}' not found",),
+                retryable: false,
+            });
+        }
+
         let objects = self.list_objects(s3_bucket.clone(), prefix).await?;
         let mut object_ids: Vec<ObjectIdentifier> = vec![];
         for obj in objects {
@@ -239,14 +267,14 @@ impl Manager {
         let n = object_ids.len();
         if n > 0 {
             let deletes = Delete::builder().set_objects(Some(object_ids)).build();
-            let ret = self
+            match self
                 .cli
                 .delete_objects()
                 .bucket(s3_bucket.to_string())
                 .delete(deletes)
                 .send()
-                .await;
-            match ret {
+                .await
+            {
                 Ok(_) => {}
                 Err(e) => {
                     return Err(Error::API {
@@ -395,7 +423,7 @@ impl Manager {
             human_readable::bytes(size),
             s3_bucket,
             s3_key,
-            self.region
+            self.region,
         );
         self.put_byte_stream_with_metadata(byte_stream, s3_bucket, s3_key, metadata)
             .await
@@ -456,7 +484,7 @@ impl Manager {
         }
 
         req.send().await.map_err(|e| Error::API {
-            message: format!("failed put_object {}", e),
+            message: format!("failed put_object '{}'", e),
             retryable: errors::is_sdk_err_retryable(&e),
         })?;
 
@@ -533,7 +561,7 @@ impl Manager {
         {
             Ok(out) => out,
             Err(e) => {
-                if is_err_head_not_found(&e) {
+                if is_err_head_object_not_found(&e) {
                     log::info!("{s3_key} not found");
                     return Ok(None);
                 }
@@ -950,7 +978,15 @@ fn is_err_does_not_exist_delete_bucket(e: &SdkError<DeleteBucketError>) -> bool 
 }
 
 #[inline]
-fn is_err_head_not_found(e: &SdkError<HeadObjectError>) -> bool {
+fn is_err_head_bucket_not_found(e: &SdkError<HeadBucketError>) -> bool {
+    match e {
+        SdkError::ServiceError(err) => err.err().is_not_found(),
+        _ => false,
+    }
+}
+
+#[inline]
+fn is_err_head_object_not_found(e: &SdkError<HeadObjectError>) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found(),
         _ => false,
