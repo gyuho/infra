@@ -407,6 +407,20 @@ impl Manager {
             .await
     }
 
+    pub async fn put_object_with_retries(
+        &self,
+        file_path: &str,
+        s3_bucket: &str,
+        s3_key: &str,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<()> {
+        self.put_object_with_metadata_with_retries(
+            file_path, s3_bucket, s3_key, None, timeout, interval,
+        )
+        .await
+    }
+
     /// Writes an object with the metadata.
     /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html>
     /// ref. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html>
@@ -426,6 +440,28 @@ impl Manager {
             self.region,
         );
         self.put_byte_stream_with_metadata(byte_stream, s3_bucket, s3_key, metadata)
+            .await
+    }
+
+    pub async fn put_object_with_metadata_with_retries(
+        &self,
+        file_path: &str,
+        s3_bucket: &str,
+        s3_key: &str,
+        metadata: Option<HashMap<String, String>>,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<()> {
+        let (size, byte_stream) = read_file_to_byte_stream(file_path).await?;
+        log::info!(
+            "put object '{file_path}' (size {}) to 's3://{}/{}' (region '{}')",
+            human_readable::bytes(size),
+            s3_bucket,
+            s3_key,
+            self.region,
+        );
+        let b: Vec<u8> = byte_stream.into_inner().bytes().unwrap().to_vec();
+        self.put_bytes_with_metadata_with_retries(b, s3_bucket, s3_key, metadata, timeout, interval)
             .await
     }
 
@@ -501,7 +537,7 @@ impl Manager {
         interval: Duration,
     ) -> Result<()> {
         log::info!(
-            "put_byte_stream_with_metadata_with_retries '{s3_bucket}' '{s3_key}' in region '{}' exists with timeout {:?} and interval {:?}",
+            "put_bytes_with_metadata_with_retries '{s3_bucket}' '{s3_key}' in region '{}' exists with timeout {:?} and interval {:?}",
             self.region,
             timeout,
             interval,
