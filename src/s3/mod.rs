@@ -977,7 +977,9 @@ async fn read_file_to_byte_stream(file_path: &str) -> Result<(f64, ByteStream)> 
 }
 
 #[inline]
-fn is_err_already_exists_create_bucket(e: &SdkError<CreateBucketError>) -> bool {
+fn is_err_already_exists_create_bucket(
+    e: &SdkError<CreateBucketError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_bucket_already_exists() || err.err().is_bucket_already_owned_by_you()
@@ -987,7 +989,9 @@ fn is_err_already_exists_create_bucket(e: &SdkError<CreateBucketError>) -> bool 
 }
 
 #[inline]
-fn explain_err_delete_bucket(e: &SdkError<DeleteBucketError>) -> String {
+fn explain_err_delete_bucket(
+    e: &SdkError<DeleteBucketError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "delete_bucket [code '{:?}', message '{:?}']",
@@ -999,7 +1003,9 @@ fn explain_err_delete_bucket(e: &SdkError<DeleteBucketError>) -> String {
 }
 
 #[inline]
-fn is_err_does_not_exist_delete_bucket(e: &SdkError<DeleteBucketError>) -> bool {
+fn is_err_does_not_exist_delete_bucket(
+    e: &SdkError<DeleteBucketError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!(
@@ -1014,7 +1020,9 @@ fn is_err_does_not_exist_delete_bucket(e: &SdkError<DeleteBucketError>) -> bool 
 }
 
 #[inline]
-fn is_err_head_bucket_not_found(e: &SdkError<HeadBucketError>) -> bool {
+fn is_err_head_bucket_not_found(
+    e: &SdkError<HeadBucketError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found(),
         _ => false,
@@ -1022,7 +1030,9 @@ fn is_err_head_bucket_not_found(e: &SdkError<HeadBucketError>) -> bool {
 }
 
 #[inline]
-fn is_err_head_object_not_found(e: &SdkError<HeadObjectError>) -> bool {
+fn is_err_head_object_not_found(
+    e: &SdkError<HeadObjectError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found(),
         _ => false,
@@ -1031,7 +1041,9 @@ fn is_err_head_object_not_found(e: &SdkError<HeadObjectError>) -> bool {
 
 /// TODO: handle "code" and "message" None if the object does not exist
 #[inline]
-fn explain_err_head_object(e: &SdkError<HeadObjectError>) -> String {
+fn explain_err_head_object(
+    e: &SdkError<HeadObjectError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "head_object [code '{:?}', message '{:?}']",
@@ -1043,7 +1055,9 @@ fn explain_err_head_object(e: &SdkError<HeadObjectError>) -> String {
 }
 
 #[inline]
-fn explain_err_delete_objects(e: &SdkError<DeleteObjectsError>) -> String {
+fn explain_err_delete_objects(
+    e: &SdkError<DeleteObjectsError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "delete_objects [code '{:?}', message '{:?}']",
@@ -1056,7 +1070,10 @@ fn explain_err_delete_objects(e: &SdkError<DeleteObjectsError>) -> String {
 
 #[inline]
 pub fn explain_err_put_bucket_lifecycle_configuration(
-    e: &SdkError<PutBucketLifecycleConfigurationError>,
+    e: &SdkError<
+        PutBucketLifecycleConfigurationError,
+        aws_smithy_runtime_api::client::orchestrator::HttpResponse,
+    >,
 ) -> String {
     match e {
         SdkError::ServiceError(err) => format!(

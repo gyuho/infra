@@ -392,7 +392,9 @@ impl Manager {
 }
 
 #[inline]
-fn explain_err_create_queue(e: &SdkError<CreateQueueError>) -> String {
+fn explain_err_create_queue(
+    e: &SdkError<CreateQueueError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "create_queue [code '{:?}', message '{:?}']",
@@ -404,7 +406,9 @@ fn explain_err_create_queue(e: &SdkError<CreateQueueError>) -> String {
 }
 
 #[inline]
-fn explain_err_delete_queue(e: &SdkError<DeleteQueueError>) -> String {
+fn explain_err_delete_queue(
+    e: &SdkError<DeleteQueueError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "delete_queue [code '{:?}', message '{:?}']",
@@ -418,7 +422,9 @@ fn explain_err_delete_queue(e: &SdkError<DeleteQueueError>) -> String {
 /// Handle:
 /// ErrorMetadata { code: Some(\"AWS.SimpleQueueService.NonExistentQueue\"), message: Some(\"The specified queue does not exist for this wsdl version.\")
 #[inline]
-fn is_err_does_not_exist_delete_queue(e: &SdkError<DeleteQueueError>) -> bool {
+fn is_err_does_not_exist_delete_queue(
+    e: &SdkError<DeleteQueueError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let code_match = if let Some(code) = err.err().code() {
@@ -438,7 +444,12 @@ fn is_err_does_not_exist_delete_queue(e: &SdkError<DeleteQueueError>) -> bool {
 }
 
 #[inline]
-fn explain_err_get_queue_attributes(e: &SdkError<GetQueueAttributesError>) -> String {
+fn explain_err_get_queue_attributes(
+    e: &SdkError<
+        GetQueueAttributesError,
+        aws_smithy_runtime_api::client::orchestrator::HttpResponse,
+    >,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "get_queue_attributes [code '{:?}', message '{:?}']",
@@ -450,7 +461,9 @@ fn explain_err_get_queue_attributes(e: &SdkError<GetQueueAttributesError>) -> St
 }
 
 #[inline]
-fn explain_err_send_message(e: &SdkError<SendMessageError>) -> String {
+fn explain_err_send_message(
+    e: &SdkError<SendMessageError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "send_message [code '{:?}', message '{:?}']",
@@ -462,7 +475,9 @@ fn explain_err_send_message(e: &SdkError<SendMessageError>) -> String {
 }
 
 #[inline]
-fn explain_err_receive_message(e: &SdkError<ReceiveMessageError>) -> String {
+fn explain_err_receive_message(
+    e: &SdkError<ReceiveMessageError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "receive_message [code '{:?}', message '{:?}']",
@@ -474,7 +489,9 @@ fn explain_err_receive_message(e: &SdkError<ReceiveMessageError>) -> String {
 }
 
 #[inline]
-pub fn explain_err_delete_message(e: &SdkError<DeleteMessageError>) -> String {
+pub fn explain_err_delete_message(
+    e: &SdkError<DeleteMessageError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "delete_message [code '{:?}', message '{:?}']",
@@ -488,7 +505,9 @@ pub fn explain_err_delete_message(e: &SdkError<DeleteMessageError>) -> String {
 /// Handle:
 /// delete_message [code 'Some(\"InvalidParameterValue\")', message 'Some(\"Value ... for parameter ReceiptHandle is invalid. Reason: The receipt handle has expired.\")
 #[inline]
-fn is_err_does_not_exist_delete_message(e: &SdkError<DeleteMessageError>) -> bool {
+fn is_err_does_not_exist_delete_message(
+    e: &SdkError<DeleteMessageError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let code_match = if let Some(code) = err.err().code() {

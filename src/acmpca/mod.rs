@@ -409,7 +409,10 @@ impl Manager {
 
 #[inline]
 pub fn is_err_retryable_delete_certificate_authority(
-    e: &SdkError<DeleteCertificateAuthorityError>,
+    e: &SdkError<
+        DeleteCertificateAuthorityError,
+        aws_smithy_runtime_api::client::orchestrator::HttpResponse,
+    >,
 ) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_concurrent_modification_exception(),
@@ -419,7 +422,10 @@ pub fn is_err_retryable_delete_certificate_authority(
 
 #[inline]
 pub fn is_err_not_found_delete_certificate_authority(
-    e: &SdkError<DeleteCertificateAuthorityError>,
+    e: &SdkError<
+        DeleteCertificateAuthorityError,
+        aws_smithy_runtime_api::client::orchestrator::HttpResponse,
+    >,
 ) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_resource_not_found_exception(),

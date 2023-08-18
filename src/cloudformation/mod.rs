@@ -270,7 +270,9 @@ impl Stack {
 }
 
 #[inline]
-fn is_err_does_not_exist_delete_stack(e: &SdkError<DeleteStackError>) -> bool {
+fn is_err_does_not_exist_delete_stack(
+    e: &SdkError<DeleteStackError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
@@ -281,7 +283,9 @@ fn is_err_does_not_exist_delete_stack(e: &SdkError<DeleteStackError>) -> bool {
 }
 
 #[inline]
-fn is_err_does_not_exist_describe_stacks(e: &SdkError<DescribeStacksError>) -> bool {
+fn is_err_does_not_exist_describe_stacks(
+    e: &SdkError<DescribeStacksError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);

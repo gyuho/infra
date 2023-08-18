@@ -575,7 +575,9 @@ impl Key {
 }
 
 #[inline]
-pub fn is_err_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
+pub fn is_err_retryable_create_key(
+    e: &SdkError<CreateKeyError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
@@ -585,7 +587,9 @@ pub fn is_err_retryable_create_key(e: &SdkError<CreateKeyError>) -> bool {
 }
 
 #[inline]
-pub fn is_err_retryable_create_grant(e: &SdkError<CreateGrantError>) -> bool {
+pub fn is_err_retryable_create_grant(
+    e: &SdkError<CreateGrantError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
@@ -595,7 +599,9 @@ pub fn is_err_retryable_create_grant(e: &SdkError<CreateGrantError>) -> bool {
 }
 
 #[inline]
-pub fn is_err_retryable_revoke_grant(e: &SdkError<RevokeGrantError>) -> bool {
+pub fn is_err_retryable_revoke_grant(
+    e: &SdkError<RevokeGrantError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
@@ -605,7 +611,9 @@ pub fn is_err_retryable_revoke_grant(e: &SdkError<RevokeGrantError>) -> bool {
 }
 
 #[inline]
-pub fn is_err_retryable_describe_key(e: &SdkError<DescribeKeyError>) -> bool {
+pub fn is_err_retryable_describe_key(
+    e: &SdkError<DescribeKeyError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception() || err.err().is_kms_internal_exception()
@@ -616,7 +624,9 @@ pub fn is_err_retryable_describe_key(e: &SdkError<DescribeKeyError>) -> bool {
 
 /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_GetPublicKey.html>
 #[inline]
-pub fn is_err_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> bool {
+pub fn is_err_retryable_get_public_key(
+    e: &SdkError<GetPublicKeyError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -628,7 +638,9 @@ pub fn is_err_retryable_get_public_key(e: &SdkError<GetPublicKeyError>) -> bool 
 }
 
 #[inline]
-pub fn is_err_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) -> bool {
+pub fn is_err_retryable_generate_data_key(
+    e: &SdkError<GenerateDataKeyError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -640,7 +652,9 @@ pub fn is_err_retryable_generate_data_key(e: &SdkError<GenerateDataKeyError>) ->
 }
 
 #[inline]
-fn is_err_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
+fn is_err_retryable_encrypt(
+    e: &SdkError<EncryptError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -652,7 +666,9 @@ fn is_err_retryable_encrypt(e: &SdkError<EncryptError>) -> bool {
 }
 
 #[inline]
-fn is_err_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
+fn is_err_retryable_decrypt(
+    e: &SdkError<DecryptError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -664,7 +680,12 @@ fn is_err_retryable_decrypt(e: &SdkError<DecryptError>) -> bool {
 }
 
 #[inline]
-fn is_err_does_not_exist_schedule_key_deletion(e: &SdkError<ScheduleKeyDeletionError>) -> bool {
+fn is_err_does_not_exist_schedule_key_deletion(
+    e: &SdkError<
+        ScheduleKeyDeletionError,
+        aws_smithy_runtime_api::client::orchestrator::HttpResponse,
+    >,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_not_found_exception(),
         _ => false,
@@ -672,7 +693,12 @@ fn is_err_does_not_exist_schedule_key_deletion(e: &SdkError<ScheduleKeyDeletionE
 }
 
 #[inline]
-fn is_err_schedule_key_deletion_already_scheduled(e: &SdkError<ScheduleKeyDeletionError>) -> bool {
+fn is_err_schedule_key_deletion_already_scheduled(
+    e: &SdkError<
+        ScheduleKeyDeletionError,
+        aws_smithy_runtime_api::client::orchestrator::HttpResponse,
+    >,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
@@ -684,7 +710,9 @@ fn is_err_schedule_key_deletion_already_scheduled(e: &SdkError<ScheduleKeyDeleti
 
 /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-SigningAlgorithm>
 #[inline]
-pub fn is_err_retryable_sign(e: &SdkError<SignError>) -> bool {
+pub fn is_err_retryable_sign(
+    e: &SdkError<SignError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             err.err().is_dependency_timeout_exception()
@@ -697,7 +725,9 @@ pub fn is_err_retryable_sign(e: &SdkError<SignError>) -> bool {
 
 /// ref. <https://docs.aws.amazon.com/kms/latest/APIReference/API_Sign.html#KMS-Sign-request-SigningAlgorithm>
 #[inline]
-pub fn explain_err_sign(e: &SdkError<SignError>) -> String {
+pub fn explain_err_sign(
+    e: &SdkError<SignError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> String {
     match e {
         SdkError::ServiceError(err) => format!(
             "sign service error [code '{:?}', kind '{:?}', meta '{:?}']",

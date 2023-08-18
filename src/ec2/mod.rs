@@ -1685,7 +1685,9 @@ impl Droplet {
 
 /// EC2 does not return any error for non-existing key deletes, just in case...
 #[inline]
-fn is_err_does_not_exist_delete_key_pair(e: &SdkError<DeleteKeyPairError>) -> bool {
+fn is_err_does_not_exist_delete_key_pair(
+    e: &SdkError<DeleteKeyPairError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);
