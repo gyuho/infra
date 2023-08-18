@@ -875,10 +875,10 @@ pub fn go(os_type: OsType) -> io::Result<String> {
 # 'dpkg --print-architecture' to decide amd64/arm64
 
 sudo rm -rf /usr/local/go
-sudo curl -s --retry 70 --retry-delay 1 https://storage.googleapis.com/golang/go1.20.7.linux-$(dpkg --print-architecture).tar.gz | sudo tar -v -C /usr/local/ -xz
+sudo curl -s --retry 70 --retry-delay 1 https://storage.googleapis.com/golang/go1.20.7.linux-$(dpkg --print-architecture).tar.gz | sudo tar -C /usr/local/ -xz
 
 /usr/local/go/bin/go version
-go version
+go version || true
 ".to_string())
         }
         _ => Err(Error::new(
