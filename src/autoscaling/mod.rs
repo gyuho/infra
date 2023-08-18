@@ -53,7 +53,12 @@ impl Manager {
 }
 
 #[inline]
-fn is_err_retryable_set_instance_health(e: &SdkError<SetInstanceHealthError>) -> bool {
+fn is_err_retryable_set_instance_health(
+    e: &SdkError<
+        SetInstanceHealthError,
+        aws_smithy_runtime_api::client::orchestrator::HttpResponse,
+    >,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_resource_contention_fault(),
         _ => false,

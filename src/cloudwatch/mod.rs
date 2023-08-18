@@ -196,7 +196,7 @@ impl Manager {
 }
 
 #[inline]
-fn is_err_retryable_put_metrics_data<E>(e: &SdkError<E>) -> bool {
+fn is_err_retryable_put_metrics_data<E, R>(e: &SdkError<E, R>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -205,7 +205,7 @@ fn is_err_retryable_put_metrics_data<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-fn is_err_retryable_create_log_group<E>(e: &SdkError<E>) -> bool {
+fn is_err_retryable_create_log_group<E, R>(e: &SdkError<E, R>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),
@@ -214,7 +214,9 @@ fn is_err_retryable_create_log_group<E>(e: &SdkError<E>) -> bool {
 }
 
 #[inline]
-fn is_err_already_exists_create_log_group(e: &SdkError<CreateLogGroupError>) -> bool {
+fn is_err_already_exists_create_log_group(
+    e: &SdkError<CreateLogGroupError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_resource_already_exists_exception(),
         _ => false,
@@ -222,7 +224,9 @@ fn is_err_already_exists_create_log_group(e: &SdkError<CreateLogGroupError>) -> 
 }
 
 #[inline]
-fn is_err_does_not_exist_delete_log_group(e: &SdkError<DeleteLogGroupError>) -> bool {
+fn is_err_does_not_exist_delete_log_group(
+    e: &SdkError<DeleteLogGroupError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => err.err().is_resource_not_found_exception(),
         _ => false,

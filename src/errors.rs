@@ -33,7 +33,7 @@ impl Error {
 }
 
 #[inline]
-pub fn is_sdk_err_retryable<E>(e: &SdkError<E>) -> bool {
+pub fn is_sdk_err_retryable<E, R>(e: &SdkError<E, R>) -> bool {
     match e {
         SdkError::TimeoutError(_) | SdkError::ResponseError { .. } => true,
         SdkError::DispatchFailure(e) => e.is_timeout() || e.is_io(),

@@ -1263,7 +1263,7 @@ impl Manager {
     }
 
     /// Allocates an EIP and returns the allocation Id and the public Ip.
-    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html
+    /// ref. <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateAddress.html>
     pub async fn allocate_eip(&self, tags: HashMap<String, String>) -> Result<Eip> {
         log::info!("allocating elastic IP with tags {:?}", tags);
 
@@ -1368,7 +1368,7 @@ impl Manager {
     }
 
     /// Describes the elastic IP addresses with the tags.
-    /// ref. https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html
+    /// ref. <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html>
     pub async fn describe_eips_by_tags(
         &self,
         tags: HashMap<String, String>,
@@ -1685,7 +1685,9 @@ impl Droplet {
 
 /// EC2 does not return any error for non-existing key deletes, just in case...
 #[inline]
-fn is_err_does_not_exist_delete_key_pair(e: &SdkError<DeleteKeyPairError>) -> bool {
+fn is_err_does_not_exist_delete_key_pair(
+    e: &SdkError<DeleteKeyPairError, aws_smithy_runtime_api::client::orchestrator::HttpResponse>,
+) -> bool {
     match e {
         SdkError::ServiceError(err) => {
             let msg = format!("{:?}", err);

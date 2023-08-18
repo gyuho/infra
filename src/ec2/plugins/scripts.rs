@@ -875,7 +875,7 @@ pub fn go(os_type: OsType) -> io::Result<String> {
 # 'dpkg --print-architecture' to decide amd64/arm64
 
 sudo rm -rf /usr/local/go
-GO_VERSION=1.20.5
+GO_VERSION=1.21.0
 sudo curl -s --retry 70 --retry-delay 1 https://storage.googleapis.com/golang/go$GO_VERSION.linux-$(dpkg --print-architecture).tar.gz | sudo tar -v -C /usr/local/ -xz
 
 /usr/local/go/bin/go version
@@ -1304,14 +1304,17 @@ pub fn kubelet(os_type: OsType) -> io::Result<String> {
             Ok("
 ###########################
 # install kubelet
+# https://kubernetes.io/releases/
 # https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
 # 'dpkg --print-architecture' to decide amd64/arm64
 
 while [ 1 ]; do
-    export KUBELET_CURRENT_VERSION=$(curl -L -s --retry 70 --retry-delay 1 https://dl.k8s.io/release/stable.txt)
-    export KUBELET_CURRENT_VERSION=\"v1.26.6\"
+    export K8S_CURRENT_VERSION=$(curl -L -s --retry 70 --retry-delay 1 https://dl.k8s.io/release/stable.txt)
+    # overwrite with 1.26
+    export K8S_CURRENT_VERSION=\"v1.26.7\"
+
     rm -f /tmp/kubelet || true;
-    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://dl.k8s.io/release/${KUBELET_CURRENT_VERSION}/bin/linux/$(dpkg --print-architecture)/kubelet\"
+    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://dl.k8s.io/release/${K8S_CURRENT_VERSION}/bin/linux/$(dpkg --print-architecture)/kubelet\"
     if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
     sleep 2s;
 done;
@@ -1340,13 +1343,17 @@ pub fn kubectl(os_type: OsType) -> io::Result<String> {
             Ok("
 ###########################
 # install kubectl
+# https://kubernetes.io/releases/
 # https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/
 # 'dpkg --print-architecture' to decide amd64/arm64
 
 while [ 1 ]; do
-    export KUBECTL_CURRENT_VERSION=$(curl -L -s --retry 70 --retry-delay 1 https://dl.k8s.io/release/stable.txt)
+    export K8S_CURRENT_VERSION=$(curl -L -s --retry 70 --retry-delay 1 https://dl.k8s.io/release/stable.txt)
+    # overwrite with 1.26
+    export K8S_CURRENT_VERSION=\"v1.26.7\"
+
     rm -f /tmp/kubectl || true;
-    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://dl.k8s.io/release/${KUBECTL_CURRENT_VERSION}/bin/linux/$(dpkg --print-architecture)/kubectl\"
+    wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://dl.k8s.io/release/${K8S_CURRENT_VERSION}/bin/linux/$(dpkg --print-architecture)/kubectl\"
     if [ $? = 0 ]; then break; fi; # check return value, break if successful (0)
     sleep 2s;
 done;
