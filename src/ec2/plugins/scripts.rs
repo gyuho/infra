@@ -874,8 +874,11 @@ pub fn go(os_type: OsType) -> io::Result<String> {
 # https://go.dev/dl
 # 'dpkg --print-architecture' to decide amd64/arm64
 
-sudo rm -rf /usr/local/go
-sudo curl -s --retry 70 --retry-delay 1 https://storage.googleapis.com/golang/go1.20.7.linux-$(dpkg --print-architecture).tar.gz | sudo tar -C /usr/local/ -xz
+# sudo rm -rf /usr/local/go
+# sudo curl -s --retry 70 --retry-delay 1 https://storage.googleapis.com/golang/go1.20.7.linux-$(dpkg --print-architecture).tar.gz | sudo tar -C /usr/local/ -xz
+wget --quiet --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 --tries=70 --directory-prefix=/tmp/ --continue \"https://go.dev/dl/go1.20.7.linux-$(dpkg --print-architecture).tar.gz\"
+/tmp/go1.21.0.linux-$(dpkg --print-architecture).tar.gz
+rm -rf /usr/local/go && tar -C /usr/local -xzf /tmp/go1.21.0.linux-$(dpkg --print-architecture).tar.gz
 
 /usr/local/go/bin/go version
 go version || true
