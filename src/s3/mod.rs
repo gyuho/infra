@@ -460,7 +460,7 @@ impl Manager {
             s3_key,
             self.region,
         );
-        let b: Vec<u8> = byte_stream.into_inner().bytes().unwrap().to_vec();
+        let b: Vec<u8> = byte_stream.into_inner().bytes()?.to_vec();
         self.put_bytes_with_metadata_with_retries(b, s3_bucket, s3_key, metadata, timeout, interval)
             .await
     }
