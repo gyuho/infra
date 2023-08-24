@@ -454,15 +454,26 @@ impl Manager {
     ) -> Result<()> {
         let (size, byte_stream) = read_file_to_byte_stream(file_path).await?;
         log::info!(
-            "put object '{file_path}' (size {}) to 's3://{}/{}' (region '{}')",
+            "put object '{file_path}' (size {}) to 's3://{}/{}' (retries timeout '{:?}', region '{}')",
             human_readable::bytes(size),
             s3_bucket,
             s3_key,
+            timeout,
             self.region,
         );
-        let b: Vec<u8> = byte_stream.into_inner().bytes()?.to_vec();
-        self.put_bytes_with_metadata_with_retries(b, s3_bucket, s3_key, metadata, timeout, interval)
+
+        if let Some(b) = byte_stream.into_inner().bytes() {
+            let d = b.to_vec();
+            self.put_bytes_with_metadata_with_retries(
+                d, s3_bucket, s3_key, metadata, timeout, interval,
+            )
             .await
+        } else {
+            Err(Error::Other {
+                message: format!("byte stream bytes not found"),
+                retryable: false,
+            })
+        }
     }
 
     /// Writes a byte stream with the metadata.
@@ -537,7 +548,7 @@ impl Manager {
         interval: Duration,
     ) -> Result<()> {
         log::info!(
-            "put_bytes_with_metadata_with_retries '{s3_bucket}' '{s3_key}' in region '{}' exists with timeout {:?} and interval {:?}",
+            "put_bytes_with_metadata_with_retries '{s3_bucket}' '{s3_key}' in region '{}' with retries timeout {:?} and interval {:?}",
             self.region,
             timeout,
             interval,
