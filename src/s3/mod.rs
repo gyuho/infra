@@ -431,7 +431,13 @@ impl Manager {
         s3_key: &str,
         metadata: Option<HashMap<String, String>>,
     ) -> Result<()> {
-        let (size, byte_stream) = read_file_to_byte_stream(file_path).await?;
+        // TODO: this fails for no reason...
+        // byte_stream.into_inner().bytes() returns None...
+        // use this when we need to stream a very large file
+        // let (size, byte_stream) = read_file_to_byte_stream(file_path).await?;
+        let b = read_file_to_bytes(file_path)?;
+        let size = b.len() as f64;
+
         log::info!(
             "put object '{file_path}' (size {}) to 's3://{}/{}' (region '{}')",
             human_readable::bytes(size),
@@ -439,8 +445,15 @@ impl Manager {
             s3_key,
             self.region,
         );
-        self.put_byte_stream_with_metadata(byte_stream, s3_bucket, s3_key, metadata)
-            .await
+        self.put_bytes_with_metadata_with_retries(
+            b,
+            s3_bucket,
+            s3_key,
+            metadata,
+            Duration::from_secs(180),
+            Duration::from_secs(10),
+        )
+        .await
     }
 
     pub async fn put_object_with_metadata_with_retries(
@@ -452,7 +465,13 @@ impl Manager {
         timeout: Duration,
         interval: Duration,
     ) -> Result<()> {
-        let (size, byte_stream) = read_file_to_byte_stream(file_path).await?;
+        // TODO: this fails for no reason...
+        // byte_stream.into_inner().bytes() returns None...
+        // use this when we need to stream a very large file
+        // let (size, byte_stream) = read_file_to_byte_stream(file_path).await?;
+        let b = read_file_to_bytes(file_path)?;
+        let size = b.len() as f64;
+
         log::info!(
             "put object '{file_path}' (size {}) to 's3://{}/{}' (retries timeout '{:?}', region '{}')",
             human_readable::bytes(size),
@@ -462,18 +481,8 @@ impl Manager {
             self.region,
         );
 
-        if let Some(b) = byte_stream.into_inner().bytes() {
-            let d = b.to_vec();
-            self.put_bytes_with_metadata_with_retries(
-                d, s3_bucket, s3_key, metadata, timeout, interval,
-            )
+        self.put_bytes_with_metadata_with_retries(b, s3_bucket, s3_key, metadata, timeout, interval)
             .await
-        } else {
-            Err(Error::Other {
-                message: format!("byte stream bytes not found"),
-                retryable: false,
-            })
-        }
     }
 
     /// Writes a byte stream with the metadata.
@@ -963,6 +972,7 @@ impl Manager {
     }
 }
 
+#[allow(dead_code)]
 async fn read_file_to_byte_stream(file_path: &str) -> Result<(f64, ByteStream)> {
     let file = Path::new(file_path);
     if !file.exists() {
@@ -976,8 +986,8 @@ async fn read_file_to_byte_stream(file_path: &str) -> Result<(f64, ByteStream)> 
         message: format!("failed fs::metadata {}", e),
         retryable: false,
     })?;
-
     let size = meta.len() as f64;
+
     let byte_stream = ByteStream::from_path(file)
         .await
         .map_err(|e| Error::Other {
@@ -985,6 +995,26 @@ async fn read_file_to_byte_stream(file_path: &str) -> Result<(f64, ByteStream)> 
             retryable: false,
         })?;
     Ok((size, byte_stream))
+}
+
+fn read_file_to_bytes(file_path: &str) -> Result<Vec<u8>> {
+    let file: &Path = Path::new(file_path);
+    if !file.exists() {
+        return Err(Error::Other {
+            message: format!("file path '{file_path}' does not exist"),
+            retryable: false,
+        });
+    }
+
+    std::fs::read(file_path)
+        .map_err(|e| Error::Other {
+            message: format!("failed fs::read {}", e),
+            retryable: false,
+        })
+        .map_err(|e| Error::Other {
+            message: format!("failed read file {}", e),
+            retryable: false,
+        })
 }
 
 #[inline]
