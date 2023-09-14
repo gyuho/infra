@@ -138,7 +138,7 @@ pub fn update_bash_profile(
                 paths.push("/home/ubuntu/.cargo/bin".to_string());
             }
             if cuda_toolkit_installed {
-                paths.push("/usr/local/cuda-12.1/bin".to_string());
+                paths.push("/usr/local/cuda-12.2/bin".to_string());
             }
 
             let mut profile = String::from(
@@ -1605,17 +1605,17 @@ nvidia-smi
 
 # THIS IS DIFFERENT FOR UBUNTU LAPTOP
 # e.g.,
-# Release Date: 2023.6.14
-# DRIVER_VERSION=535.54.03
-# https://us.download.nvidia.com/XFree86/Linux-x86_64/535.54.03/NVIDIA-Linux-x86_64-535.54.03.run
+# Release Date: 2023.8.29
+# DRIVER_VERSION=535.104.05
+# https://us.download.nvidia.com/XFree86/Linux-x86_64/535.104.05/NVIDIA-Linux-x86_64-535.104.05.run
 #
 # in case of rollback
 # original system76 ubuntu 22.04 ships
 # DRIVER_VERSION=525.105.17
 # CUDA_VERSION=12.0
 
-# Release Date: 2023.3.30
-DRIVER_VERSION=525.105.17
+# Release Date: 2023.8.29
+DRIVER_VERSION=535.104.05
 BASE_URL=https://us.download.nvidia.com/tesla
 
 while [ 1 ]; do
@@ -1662,9 +1662,12 @@ pub fn nvidia_cuda_toolkit(os_type: OsType) -> io::Result<String> {
 # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=runfile_local
 # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=runfile_local
 
-# this upgrades to CUDA Version: 12.1
-CUDA_VERSION=12.1.1
-TOOL_KIT_VERSION=530.30.02
+# /cuda-installer: error while loading shared libraries: libxml2.so.2: cannot open shared object file: No such file or directory
+sudo apt-get install -y libxml2
+
+# this upgrades to CUDA Version: 12.2
+CUDA_VERSION=12.2.2
+TOOL_KIT_VERSION=535.104.05
 BASE_URL=https://developer.download.nvidia.com/compute/cuda
 
 # add --override-driver-check to overwrite
@@ -1686,10 +1689,10 @@ then
     # exit 1
 fi
 
-# /usr/local/cuda-12.1/bin
+# /usr/local/cuda-12.2/bin
 which nvcc || true
 nvcc --version || true
-/usr/local/cuda-12.1/bin/nvcc --version
+/usr/local/cuda-12.2/bin/nvcc --version
 
 if ! command -v nvidia-smi &> /dev/null
 then
