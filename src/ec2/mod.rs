@@ -1489,13 +1489,25 @@ impl Manager {
     }
 
     /// Creates an image and returns the AMI ID.
-    pub async fn create_image(&self, instance_id: &str, image_name: &str) -> Result<String> {
+    pub async fn create_image(
+        &self,
+        instance_id: &str,
+        image_name: &str,
+        tags: HashMap<String, String>,
+    ) -> Result<String> {
         log::info!("creating an image '{image_name}' in instance '{instance_id}'");
+
+        let mut ami_tags = TagSpecification::builder().resource_type(ResourceType::Image);
+        for (k, v) in tags.iter() {
+            ami_tags = ami_tags.tags(Tag::builder().key(k).value(v).build());
+        }
+
         let ami = self
             .cli
             .create_image()
             .instance_id(instance_id)
             .name(image_name)
+            .tag_specifications(ami_tags.build())
             .send()
             .await
             .map_err(|e| Error::API {
