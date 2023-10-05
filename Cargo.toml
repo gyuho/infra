@@ -31,7 +31,7 @@ aws-sdk-acmpca = { version = "0.30.0", optional = true } # https://crates.io/cra
 aws-sdk-autoscaling = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-cloudformation = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
 aws-sdk-sqs = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-sqs/versions
-aws-sdk-ssm = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
+aws-sdk-ssm = { version = "0.32.0", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
 aws-sdk-sts = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-sts/versions
 
 # [OPTIONAL] for "s3"
