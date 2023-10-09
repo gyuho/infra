@@ -27,7 +27,7 @@ random-manager = { version = "0.0.5", optional = true } # https://crates.io/crat
 serde = { version = "1.0.186", features = ["derive"], optional = true } # https://github.com/serde-rs/serde/releases
 
 aws-sdk-acm = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-acm/versions
-aws-sdk-acmpca = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-acmpca/versions
+aws-sdk-acmpca = { version = "0.33.0", optional = true } # https://crates.io/crates/aws-sdk-acmpca/versions
 aws-sdk-autoscaling = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-cloudformation = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
 aws-sdk-sqs = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-sqs/versions
