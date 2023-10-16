@@ -13,8 +13,8 @@ permissions:
   contents: write
 
 jobs:
-  static_analysis:
-    name: Static analysis (lint)
+  rust_static_analysis:
+    name: Rust static analysis (lint)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -33,10 +33,10 @@ jobs:
           cache-on-failure: true
       - name: Run static analysis tests
         shell: bash
-        run: scripts/tests.lint.sh
+        run: rs/scripts/tests.lint.sh
 
-  check_cargo_unused:
-    name: Check Cargo unused
+  rust_check_cargo_unused:
+    name: Rust check Cargo unused
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -55,10 +55,10 @@ jobs:
           cache-on-failure: true
       - name: Check unused Cargo dependencies
         shell: bash
-        run: scripts/tests.unused.sh
+        run: rs/scripts/tests.unused.sh
 
-  unit_tests:
-    name: Unit tests
+  rust_unit_tests:
+    name: Rust unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -75,4 +75,4 @@ jobs:
         with:
           cache-on-failure: true
       - name: Run unit tests
-        run: scripts/tests.unit.sh
+        run: rs/scripts/tests.unit.sh
