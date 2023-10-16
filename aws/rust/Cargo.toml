@@ -35,7 +35,7 @@ aws-sdk-ssm = { version = "0.30.0", optional = true } # https://crates.io/crates
 aws-sdk-sts = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-sts/versions
 
 # [OPTIONAL] for "s3"
-aws-sdk-s3 = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
+aws-sdk-s3 = { version = "0.33.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
 tokio-stream = { version = "0.1.14", optional = true } # https://github.com/tokio-rs/tokio/tree/master/tokio-stream
 
 # [OPTIONAL] for "cloudwatch"
