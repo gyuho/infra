@@ -9,7 +9,7 @@ edition = "2021"
 rust-version = "1.71"
 publish = true
 description = "AWS SDK manager"
-homepage = "https://github.com/gyuho/aws-manager/tree/main/rust"
+homepage = "https://github.com/gyuho/cloud/tree/main/aws/rust"
 license = "Apache-2.0"
 
 [dependencies]

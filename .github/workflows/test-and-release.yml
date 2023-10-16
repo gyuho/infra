@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  rust_static_analysis:
+  aws_rust_static_analysis:
     name: Rust static analysis (lint)
     runs-on: ubuntu-latest
     steps:
@@ -33,9 +33,9 @@ jobs:
           cache-on-failure: true
       - name: Run static analysis tests
         shell: bash
-        run: cd ./rust && ./scripts/tests.lint.sh
+        run: cd ./aws/rust && ./scripts/tests.lint.sh
 
-  rust_check_cargo_unused:
+  aws_rust_check_cargo_unused:
     name: Rust check Cargo unused
     runs-on: ubuntu-latest
     steps:
@@ -55,9 +55,9 @@ jobs:
           cache-on-failure: true
       - name: Check unused Cargo dependencies
         shell: bash
-        run: cd ./rust && ./scripts/tests.unused.sh
+        run: cd ./aws/rust && ./scripts/tests.unused.sh
 
-  rust_unit_tests:
+  aws_rust_unit_tests:
     name: Rust unit tests
     runs-on: ubuntu-latest
     steps:
@@ -75,4 +75,4 @@ jobs:
         with:
           cache-on-failure: true
       - name: Run unit tests
-        run: cd ./rust && ./scripts/tests.unit.sh
+        run: cd ./aws/rust && ./scripts/tests.unit.sh

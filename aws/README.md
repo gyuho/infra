@@ -1,0 +1,2 @@
+
+AWS manager, SDK wrapper
