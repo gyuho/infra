@@ -1,5 +1,12 @@
 version: 2
 updates:
+  - package-ecosystem: gomod
+    directory: "/aws/go"
+    schedule:
+      interval: weekly
+      time: "10:00"
+    open-pull-requests-limit: 10
+
   - package-ecosystem: cargo
     directory: "/aws/rust"
     schedule:
