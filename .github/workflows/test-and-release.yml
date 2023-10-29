@@ -5,9 +5,9 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "*"
-  pull_request:
+    # tags:
+    #  - "*"
+  # pull_request:
 
 permissions:
   contents: write
