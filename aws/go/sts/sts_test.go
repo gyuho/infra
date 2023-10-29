@@ -1,10 +1,12 @@
-package aws
+package sts
 
 import (
 	"context"
 	"os"
 	"testing"
 	"time"
+
+	aws "github.com/gyuho/infra/aws/go"
 )
 
 func TestTest(t *testing.T) {
@@ -12,10 +14,10 @@ func TestTest(t *testing.T) {
 		t.Skip()
 	}
 
-	if _, err := New(nil); err == nil {
+	if _, err := aws.New(nil); err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	cfg, err := New(&Config{
+	cfg, err := aws.New(&aws.Config{
 		Region: "us-east-1",
 	})
 	if err != nil {

@@ -1,13 +1,16 @@
-package aws
+// Package sts implements STS utils.
+package sts
 
 import (
 	"context"
+
+	aws "github.com/gyuho/infra/aws/go"
 
 	aws_sts_v2 "github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 func GetCallerIdentity(ctx context.Context) (Identity, error) {
-	cfg, err := New(&Config{Region: "us-east-1"})
+	cfg, err := aws.New(&aws.Config{Region: "us-east-1"})
 	if err != nil {
 		return Identity{}, err
 	}
@@ -17,6 +20,7 @@ func GetCallerIdentity(ctx context.Context) (Identity, error) {
 	if err != nil {
 		return Identity{}, err
 	}
+
 	return Identity{
 		AccountID: *out.Account,
 		RoleARN:   *out.Arn,

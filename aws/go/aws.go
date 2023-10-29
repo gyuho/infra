@@ -13,6 +13,8 @@ import (
 type Config struct {
 	DebugAPICalls bool
 	Region        string
+
+	// TODO: support profile name
 }
 
 func New(cfg *Config) (awsCfg aws_v2.Config, err error) {

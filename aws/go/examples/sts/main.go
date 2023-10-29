@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	aws "github.com/gyuho/infra/aws/go"
+	"github.com/gyuho/infra/aws/go/sts"
 )
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	id, err := aws.GetCallerIdentity(ctx)
+	id, err := sts.GetCallerIdentity(ctx)
 	cancel()
 	if err != nil {
 		panic(err)
