@@ -6,10 +6,10 @@ name = "aws-manager"
 version = "0.30.4" # https://crates.io/crates/aws-manager/versions
 
 edition = "2021"
-rust-version = "1.71"
+rust-version = "1.73"
 publish = true
 description = "AWS SDK manager"
-homepage = "https://github.com/gyuho/cloud/tree/main/aws/rust"
+homepage = "https://github.com/gyuho/infra/tree/main/aws/rust"
 license = "Apache-2.0"
 
 [dependencies]
@@ -26,16 +26,16 @@ human-readable = { version = "0.0.1", optional = true }
 random-manager = { version = "0.0.5", optional = true } # https://crates.io/crates/random-manager/versions
 serde = { version = "1.0.186", features = ["derive"], optional = true } # https://github.com/serde-rs/serde/releases
 
-aws-sdk-acm = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-acm/versions
-aws-sdk-acmpca = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-acmpca/versions
+aws-sdk-acm = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-acm/versions
+aws-sdk-acmpca = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-acmpca/versions
 aws-sdk-autoscaling = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-autoscaling/versions
 aws-sdk-cloudformation = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-cloudformation/versions
 aws-sdk-sqs = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-sqs/versions
-aws-sdk-ssm = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
+aws-sdk-ssm = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-ssm/versions
 aws-sdk-sts = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-sts/versions
 
 # [OPTIONAL] for "s3"
-aws-sdk-s3 = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
+aws-sdk-s3 = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-s3/versions
 tokio-stream = { version = "0.1.14", optional = true } # https://github.com/tokio-rs/tokio/tree/master/tokio-stream
 
 # [OPTIONAL] for "cloudwatch"
@@ -44,7 +44,7 @@ aws-sdk-cloudwatchlogs = { version = "0.34.0", optional = true } # https://crate
 serde_json = { version = "1.0.105", optional = true } # https://github.com/serde-rs/json/releases
 
 # [OPTIONAL] for "ec2"
-aws-sdk-ec2 = { version = "0.30.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
+aws-sdk-ec2 = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-ec2/versions
 chrono = { version = "0.4.26", optional = true } # https://github.com/chronotope/chrono/releases
 command-manager = { version = "0.0.3", optional = true }
 reqwest = { version = "0.11.20", optional = true }
