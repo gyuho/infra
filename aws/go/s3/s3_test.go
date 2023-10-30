@@ -51,6 +51,13 @@ func TestS3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+	existOut, err := ObjectExists(ctx, cfg, bucketName, s3Key1)
+	cancel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", *existOut)
 
 	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.String(10)), filepath.Join(randutil.String(10), randutil.String(10))
 	defer os.RemoveAll(localFile2)
@@ -64,6 +71,13 @@ func TestS3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+	existOut, err = ObjectExists(ctx, cfg, bucketName, s3Key2)
+	cancel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", *existOut)
 
 	localFile1New := filepath.Join(os.TempDir(), randutil.String(10))
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
