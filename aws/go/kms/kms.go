@@ -19,7 +19,7 @@ func CreateKey(
 	keySpec aws_kms_v2_types.KeySpec,
 	keyUsage aws_kms_v2_types.KeyUsageType,
 	tags map[string]string) (string, error) {
-	// logutil.S().Infow("creating key", "keyName", keyName, "keySpec", keySpec, "keyUsage", keyUsage)
+	logutil.S().Infow("creating key", "keyName", keyName, "keySpec", keySpec, "keyUsage", keyUsage)
 
 	tss := make([]aws_kms_v2_types.Tag, 0)
 	for k, v := range tags {
@@ -46,7 +46,7 @@ func CreateKey(
 	}
 	keyID := *out.KeyMetadata.KeyId
 
-	// logutil.S().Infow("successfully created key", "keyName", keyName, "keySpec", keySpec, "keyUsage", keyUsage, "keyID", keyID)
+	logutil.S().Infow("successfully created key", "keyName", keyName, "keySpec", keySpec, "keyUsage", keyUsage, "keyID", keyID)
 	return keyID, nil
 }
 
@@ -72,7 +72,7 @@ func DeleteKey(ctx context.Context, cfg aws.Config, keyID string, pendingWindowI
 	if pendingWindowInDays < 7 {
 		pendingWindowInDays = 7
 	}
-	// logutil.S().Infow("scheduling to delete key", "keyID", keyID, "pendingWindowInDays", pendingWindowInDays)
+	logutil.S().Infow("scheduling to delete key", "keyID", keyID, "pendingWindowInDays", pendingWindowInDays)
 
 	cli := aws_kms_v2.NewFromConfig(cfg)
 	_, err := cli.ScheduleKeyDeletion(ctx, &aws_kms_v2.ScheduleKeyDeletionInput{
@@ -87,13 +87,13 @@ func DeleteKey(ctx context.Context, cfg aws.Config, keyID string, pendingWindowI
 		return err
 	}
 
-	// logutil.S().Infow("successfully scheduled to delete key", "keyID", keyID)
+	logutil.S().Infow("successfully scheduled to delete key", "keyID", keyID)
 	return err
 }
 
 // ListAliases lists all aliases.
 func ListAliases(ctx context.Context, cfg aws.Config) ([]aws_kms_v2_types.AliasListEntry, error) {
-	// logutil.S().Infow("listing key aliases")
+	logutil.S().Infow("listing key aliases")
 
 	as := make([]aws_kms_v2_types.AliasListEntry, 0)
 	cli := aws_kms_v2.NewFromConfig(cfg)
