@@ -130,11 +130,11 @@ func Poll(
 	now := time.Now()
 
 	logutil.S().Infow("polling stack",
-		"stack-id", stackID,
+		"stackID", stackID,
 		"want", string(desiredStackStatus),
-		"initial-wait", initialWait.String(),
-		"poll-interval", pollInterval.String(),
-		"ctx-time-left", ctxutil.TimeLeftTillDeadline(ctx),
+		"initialWait", initialWait.String(),
+		"pollInterval", pollInterval.String(),
+		"ctxTimeLeft", ctxutil.TimeLeftTillDeadline(ctx),
 	)
 	ch := make(chan StackStatus, 10)
 	cli := aws_cloudformation_v2.NewFromConfig(cfg)

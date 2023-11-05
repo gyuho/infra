@@ -12,27 +12,6 @@ import (
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-type Op struct {
-	expectedInstanceStates map[aws_ec2_v2_types.InstanceStateName]struct{}
-}
-
-type OpOption func(*Op)
-
-func (op *Op) applyOpts(opts []OpOption) {
-	for _, opt := range opts {
-		opt(op)
-	}
-}
-
-func WithInstanceState(s aws_ec2_v2_types.InstanceStateName) OpOption {
-	return func(op *Op) {
-		if op.expectedInstanceStates == nil {
-			op.expectedInstanceStates = make(map[aws_ec2_v2_types.InstanceStateName]struct{})
-		}
-		op.expectedInstanceStates[s] = struct{}{}
-	}
-}
-
 // Fetches the instance by ID.
 func GetInstance(ctx context.Context, cfg aws.Config, instanceID string) (aws_ec2_v2_types.Instance, error) {
 	logutil.S().Infow("getting instance", "instanceID", instanceID)
