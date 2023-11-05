@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gyuho/infra/aws/go/pkg/logutil"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ec2_v2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	aws_sts_v2 "github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/gyuho/infra/aws/go/pkg/logutil"
 )
 
 var amiTagKeyName = "Name"
