@@ -8,7 +8,7 @@ import (
 	"time"
 
 	aws "github.com/gyuho/infra/aws/go"
-	"github.com/gyuho/infra/aws/go/pkg/randutil"
+	"github.com/gyuho/infra/go/randutil"
 
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )

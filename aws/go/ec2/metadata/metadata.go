@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gyuho/infra/aws/go/pkg/logutil"
+	"github.com/gyuho/infra/go/logutil"
 )
 
 // Serves session token for instance metadata service v2.

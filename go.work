@@ -2,5 +2,6 @@ go 1.21.3
 
 use (
 	./aws/go
+	./go
 	./linux/go
 )

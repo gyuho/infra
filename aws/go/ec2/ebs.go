@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/gyuho/infra/aws/go/pkg/ctxutil"
-	"github.com/gyuho/infra/aws/go/pkg/logutil"
+	"github.com/gyuho/infra/go/ctxutil"
+	"github.com/gyuho/infra/go/logutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ec2_v2 "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -47,8 +47,9 @@ func DescribeVolumes(ctx context.Context, cfg aws.Config, filters map[string]str
 }
 
 // Creates the volume.
-func CreateVolume(ctx context.Context, cfg aws.Config, name string, opts ...OpOption) error {
+func CreateVolume(ctx context.Context, cfg aws.Config, name string, opts ...OpOption) (string, error) {
 	ret := &Op{
+		availabilityZone: cfg.Region + "a",
 		volumeType:       "gp3",
 		volumeEncrypted:  true,
 		volumeSizeInGB:   300,
@@ -64,20 +65,20 @@ func CreateVolume(ctx context.Context, cfg aws.Config, name string, opts ...OpOp
 		aws_ec2_v2_types.VolumeTypeGp2,
 		aws_ec2_v2_types.VolumeTypeGp3:
 	default:
-		return fmt.Errorf("invalid ec2 volume type %q", ret.volumeType)
+		return "", fmt.Errorf("invalid ec2 volume type %q", ret.volumeType)
 	}
 
 	if name == "" {
-		return errors.New("volume name must be set")
+		return "", errors.New("volume name must be set")
 	}
 	if ret.volumeSizeInGB == 0 {
-		return errors.New("volumeSizeInGB must be set")
+		return "", errors.New("volumeSizeInGB must be set")
 	}
 	if ret.volumeIOPS == 0 {
-		return errors.New("volumeIOPS must be set")
+		return "", errors.New("volumeIOPS must be set")
 	}
 	if ret.volumeThroughput == 0 {
-		return errors.New("volumeThroughput must be set")
+		return "", errors.New("volumeThroughput must be set")
 	}
 
 	logutil.S().Infow("creating a volume",
@@ -91,7 +92,7 @@ func CreateVolume(ctx context.Context, cfg aws.Config, name string, opts ...OpOp
 
 	input := aws_ec2_v2.CreateVolumeInput{
 		VolumeType:       volType,
-		AvailabilityZone: &ret.az,
+		AvailabilityZone: &ret.availabilityZone,
 		Encrypted:        &ret.volumeEncrypted,
 		Size:             &ret.volumeSizeInGB,
 		Iops:             &ret.volumeIOPS,
@@ -123,15 +124,15 @@ func CreateVolume(ctx context.Context, cfg aws.Config, name string, opts ...OpOp
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.CreateVolume(ctx, &input)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if out.VolumeId == nil {
-		return errors.New("volumeID is nil")
+		return "", errors.New("volumeID is nil")
 	}
 	volID := *out.VolumeId
 
 	logutil.S().Infow("successfully created a volume", "volumeID", volID)
-	return nil
+	return volID, nil
 }
 
 // Deletes the volume.
@@ -156,7 +157,7 @@ type VolumeStatus struct {
 }
 
 // Polls the volume by its state.
-func PollVolumeByState(
+func PollVolume(
 	ctx context.Context,
 	stopc chan struct{},
 	cfg aws.Config,
@@ -170,11 +171,6 @@ func PollVolumeByState(
 
 	if ret.volumeState == "" {
 		ch <- VolumeStatus{Error: errors.New("empty volume state")}
-		close(ch)
-		return ch
-	}
-	if ret.volumeAttachmentState == "" {
-		ch <- VolumeStatus{Error: errors.New("empty volume attachment state")}
 		close(ch)
 		return ch
 	}
@@ -218,13 +214,7 @@ func PollVolumeByState(
 				}
 			}
 
-			vols, err := DescribeVolumes(
-				ctx,
-				cfg,
-				map[string]string{
-					"volume-id": volumeID,
-				},
-			)
+			vols, err := DescribeVolumes(ctx, cfg, map[string]string{"volume-id": volumeID})
 			if err != nil {
 				// TODO: handle error when volume does not exist
 				logutil.S().Warnw("describe volume failed; retrying", "err", err)
@@ -246,37 +236,51 @@ func PollVolumeByState(
 				ch <- VolumeStatus{Error: fmt.Errorf("unexpected volume response %+v", vols)}
 				continue
 			}
+
 			vol := vols[0]
-
-			currentState := vol.State
-			if currentState == ret.volumeState {
-				logutil.S().Infow("desired volume state; done", "state", string(currentState))
-
-				if len(vol.Attachments) != 1 {
-					logutil.S().Warnw("expected only 1 attachment; retrying", "attachments", len(vol.Attachments))
-					ch <- VolumeStatus{Error: fmt.Errorf("unexpected attachment response %+v", vol.Attachments)}
-					continue
-				}
-
-				attachment := vol.Attachments[0]
-				currentAttachmentState := attachment.State
-				if currentAttachmentState == ret.volumeAttachmentState {
-					ch <- VolumeStatus{Volume: vol, Error: nil}
-					close(ch)
-					return
-				}
-
-				ch <- VolumeStatus{Volume: vol, Error: nil}
-			}
+			curState := vol.State
 
 			logutil.S().Infow("poll",
 				"volume", volumeID,
-				"desired", string(ret.volumeState),
-				"current", string(currentState),
+				"desiredState", string(ret.volumeState),
+				"currentState", string(curState),
 				"started", humanize.RelTime(now, time.Now(), "ago", "from now"),
 				"ctxTimeLeft", ctxutil.TimeLeftTillDeadline(ctx),
 			)
-			// continue for-loop
+
+			if curState != ret.volumeState {
+				ch <- VolumeStatus{Volume: vol, Error: nil}
+				continue
+			}
+
+			if ret.volumeAttachmentState == "" {
+				logutil.S().Infow("desired volume state; done", "state", string(curState))
+				ch <- VolumeStatus{Volume: vol, Error: nil}
+				close(ch)
+				return
+			}
+
+			if len(vol.Attachments) != 1 {
+				logutil.S().Warnw("expected 1 attachment; retrying", "attachments", len(vol.Attachments))
+				ch <- VolumeStatus{Volume: vol, Error: fmt.Errorf("unexpected attachment response %+v", vol.Attachments)}
+				continue
+			}
+
+			attachment := vol.Attachments[0]
+			curAttach := attachment.State
+
+			if curAttach == ret.volumeAttachmentState {
+				logutil.S().Infow(
+					"desired volume and attachment state; done",
+					"state", string(curState),
+					"attachmentState", string(curAttach),
+				)
+				ch <- VolumeStatus{Volume: vol, Error: nil}
+				close(ch)
+				return
+			}
+
+			ch <- VolumeStatus{Volume: vol, Error: nil}
 		}
 
 		logutil.S().Warnw("wait aborted, ctx done", "err", ctx.Err())

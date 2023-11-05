@@ -10,7 +10,7 @@ import (
 	aws "github.com/gyuho/infra/aws/go"
 
 	"github.com/gyuho/infra/aws/go/kms"
-	"github.com/gyuho/infra/aws/go/pkg/randutil"
+	"github.com/gyuho/infra/go/randutil"
 )
 
 func TestEnvelope(t *testing.T) {

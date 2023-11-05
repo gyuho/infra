@@ -7,7 +7,7 @@ import (
 )
 
 type Op struct {
-	az string
+	availabilityZone string
 
 	volumeType       string
 	volumeEncrypted  bool
@@ -35,7 +35,7 @@ func (op *Op) applyOpts(opts []OpOption) {
 
 func WithAvailabilityZone(az string) OpOption {
 	return func(op *Op) {
-		op.az = az
+		op.availabilityZone = az
 	}
 }
 

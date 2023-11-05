@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gyuho/infra/aws/go/pkg/fileutil"
-	"github.com/gyuho/infra/aws/go/pkg/logutil"
+	"github.com/gyuho/infra/go/fileutil"
+	"github.com/gyuho/infra/go/logutil"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ec2_v2 "github.com/aws/aws-sdk-go-v2/service/ec2"

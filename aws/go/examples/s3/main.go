@@ -9,9 +9,9 @@ import (
 	"time"
 
 	aws "github.com/gyuho/infra/aws/go"
-	"github.com/gyuho/infra/aws/go/pkg/logutil"
-	"github.com/gyuho/infra/aws/go/pkg/randutil"
 	"github.com/gyuho/infra/aws/go/s3"
+	"github.com/gyuho/infra/go/logutil"
+	"github.com/gyuho/infra/go/randutil"
 )
 
 func main() {
