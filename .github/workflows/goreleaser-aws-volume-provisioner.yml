@@ -23,10 +23,10 @@ jobs:
       - name: Install GoReleaser
         run: go install github.com/goreleaser/goreleaser@latest
 
-      - name: Create "latest" tag and run goreleaser
+      - name: Create "v0.0.0-latest" tag and run goreleaser
         run: |
-          git push origin --delete latest || true
-          git tag --force latest
+          git push origin --delete v0.0.0-latest || true
+          git tag --force v0.0.0-latest
           git push origin --tags
           goreleaser release --clean --snapshot
         env:
