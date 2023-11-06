@@ -29,9 +29,12 @@ changelog:
 release:
   draft: false
   replace_existing_draft: true
-  prerelease: auto
   make_latest: true
   mode: replace
+
+  github:
+    owner: gyuho
+    name: infra
 
   header: |
     ## Some title ({{ .Date }})
@@ -39,5 +42,3 @@ release:
     Welcome to this new release!
 
   name_template: "{{.ProjectName}}-v{{.Version}} {{.Env.USER}}"
-  disable: false
-  skip_upload: false
