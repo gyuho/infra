@@ -2,7 +2,10 @@ module github.com/gyuho/infra/aws/go
 
 go 1.21.3
 
-replace github.com/gyuho/infra/go => ../../go
+replace (
+	github.com/gyuho/infra/go => ../../go
+	github.com/gyuho/infra/linux/go => ../../linux/go
+)
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.22.1
@@ -15,6 +18,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.23.2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gyuho/infra/go v0.0.0-00010101000000-000000000000
+	github.com/gyuho/infra/linux/go v0.0.0-00010101000000-000000000000
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.8.0
 )
@@ -40,4 +44,5 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 )

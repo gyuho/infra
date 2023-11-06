@@ -153,6 +153,42 @@ func DeleteVolume(ctx context.Context, cfg aws.Config, volumeID string) error {
 	return nil
 }
 
+// Attaches the volume.
+func AttachVolume(ctx context.Context, cfg aws.Config, volumeID string, instanceID string, ebsDevice string) error {
+	if volumeID == "" {
+		return errors.New("volume id must be set")
+	}
+	if instanceID == "" {
+		return errors.New("volumeSizeInGB must be set")
+	}
+	if ebsDevice == "" {
+		return errors.New("ebs device name must be set")
+	}
+
+	logutil.S().Infow("attaching a volume",
+		"volumeID", volumeID,
+		"instanceID", instanceID,
+		"ebsDevice", ebsDevice,
+	)
+
+	input := aws_ec2_v2.AttachVolumeInput{
+		Device:     &ebsDevice,
+		InstanceId: &instanceID,
+		VolumeId:   &volumeID,
+	}
+	cli := aws_ec2_v2.NewFromConfig(cfg)
+	out, err := cli.AttachVolume(ctx, &input)
+	if err != nil {
+		return err
+	}
+	if out.VolumeId == nil {
+		return errors.New("volumeID is nil")
+	}
+
+	logutil.S().Infow("successfully attached volume")
+	return nil
+}
+
 type VolumeStatus struct {
 	Volume aws_ec2_v2_types.Volume
 	Error  error

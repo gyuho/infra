@@ -61,22 +61,24 @@ func Mkfs(ctx context.Context, fsName string, deviceName string) ([]byte, error)
 //
 // See https://github.com/cholcombe973/block-utils/blob/master/src/lib.rs for other commands.
 // ref. https://stackoverflow.com/questions/45167717/mounting-a-nvme-disk-on-aws-ec2
-func Mount(ctx context.Context, fsName string, deviceName string, dirPath string) ([]byte, error) {
+func Mount(ctx context.Context, fsName string, blockDevice string, mountDir string) ([]byte, error) {
+	logutil.S().Infow("mount a filesystem")
+
 	cmdPath, err := exec.New().LookPath("mount")
 	if err != nil {
 		return nil, fmt.Errorf("mount not found (%w)", err)
 	}
 
-	devicePath := deviceName
-	if !strings.HasPrefix(deviceName, "/dev/") {
-		devicePath = "/dev/" + deviceName
+	devicePath := blockDevice
+	if !strings.HasPrefix(blockDevice, "/dev/") {
+		devicePath = "/dev/" + blockDevice
 	}
 
-	args := []string{cmdPath, devicePath, dirPath, fsName}
+	args := []string{cmdPath, devicePath, mountDir, fsName}
 	logutil.S().Infow("mounting the file system",
 		"fsName", fsName,
 		"devicePath", devicePath,
-		"dirPath", dirPath,
+		"mountDir", mountDir,
 		"command", strings.Join(args, " "),
 	)
 
@@ -92,16 +94,38 @@ func Mount(ctx context.Context, fsName string, deviceName string, dirPath string
 	return out, nil
 }
 
+func MountAll(ctx context.Context) ([]byte, error) {
+	logutil.S().Infow("mounting all filesystems")
+
+	cmdPath, err := exec.New().LookPath("mount")
+	if err != nil {
+		return nil, fmt.Errorf("mount not found (%w)", err)
+	}
+
+	args := []string{cmdPath, "--all"}
+	logutil.S().Infow("mounting all file systems",
+		"command", strings.Join(args, " "),
+	)
+
+	out, err := exec.New().CommandContext(ctx, args[0], args[1:]...).CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 const FSTAB_PATH = "/etc/fstab"
 
 // Updates "/etc/fstab" to auto remount in case of instance reboot.
-func UpdateFstab(ctx context.Context, fsName string, deviceName string, dirPath string) ([]byte, error) {
-	devicePath := deviceName
-	if !strings.HasPrefix(deviceName, "/dev/") {
-		devicePath = "/dev/" + deviceName
+func UpdateFstab(ctx context.Context, fsName string, blockDevice string, mountDir string) ([]byte, error) {
+	logutil.S().Infow("updating fstab")
+
+	devicePath := blockDevice
+	if !strings.HasPrefix(blockDevice, "/dev/") {
+		devicePath = "/dev/" + blockDevice
 	}
 
-	line := fmt.Sprintf(`%s       %s   %s    defaults,nofail 0       2`, devicePath, dirPath, fsName)
+	line := fmt.Sprintf(`%s       %s   %s    defaults,nofail 0       2`, devicePath, mountDir, fsName)
 	b, err := os.ReadFile(FSTAB_PATH)
 	if err != nil {
 		return nil, err
@@ -122,4 +146,29 @@ func UpdateFstab(ctx context.Context, fsName string, deviceName string, dirPath 
 		return nil, err
 	}
 	return b, nil
+}
+
+func Lsblk(ctx context.Context) ([]byte, error) {
+	cmdPath, err := exec.New().LookPath("lsblk")
+	if err != nil {
+		return nil, fmt.Errorf("mkfs not found (%w)", err)
+	}
+	out, err := exec.New().CommandContext(ctx, cmdPath).CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func Df(ctx context.Context) ([]byte, error) {
+	cmdPath, err := exec.New().LookPath("df")
+	if err != nil {
+		return nil, fmt.Errorf("mkfs not found (%w)", err)
+	}
+	args := []string{cmdPath, "-h"}
+	out, err := exec.New().CommandContext(ctx, args[0], args[1:]...).CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
