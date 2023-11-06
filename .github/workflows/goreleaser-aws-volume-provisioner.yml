@@ -1,0 +1,41 @@
+name: Release aws-volume-provisioner
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.21
+
+      - name: Install GoReleaser
+        run: go install github.com/goreleaser/goreleaser@latest
+
+      - name: Set working directory
+        run: |
+          cd aws/go/cmd/aws-volume-provisioner
+        working-directory: aws/go/cmd/aws-volume-provisioner
+
+      - name: Create "latest" Tag and Release
+        run: |
+          git tag -f latest
+          git push origin --tags
+          goreleaser release --rm-dist
+
+      - name: Publish Release
+        id: publish-release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

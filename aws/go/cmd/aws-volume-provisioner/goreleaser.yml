@@ -1,0 +1,26 @@
+project_name: aws-volume-provisioner
+dist: dist
+
+builds:
+  - main:
+      goos:
+        - linux
+        - windows
+        - darwin
+      goarch:
+        - amd64
+      binary: aws-volume-provisioner
+      env:
+        - CGO_ENABLED=0
+      ldflags: -s -w
+
+checksum:
+  name_template: 'checksums.txt'
+
+archive:
+  format: tar.gz
+  name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}.tar.gz"
+
+release:
+  name_template: "{{ .Tag }}"
+  body_template: '{{.Features}}{{.Bugs}}{{.Improvements}}'
