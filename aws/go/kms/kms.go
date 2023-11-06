@@ -23,6 +23,10 @@ func CreateKey(
 
 	tss := make([]aws_kms_v2_types.Tag, 0)
 	for k, v := range tags {
+		// TODO: remove this in Go 1.22
+		// ref. https://go.dev/blog/loopvar-preview
+		k, v := k, v
+
 		// otherwise, error with "TagException: Duplicate tag keys"
 		if k == "Name" {
 			continue

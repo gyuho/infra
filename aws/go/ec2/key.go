@@ -19,19 +19,9 @@ import (
 func CreateRSAKeyPair(ctx context.Context, cfg aws.Config, keyName string, tags map[string]string) (string, error) {
 	logutil.S().Infow("creating key pair", "keyName", keyName)
 
-	tss := make([]aws_ec2_v2_types.Tag, 0)
-	for k, v := range tags {
-		// don't do, error with "api error InvalidParameterValue: Duplicate tag key 'Name' specified"
-		// tags["Name"] = keyName
-		if k == "Name" {
-			continue
-		}
-
-		tss = append(tss, aws_ec2_v2_types.Tag{
-			Key:   &k,
-			Value: &v,
-		})
-	}
+	// delete 'Name', error with "api error InvalidParameterValue: Duplicate tag key 'Name' specified"
+	delete(tags, "Name")
+	ts := toTags("", tags)
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.CreateKeyPair(ctx, &aws_ec2_v2.CreateKeyPairInput{
@@ -43,7 +33,7 @@ func CreateRSAKeyPair(ctx context.Context, cfg aws.Config, keyName string, tags 
 		TagSpecifications: []aws_ec2_v2_types.TagSpecification{
 			{
 				ResourceType: aws_ec2_v2_types.ResourceTypeKeyPair,
-				Tags:         tss,
+				Tags:         ts,
 			},
 		},
 	})
@@ -72,19 +62,9 @@ func ImportKeyPair(ctx context.Context, cfg aws.Config, pubKeyPath string, keyNa
 		return "", err
 	}
 
-	tss := make([]aws_ec2_v2_types.Tag, 0)
-	for k, v := range tags {
-		// don't do, error with "api error InvalidParameterValue: Duplicate tag key 'Name' specified"
-		// tags["Name"] = keyName
-		if k == "Name" {
-			continue
-		}
-
-		tss = append(tss, aws_ec2_v2_types.Tag{
-			Key:   &k,
-			Value: &v,
-		})
-	}
+	// delete 'Name', error with "api error InvalidParameterValue: Duplicate tag key 'Name' specified"
+	delete(tags, "Name")
+	ts := toTags("", tags)
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.ImportKeyPair(ctx, &aws_ec2_v2.ImportKeyPairInput{
@@ -93,7 +73,7 @@ func ImportKeyPair(ctx context.Context, cfg aws.Config, pubKeyPath string, keyNa
 		TagSpecifications: []aws_ec2_v2_types.TagSpecification{
 			{
 				ResourceType: aws_ec2_v2_types.ResourceTypeKeyPair,
-				Tags:         tss,
+				Tags:         ts,
 			},
 		},
 	})

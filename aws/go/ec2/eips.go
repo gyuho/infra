@@ -17,8 +17,9 @@ func ListAddresses(ctx context.Context, cfg aws.Config, filters map[string]strin
 
 	fts := make([]aws_ec2_v2_types.Filter, 0, len(filters))
 	for k, v := range filters {
-		k := k
-		v := v
+		// TODO: remove this in Go 1.22
+		// ref. https://go.dev/blog/loopvar-preview
+		k, v := k, v
 		fts = append(fts, aws_ec2_v2_types.Filter{
 			Name:   &k,
 			Values: []string{v},

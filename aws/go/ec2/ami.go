@@ -14,26 +14,11 @@ import (
 	aws_sts_v2 "github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
-var amiTagKeyName = "Name"
-
 // Creates an AMI based off an instance.
 func CreateImage(ctx context.Context, cfg aws.Config, instanceID string, name string, tags map[string]string) (string, error) {
 	logutil.S().Infow("creating an AMI", "instanceID", instanceID, "name", name)
 
-	ts := []aws_ec2_v2_types.Tag{
-		{
-			Key:   &amiTagKeyName,
-			Value: &name,
-		},
-	}
-	delete(tags, amiTagKeyName)
-	for k, v := range tags {
-		ts = append(ts, aws_ec2_v2_types.Tag{
-			Key:   &k,
-			Value: &v,
-		})
-	}
-
+	ts := toTags(name, tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.CreateImage(
 		ctx,

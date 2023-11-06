@@ -22,8 +22,9 @@ func DescribeVolumes(ctx context.Context, cfg aws.Config, filters map[string]str
 
 	fts := make([]aws_ec2_v2_types.Filter, 0, len(filters))
 	for k, v := range filters {
-		k := k
-		v := v
+		// TODO: remove this in Go 1.22
+		// ref. https://go.dev/blog/loopvar-preview
+		k, v := k, v
 		fts = append(fts, aws_ec2_v2_types.Filter{
 			Name:   &k,
 			Values: []string{v},
@@ -106,9 +107,10 @@ func CreateVolume(ctx context.Context, cfg aws.Config, name string, opts ...OpOp
 	}
 	volTags := make([]aws_ec2_v2_types.Tag, 0, len(tags))
 	for k, v := range tags {
+		// TODO: remove this in Go 1.22
+		// ref. https://go.dev/blog/loopvar-preview
+		k, v := k, v
 		logutil.S().Infow("adding a tag to the volume", "key", k, "value", v)
-		k := k
-		v := v
 		volTags = append(volTags, aws_ec2_v2_types.Tag{
 			Key:   &k,
 			Value: &v,

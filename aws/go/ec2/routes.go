@@ -378,15 +378,18 @@ func toRouteTableAssociations(associations ...aws_ec2_v2_types.RouteTableAssocia
 
 func (rtbs RouteTables) String() string {
 	rows := make([][]string, 0, len(rtbs))
-	for _, v := range rtbs {
+	for _, rtb := range rtbs {
 		tags := make([]string, 0)
-		for k, v := range v.Tags {
+		for k, v := range rtb.Tags {
+			// TODO: remove this in Go 1.22
+			// ref. https://go.dev/blog/loopvar-preview
+			k, v := k, v
 			tags = append(tags, fmt.Sprintf("%s=%s", k, v))
 		}
 		sort.Strings(tags)
 
 		associations := make([]string, 0)
-		for _, v := range v.RouteTableAssociations {
+		for _, v := range rtb.RouteTableAssociations {
 			s := fmt.Sprintf("subnet=%s", v.SubnetID)
 			if v.SubnetID == "" {
 				s = fmt.Sprintf("main=%v", v.Main)
@@ -396,9 +399,9 @@ func (rtbs RouteTables) String() string {
 		sort.Strings(associations)
 
 		rows = append(rows, []string{
-			v.ID,
-			v.VPCID,
-			fmt.Sprint(len(v.Routes)),
+			rtb.ID,
+			rtb.VPCID,
+			fmt.Sprint(len(rtb.Routes)),
 			strings.Join(associations, "\n"),
 			strings.Join(tags, "\n"),
 		},
