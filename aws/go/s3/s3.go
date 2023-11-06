@@ -131,7 +131,7 @@ func CreateBucket(ctx context.Context, cfg aws.Config, bucketName string, opts .
 			logutil.S().Warnw("bucket already exists", "bucket", bucketName, "error", err)
 			err = nil
 		}
-		if strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
+		if err != nil && strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
 			logutil.S().Warnw("bucket already exists", "bucket", bucketName, "error", err)
 			err = nil
 		}
