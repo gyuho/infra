@@ -21,11 +21,6 @@ jobs:
       - name: Install GoReleaser
         run: go install github.com/goreleaser/goreleaser@latest
 
-      - name: Set working directory
-        run: |
-          cd aws/go/cmd/aws-volume-provisioner
-        working-directory: aws/go/cmd/aws-volume-provisioner
-
       - name: Create "latest" Tag and Release
         run: |
           git tag -f latest
@@ -35,6 +30,7 @@ jobs:
       - name: Publish Release
         id: publish-release
         uses: softprops/action-gh-release@v1
+        working-directory: ./aws/go/cmd/aws-volume-provisioner
         with:
           files: ./dist/*
         env:
