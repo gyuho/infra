@@ -49,4 +49,6 @@ jobs:
           prerelease: false
           body: Latest builds from the last commit.
           files: |
-            dist/*
+            dist/aws-volume-provisioner-linux-i386.tar.gz
+            dist/aws-volume-provisioner-linux-arm64.tar.gz
+            dist/aws-volume-provisioner-linux-x86_64.tar.gz
