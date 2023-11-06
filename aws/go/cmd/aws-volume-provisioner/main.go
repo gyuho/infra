@@ -153,7 +153,8 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 
 		for _, tag := range inst.Tags {
 			k, v := *tag.Key, *tag.Value
-			if k == asgTagKey {
+			logutil.S().Infow("found instance tag", "key", k, "value", v)
+			if k == asgTagKey || strings.HasSuffix(k, asgTagKey) { // e.g., aws:autoscaling:groupName
 				asgTagValue = v
 				break
 			}
