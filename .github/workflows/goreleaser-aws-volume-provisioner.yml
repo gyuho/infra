@@ -31,11 +31,3 @@ jobs:
           goreleaser release --clean --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish release
-        id: publish-release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: ./dist/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

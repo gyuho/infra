@@ -25,3 +25,24 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+release:
+  draft: false
+  replace_existing_draft: true
+  target_commitish: "{{ .Commit }}"
+  tag: "{{ .CurrentTag }}"
+  prerelease: auto
+  make_latest: true
+  mode: replace
+
+  # Header for the release body.
+  #
+  # Templates: allowed
+  header: |
+    ## Some title ({{ .Date }})
+
+    Welcome to this new release!
+
+  name_template: "{{.ProjectName}}-v{{.Version}} {{.Env.USER}}"
+  disable: false
+  skip_upload: false
