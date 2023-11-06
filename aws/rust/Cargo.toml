@@ -13,7 +13,7 @@ homepage = "https://github.com/gyuho/infra/tree/main/aws/rust"
 license = "Apache-2.0"
 
 [dependencies]
-aws-config = "0.56.1" # https://github.com/awslabs/aws-sdk-rust/releases
+aws-config = "0.57.1" # https://github.com/awslabs/aws-sdk-rust/releases
 aws-smithy-client = "0.56.1"
 aws-smithy-runtime-api = "0.56.1"
 aws-smithy-types = "0.56.1"
