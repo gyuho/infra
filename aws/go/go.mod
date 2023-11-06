@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.22.0
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.36.0
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.130.0
-	github.com/aws/aws-sdk-go-v2/service/kms v1.24.7
+	github.com/aws/aws-sdk-go-v2/service/kms v1.26.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.40.2
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.40.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.25.0
