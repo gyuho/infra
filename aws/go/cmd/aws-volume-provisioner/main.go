@@ -127,10 +127,11 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	logutil.S().Infow("fetching instance tags",
+	logutil.S().Infow("fetching instance tags to get the asg name",
 		"region", region,
 		"az", az,
 		"instanceID", localInstanceID,
+		"asgTagKey", asgTagKey,
 	)
 
 	// poll until the expected tags are discovered
