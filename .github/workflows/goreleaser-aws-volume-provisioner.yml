@@ -48,8 +48,7 @@ jobs:
           draft: false
           prerelease: false
           body: Latest builds from the last commit.
-          workdir: ./aws/go/cmd/aws-volume-provisioner
           files: |
-            dist/aws-volume-provisioner-linux-i386.tar.gz
-            dist/aws-volume-provisioner-linux-arm64.tar.gz
-            dist/aws-volume-provisioner-linux-x86_64.tar.gz
+            ./aws/go/cmd/aws-volume-provisioner/dist/aws-volume-provisioner-linux-i386.tar.gz
+            ./aws/go/cmd/aws-volume-provisioner/dist/aws-volume-provisioner-linux-arm64.tar.gz
+            ./aws/go/cmd/aws-volume-provisioner/dist/aws-volume-provisioner-linux-x86_64.tar.gz
