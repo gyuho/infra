@@ -27,7 +27,7 @@ jobs:
         run: |
           git tag -f latest
           git push origin --tags
-          goreleaser release --rm-dist
+          goreleaser release --clean
 
       - name: Publish Release
         id: publish-release
