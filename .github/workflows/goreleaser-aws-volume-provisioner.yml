@@ -28,7 +28,7 @@ jobs:
           git push origin --delete latest || true
           git tag --force latest
           git push origin --tags
-          goreleaser release --clean
+          goreleaser release --clean --snapshot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
