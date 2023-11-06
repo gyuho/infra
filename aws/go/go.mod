@@ -2,6 +2,8 @@ module github.com/gyuho/infra/aws/go
 
 go 1.21.3
 
+replace github.com/gyuho/infra/go => ../../go
+
 require (
 	github.com/aws/aws-sdk-go-v2 v1.22.1
 	github.com/aws/aws-sdk-go-v2/config v1.19.1
@@ -12,8 +14,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.40.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.23.2
 	github.com/dustin/go-humanize v1.0.1
+	github.com/gyuho/infra/go v0.0.0-00010101000000-000000000000
 	github.com/olekukonko/tablewriter v0.0.5
-	go.uber.org/zap v1.26.0
+	github.com/spf13/cobra v1.8.0
 )
 
 require (
@@ -31,7 +34,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.15.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.17.3 // indirect
 	github.com/aws/smithy-go v1.16.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
+	go.uber.org/zap v1.26.0 // indirect
 )
