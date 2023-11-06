@@ -23,13 +23,15 @@ jobs:
       - name: Install GoReleaser
         run: go install github.com/goreleaser/goreleaser@latest
 
-      - name: Create "latest" Tag and Release
+      - name: Create "latest" tag and run goreleaser
         run: |
-          git tag -f latest
+          git push origin --delete latest
+          git tag -d latest
+          git tag --force latest
           git push origin --tags
           goreleaser release --clean
 
-      - name: Publish Release
+      - name: Publish release
         id: publish-release
         uses: softprops/action-gh-release@v1
         with:
