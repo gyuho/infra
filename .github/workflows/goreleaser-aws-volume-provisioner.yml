@@ -8,26 +8,33 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./aws/go/cmd/aws-volume-provisioner
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
           go-version: 1.21
+          check-latest: true
+          cache: true
 
-      - name: Install GoReleaser
-        run: go install github.com/goreleaser/goreleaser@latest
+      # - name: Create "v0.0.0-latest" tag and run goreleaser
+      #   run: |
+      #     git push origin --delete v0.0.0-latest || true
+      #     git tag --force v0.0.0-latest
+      #     git push origin --tags
+      #     go install github.com/goreleaser/goreleaser@latest
+      #     goreleaser release --clean --snapshot
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create "v0.0.0-latest" tag and run goreleaser
-        run: |
-          git push origin --delete v0.0.0-latest || true
-          git tag --force v0.0.0-latest
-          git push origin --tags
-          goreleaser release --clean --snapshot
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release
+          workdir: ./aws/go/cmd/aws-volume-provisioner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
