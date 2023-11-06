@@ -26,7 +26,6 @@ jobs:
       - name: Create "latest" tag and run goreleaser
         run: |
           git push origin --delete latest
-          git tag -d latest
           git tag --force latest
           git push origin --tags
           goreleaser release --clean
