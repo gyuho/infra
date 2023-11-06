@@ -8,7 +8,9 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: ./aws/go/cmd/aws-volume-provisioner
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -30,7 +32,6 @@ jobs:
       - name: Publish Release
         id: publish-release
         uses: softprops/action-gh-release@v1
-        working-directory: ./aws/go/cmd/aws-volume-provisioner
         with:
           files: ./dist/*
         env:
