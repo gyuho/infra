@@ -75,7 +75,7 @@ func init() {
 
 	cmd.PersistentFlags().StringVar(&ec2TagAsgNameKey, "ec2-tag-asg-name-key", "", "key of the ASG name tag in EC2 instance")
 
-	cmd.PersistentFlags().StringVar(&asgTagKey, "asg-tag-key", "aws:autoscaling:groupName", "key for the EBS volume asg name tag (must be set via EC2 tags, or used for EBS volume creation)")
+	cmd.PersistentFlags().StringVar(&asgTagKey, "asg-tag-key", "autoscaling:groupName", "key for the EBS volume asg name tag (must be set via EC2 tags, or used for EBS volume creation)")
 	cmd.PersistentFlags().StringVar(&volLeaseHoldKey, "volume-lease-hold-key", "LeaseHold", "key for the EBS volume lease holder (e.g., i-12345678_1662596730 means i-12345678 acquired the lease for this volume at the unix timestamp 1662596730)")
 
 	cmd.PersistentFlags().StringVar(&volType, "volume-type", "gp3", "EBS volume type")
