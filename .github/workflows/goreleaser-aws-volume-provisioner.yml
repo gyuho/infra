@@ -38,3 +38,15 @@ jobs:
           workdir: ./aws/go/cmd/aws-volume-provisioner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release latest
+        uses: softprops/action-gh-release@v1
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          name: Latest release
+          tag_name: latest
+          draft: false
+          prerelease: false
+          body: Latest builds from the last commit.
+          files: |
+            dist/*
