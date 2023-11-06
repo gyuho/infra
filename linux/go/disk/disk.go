@@ -74,7 +74,7 @@ func Mount(ctx context.Context, fsName string, blockDevice string, mountDir stri
 		devicePath = "/dev/" + blockDevice
 	}
 
-	args := []string{cmdPath, devicePath, mountDir, fsName}
+	args := []string{cmdPath, devicePath, mountDir, "-t", fsName}
 	logutil.S().Infow("mounting the file system",
 		"fsName", fsName,
 		"devicePath", devicePath,
