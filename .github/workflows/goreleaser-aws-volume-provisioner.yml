@@ -29,6 +29,8 @@ jobs:
           git tag --force latest
           git push origin --tags
           goreleaser release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish release
         id: publish-release
