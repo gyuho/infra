@@ -89,6 +89,11 @@ func BucketExists(ctx context.Context, cfg aws.Config, bucketName string) (bool,
 	return true, nil
 }
 
+const (
+	bucketAlreadyExists     = "BucketAlreadyExists"
+	bucketAlreadyOwnedByYou = "BucketAlreadyOwnedByYou"
+)
+
 // CreateBucket creates a bucket.
 func CreateBucket(ctx context.Context, cfg aws.Config, bucketName string, opts ...OpOption) error {
 	ret := &Op{}
@@ -127,11 +132,11 @@ func CreateBucket(ctx context.Context, cfg aws.Config, bucketName string, opts .
 	_, err := cli.CreateBucket(ctx, input)
 	if err != nil {
 		// if already exists, ignore
-		if strings.Contains(err.Error(), "BucketAlreadyExists") {
+		if strings.Contains(err.Error(), bucketAlreadyExists) {
 			logutil.S().Warnw("bucket already exists", "bucket", bucketName, "error", err)
 			err = nil
 		}
-		if err != nil && strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
+		if err != nil && strings.Contains(err.Error(), bucketAlreadyOwnedByYou) {
 			logutil.S().Warnw("bucket already exists", "bucket", bucketName, "error", err)
 			err = nil
 		}
