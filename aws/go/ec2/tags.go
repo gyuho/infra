@@ -36,21 +36,11 @@ func toTags(name string, m map[string]string) []aws_ec2_v2_types.Tag {
 func CreateTags(ctx context.Context, cfg aws.Config, resource string, tags map[string]string) error {
 	logutil.S().Infow("creating tags", "resource", resource, "tags", len(tags))
 
-	ec2Tags := make([]aws_ec2_v2_types.Tag, 0, len(tags))
-	for k, v := range tags {
-		// TODO: remove this in Go 1.22
-		// ref. https://go.dev/blog/loopvar-preview
-		k, v := k, v
-		ec2Tags = append(ec2Tags, aws_ec2_v2_types.Tag{
-			Key:   &k,
-			Value: &v,
-		})
-	}
-
+	ts := toTags("", tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	_, err := cli.CreateTags(ctx, &aws_ec2_v2.CreateTagsInput{
 		Resources: []string{resource},
-		Tags:      ec2Tags,
+		Tags:      ts,
 	})
 	if err != nil {
 		return err
