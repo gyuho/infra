@@ -83,20 +83,25 @@ func convertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
 
 type ENIs []ENI
 
-func (vss ENIs) String() string {
-	sort.SliceStable(vss, func(i, j int) bool {
-		if vss[i].VPCID == vss[j].VPCID {
-			if vss[i].SubnetID == vss[j].SubnetID {
-				if vss[i].Status == vss[j].Status {
-					return vss[i].Description < vss[j].Description
+func (enis ENIs) Sort() {
+	sort.SliceStable(enis, func(i, j int) bool {
+		if enis[i].VPCID == enis[j].VPCID {
+			if enis[i].SubnetID == enis[j].SubnetID {
+				if enis[i].Status == enis[j].Status {
+					if enis[i].ID == enis[j].ID {
+						return enis[i].Description < enis[j].Description
+					}
+					return enis[i].ID < enis[j].ID
 				}
-				return vss[i].Status < vss[j].Status
+				return enis[i].Status < enis[j].Status
 			}
-			return vss[i].SubnetID < vss[j].SubnetID
+			return enis[i].SubnetID < enis[j].SubnetID
 		}
-		return vss[i].VPCID < vss[j].VPCID
+		return enis[i].VPCID < enis[j].VPCID
 	})
+}
 
+func (vss ENIs) String() string {
 	rows := make([][]string, 0, len(vss))
 	for _, v := range vss {
 		row := []string{
@@ -267,9 +272,13 @@ func ListENIs(ctx context.Context, cfg aws.Config) (ENIs, error) {
 }
 
 // Creates an ENI for a given subnet and security groups.
-func CreateENI(ctx context.Context, cfg aws.Config, name string, desc string, subnetID string, sgIDs ...string) (ENI, error) {
+func CreateENI(ctx context.Context, cfg aws.Config, name string, desc string, subnetID string, sgIDs []string, opts ...OpOption) (ENI, error) {
+	ret := &Op{}
+	ret.applyOpts(opts)
+
 	logutil.S().Infow("creating an ENI", "name", name, "subnetID", subnetID)
 
+	ts := toTags(name, ret.tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.CreateNetworkInterface(ctx, &aws_ec2_v2.CreateNetworkInterfaceInput{
 		SubnetId:    aws.String(subnetID),
@@ -278,12 +287,7 @@ func CreateENI(ctx context.Context, cfg aws.Config, name string, desc string, su
 		TagSpecifications: []aws_ec2_v2_types.TagSpecification{
 			{
 				ResourceType: aws_ec2_v2_types.ResourceTypeNetworkInterface,
-				Tags: []aws_ec2_v2_types.Tag{
-					{
-						Key:   aws.String("Name"),
-						Value: aws.String(name),
-					},
-				},
+				Tags:         ts,
 			},
 		},
 	})

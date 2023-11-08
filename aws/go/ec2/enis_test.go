@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -12,6 +13,40 @@ import (
 
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
+
+func TestSortENIs(t *testing.T) {
+	tt := []struct {
+		input    ENIs
+		expected ENIs
+	}{
+		{
+			input:    ENIs{{ID: "2"}, {ID: "1"}, {ID: "0"}},
+			expected: ENIs{{ID: "0"}, {ID: "1"}, {ID: "2"}},
+		},
+		{
+			input:    ENIs{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+			expected: ENIs{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+		},
+		{
+			input:    ENIs{{ID: "b"}, {ID: "c"}, {ID: "a"}},
+			expected: ENIs{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+		},
+		{
+			input:    ENIs{{ID: "b"}, {ID: "a"}, {ID: "c"}},
+			expected: ENIs{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+		},
+		{
+			input:    ENIs{{ID: "b", VPCID: "c"}, {ID: "a", VPCID: "b"}, {ID: "a", VPCID: "a"}},
+			expected: ENIs{{ID: "a", VPCID: "a"}, {ID: "a", VPCID: "b"}, {ID: "b", VPCID: "c"}},
+		},
+	}
+	for i, tv := range tt {
+		tv.input.Sort()
+		if !reflect.DeepEqual(tv.input, tv.expected) {
+			t.Errorf("#%d: expected %v, got %v", i, tv.expected, tv.input)
+		}
+	}
+}
 
 func TestENIs(t *testing.T) {
 	if os.Getenv("RUN_AWS_TESTS") != "1" {
