@@ -20,6 +20,7 @@ type Op struct {
 
 	interval time.Duration
 
+	desc string
 	tags map[string]string
 
 	expectedInstanceStates map[aws_ec2_v2_types.InstanceStateName]struct{}
@@ -84,6 +85,12 @@ func WithVolumeAttachmentState(v aws_ec2_v2_types.VolumeAttachmentState) OpOptio
 func WithInterval(v time.Duration) OpOption {
 	return func(op *Op) {
 		op.interval = v
+	}
+}
+
+func WithDescription(v string) OpOption {
+	return func(op *Op) {
+		op.desc = v
 	}
 }
 
