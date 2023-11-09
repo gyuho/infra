@@ -272,7 +272,7 @@ func ListENIs(ctx context.Context, cfg aws.Config) (ENIs, error) {
 }
 
 // Creates an ENI for a given subnet and security groups.
-func CreateENI(ctx context.Context, cfg aws.Config, name string, desc string, subnetID string, sgIDs []string, opts ...OpOption) (ENI, error) {
+func CreateENI(ctx context.Context, cfg aws.Config, name string, subnetID string, sgIDs []string, opts ...OpOption) (ENI, error) {
 	ret := &Op{}
 	ret.applyOpts(opts)
 
@@ -283,7 +283,7 @@ func CreateENI(ctx context.Context, cfg aws.Config, name string, desc string, su
 	out, err := cli.CreateNetworkInterface(ctx, &aws_ec2_v2.CreateNetworkInterfaceInput{
 		SubnetId:    aws.String(subnetID),
 		Groups:      sgIDs,
-		Description: aws.String(desc),
+		Description: aws.String(ret.desc),
 		TagSpecifications: []aws_ec2_v2_types.TagSpecification{
 			{
 				ResourceType: aws_ec2_v2_types.ResourceTypeNetworkInterface,
@@ -331,10 +331,9 @@ func PollENI(
 	eniID string,
 	desired aws_ec2_v2_types.NetworkInterfaceStatus,
 	desiredAttach aws_ec2_v2_types.AttachmentStatus,
-	initialWait time.Duration,
 	pollInterval time.Duration,
 ) <-chan ENIStatus {
-	return pollENI(ctx, stopc, cfg, eniID, false, desired, desiredAttach, initialWait, pollInterval)
+	return pollENI(ctx, stopc, cfg, eniID, false, desired, desiredAttach, pollInterval)
 }
 
 func PollENIDelete(
@@ -342,10 +341,9 @@ func PollENIDelete(
 	stopc chan struct{},
 	cfg aws.Config,
 	eniID string,
-	initialWait time.Duration,
 	pollInterval time.Duration,
 ) <-chan ENIStatus {
-	return pollENI(ctx, stopc, cfg, eniID, true, aws_ec2_v2_types.NetworkInterfaceStatus(""), aws_ec2_v2_types.AttachmentStatus(""), initialWait, pollInterval)
+	return pollENI(ctx, stopc, cfg, eniID, true, aws_ec2_v2_types.NetworkInterfaceStatus(""), aws_ec2_v2_types.AttachmentStatus(""), pollInterval)
 }
 
 func pollENI(
@@ -356,7 +354,6 @@ func pollENI(
 	waitForDelete bool,
 	desired aws_ec2_v2_types.NetworkInterfaceStatus,
 	desiredAttach aws_ec2_v2_types.AttachmentStatus,
-	initialWait time.Duration,
 	pollInterval time.Duration,
 ) <-chan ENIStatus {
 	now := time.Now()
@@ -369,7 +366,6 @@ func pollENI(
 		// wait from second interation
 		interval := time.Duration(0)
 
-		first := true
 		for ctx.Err() == nil {
 			select {
 			case <-ctx.Done():
@@ -438,21 +434,6 @@ func pollENI(
 			if desired == currentStatus && desiredAttach == currentAttachmentStatus {
 				close(ch)
 				return
-			}
-
-			if first {
-				select {
-				case <-ctx.Done():
-					ch <- ENIStatus{Error: ctx.Err()}
-					close(ch)
-					return
-				case <-stopc:
-					ch <- ENIStatus{Error: errors.New("wait stopped")}
-					close(ch)
-					return
-				case <-time.After(initialWait):
-				}
-				first = false
 			}
 
 			// continue for-loop

@@ -120,7 +120,6 @@ func TestENIs(t *testing.T) {
 			v.ID,
 			aws_ec2_v2_types.NetworkInterfaceStatusInUse,
 			aws_ec2_v2_types.AttachmentStatusAttached,
-			5*time.Second,
 			time.Second,
 		)
 		for ev := range ch {
