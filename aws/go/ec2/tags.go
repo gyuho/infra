@@ -33,19 +33,19 @@ func toTags(name string, m map[string]string) []aws_ec2_v2_types.Tag {
 }
 
 // Creates tags to the resource.
-func CreateTags(ctx context.Context, cfg aws.Config, resource string, tags map[string]string) error {
-	logutil.S().Infow("creating tags", "resource", resource, "tags", len(tags))
+func CreateTags(ctx context.Context, cfg aws.Config, resourceIDs []string, tags map[string]string) error {
+	logutil.S().Infow("creating tags", "resourceIDs", resourceIDs, "tags", len(tags))
 
 	ts := toTags("", tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	_, err := cli.CreateTags(ctx, &aws_ec2_v2.CreateTagsInput{
-		Resources: []string{resource},
+		Resources: resourceIDs,
 		Tags:      ts,
 	})
 	if err != nil {
 		return err
 	}
 
-	logutil.S().Infow("successfully created tags", "resource", resource)
+	logutil.S().Infow("successfully created tags", "resourceIDs", resourceIDs)
 	return nil
 }

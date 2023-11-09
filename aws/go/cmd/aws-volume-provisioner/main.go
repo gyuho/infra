@@ -331,7 +331,7 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 			err = ec2.CreateTags(
 				ctx,
 				cfg,
-				reusedVolID,
+				[]string{reusedVolID},
 				map[string]string{
 					volLeaseHoldKey: volLeaseHoldValue,
 				})
