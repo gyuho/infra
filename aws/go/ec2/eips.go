@@ -133,6 +133,45 @@ func LoadEIP(p string) (EIP, error) {
 	return e, nil
 }
 
+type EIPs []EIP
+
+func (e EIPs) Sync(p string) error {
+	parentDir := filepath.Dir(p)
+	if parentDir != "" && parentDir != "/" {
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+			return err
+		}
+	}
+	b, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(p, b, 0644); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e EIPs) String() string {
+	b, err := json.Marshal(e)
+	if err != nil {
+		return err.Error()
+	}
+	return string(b)
+}
+
+func LoadEIPs(p string) (EIPs, error) {
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return nil, err
+	}
+	var e EIPs
+	if err := json.Unmarshal(b, &e); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
 func AssociateEIPByInstanceID(ctx context.Context, cfg aws.Config, allocationID string, instanceID string) error {
 	logutil.S().Infow("associating EIP", "allocationID", allocationID, "instanceID", instanceID)
 

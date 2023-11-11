@@ -75,7 +75,7 @@ func init() {
 	cmd.PersistentFlags().StringVar(&idTagValue, "id-tag-value", "", "value for the EBS volume 'Id' tag key")
 
 	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the EBS volume 'Kind' tag")
-	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "", "value for the EBS volume 'Kind' tag key")
+	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "aws-volume-provisioner", "value for the EBS volume 'Kind' tag key")
 
 	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_VOLUME_PROVISIONER_ATTACHED_VOLUME_ID", "tag key to create with the resource value to the local EC2 instance")
 
