@@ -49,12 +49,9 @@ jobs:
           prerelease: false
           body: Latest builds from the last commit.
           files: |
-            ./aws/go/cmd/dist/aws-eni-provisioner-linux-i386.tar.gz
             ./aws/go/cmd/dist/aws-eni-provisioner-linux-arm64.tar.gz
             ./aws/go/cmd/dist/aws-eni-provisioner-linux-x86_64.tar.gz
-            ./aws/go/cmd/dist/aws-ip-provisioner-linux-i386.tar.gz
             ./aws/go/cmd/dist/aws-ip-provisioner-linux-arm64.tar.gz
             ./aws/go/cmd/dist/aws-ip-provisioner-linux-x86_64.tar.gz
-            ./aws/go/cmd/dist/aws-volume-provisioner-linux-i386.tar.gz
             ./aws/go/cmd/dist/aws-volume-provisioner-linux-arm64.tar.gz
             ./aws/go/cmd/dist/aws-volume-provisioner-linux-x86_64.tar.gz
