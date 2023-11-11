@@ -1,4 +1,4 @@
-name: Release aws-volume-provisioner
+name: Release aws/go/cmd
 
 on:
   push:
@@ -35,7 +35,7 @@ jobs:
           distribution: goreleaser
           version: latest
           args: release
-          workdir: ./aws/go/cmd/aws-volume-provisioner
+          workdir: ./aws/go/cmd
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -49,6 +49,12 @@ jobs:
           prerelease: false
           body: Latest builds from the last commit.
           files: |
-            ./aws/go/cmd/aws-volume-provisioner/dist/aws-volume-provisioner-linux-i386.tar.gz
-            ./aws/go/cmd/aws-volume-provisioner/dist/aws-volume-provisioner-linux-arm64.tar.gz
-            ./aws/go/cmd/aws-volume-provisioner/dist/aws-volume-provisioner-linux-x86_64.tar.gz
+            ./aws/go/cmd/dist/aws-eni-provisioner-linux-i386.tar.gz
+            ./aws/go/cmd/dist/aws-eni-provisioner-linux-arm64.tar.gz
+            ./aws/go/cmd/dist/aws-eni-provisioner-linux-x86_64.tar.gz
+            ./aws/go/cmd/dist/aws-ip-provisioner-linux-i386.tar.gz
+            ./aws/go/cmd/dist/aws-ip-provisioner-linux-arm64.tar.gz
+            ./aws/go/cmd/dist/aws-ip-provisioner-linux-x86_64.tar.gz
+            ./aws/go/cmd/dist/aws-volume-provisioner-linux-i386.tar.gz
+            ./aws/go/cmd/dist/aws-volume-provisioner-linux-arm64.tar.gz
+            ./aws/go/cmd/dist/aws-volume-provisioner-linux-x86_64.tar.gz

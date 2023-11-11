@@ -94,6 +94,7 @@ func TestENIs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	enis.Sort()
 
 	for i, v := range enis {
 		t.Logf("ENI: %q (%s, %s)\n", v.ID, v.PrivateDNS, v.Status)

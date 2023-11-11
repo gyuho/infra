@@ -1,6 +1,31 @@
 # https://goreleaser.com/customization/builds/
 builds:
+  - binary: aws-eni-provisioner
+    main: ./cmd/aws-eni-provisioner
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -v
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+  - binary: aws-ip-provisioner
+    main: ./cmd/aws-ip-provisioner
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -v
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
   - binary: aws-volume-provisioner
+    main: ./cmd/aws-volume-provisioner
     env:
       - CGO_ENABLED=0
     flags:
@@ -14,14 +39,16 @@ builds:
 # https://goreleaser.com/customization/archive/
 archives:
   - format: tar.gz
+
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
-      aws-volume-provisioner-
+      {{ .Binary }}-
       {{- .Os }}-
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+
     # use zip for windows archives
     format_overrides:
       - goos: windows

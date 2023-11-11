@@ -7,23 +7,21 @@ import (
 )
 
 type Op struct {
-	availabilityZone string
-
-	volumeType       string
-	volumeEncrypted  bool
-	volumeSizeInGB   int32
-	volumeIOPS       int32
-	volumeThroughput int32
-
-	volumeState           aws_ec2_v2_types.VolumeState
+	availabilityZone      string
+	desc                  string
+	eniIDs                []string
+	instanceStates        map[aws_ec2_v2_types.InstanceStateName]struct{}
+	interval              time.Duration
+	sgIDs                 []string
+	subnetID              string
+	tags                  map[string]string
 	volumeAttachmentState aws_ec2_v2_types.VolumeAttachmentState
-
-	interval time.Duration
-
-	desc string
-	tags map[string]string
-
-	expectedInstanceStates map[aws_ec2_v2_types.InstanceStateName]struct{}
+	volumeEncrypted       bool
+	volumeIOPS            int32
+	volumeSizeInGB        int32
+	volumeState           aws_ec2_v2_types.VolumeState
+	volumeThroughput      int32
+	volumeType            string
 }
 
 type OpOption func(*Op)
@@ -37,6 +35,51 @@ func (op *Op) applyOpts(opts []OpOption) {
 func WithAvailabilityZone(az string) OpOption {
 	return func(op *Op) {
 		op.availabilityZone = az
+	}
+}
+
+func WithDescription(v string) OpOption {
+	return func(op *Op) {
+		op.desc = v
+	}
+}
+
+func WithENIIDs(ss []string) OpOption {
+	return func(op *Op) {
+		op.eniIDs = ss
+	}
+}
+
+func WithInstanceState(s aws_ec2_v2_types.InstanceStateName) OpOption {
+	return func(op *Op) {
+		if op.instanceStates == nil {
+			op.instanceStates = make(map[aws_ec2_v2_types.InstanceStateName]struct{})
+		}
+		op.instanceStates[s] = struct{}{}
+	}
+}
+
+func WithInterval(v time.Duration) OpOption {
+	return func(op *Op) {
+		op.interval = v
+	}
+}
+
+func WithSecurityGroupIDs(ss []string) OpOption {
+	return func(op *Op) {
+		op.sgIDs = ss
+	}
+}
+
+func WithSubnetID(v string) OpOption {
+	return func(op *Op) {
+		op.subnetID = v
+	}
+}
+
+func WithTags(m map[string]string) OpOption {
+	return func(op *Op) {
+		op.tags = m
 	}
 }
 
@@ -79,32 +122,5 @@ func WithVolumeState(v aws_ec2_v2_types.VolumeState) OpOption {
 func WithVolumeAttachmentState(v aws_ec2_v2_types.VolumeAttachmentState) OpOption {
 	return func(op *Op) {
 		op.volumeAttachmentState = v
-	}
-}
-
-func WithInterval(v time.Duration) OpOption {
-	return func(op *Op) {
-		op.interval = v
-	}
-}
-
-func WithDescription(v string) OpOption {
-	return func(op *Op) {
-		op.desc = v
-	}
-}
-
-func WithTags(m map[string]string) OpOption {
-	return func(op *Op) {
-		op.tags = m
-	}
-}
-
-func WithInstanceState(s aws_ec2_v2_types.InstanceStateName) OpOption {
-	return func(op *Op) {
-		if op.expectedInstanceStates == nil {
-			op.expectedInstanceStates = make(map[aws_ec2_v2_types.InstanceStateName]struct{})
-		}
-		op.expectedInstanceStates[s] = struct{}{}
 	}
 }

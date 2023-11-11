@@ -48,11 +48,11 @@ func ListInstancesByASG(ctx context.Context, cfg aws.Config, asg string, opts ..
 		}
 		for _, r := range out.Reservations {
 			for _, inst := range r.Instances {
-				if ret.expectedInstanceStates == nil {
+				if ret.instanceStates == nil {
 					instances = append(instances, inst)
 					continue
 				}
-				if _, ok := ret.expectedInstanceStates[inst.State.Name]; ok {
+				if _, ok := ret.instanceStates[inst.State.Name]; ok {
 					instances = append(instances, inst)
 				}
 			}

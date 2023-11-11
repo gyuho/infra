@@ -1,5 +1,4 @@
-// Volume provisioner for AWS.
-// See https://github.com/ava-labs/volume-manager/tree/main/aws-volume-provisioner/src for the original Rust code.
+// ENI provisioner for AWS.
 package main
 
 import (
@@ -23,13 +22,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const appName = "aws-volume-provisioner"
+const appName = "aws-eni-provisioner"
 
 var cmd = &cobra.Command{
 	Use:        appName,
 	Short:      appName,
-	Aliases:    []string{"volume-provisioner"},
-	SuggestFor: []string{"volume-provisioner"},
+	Aliases:    []string{"eni-provisioner"},
+	SuggestFor: []string{"eni-provisioner"},
 	Run:        cmdFunc,
 }
 
@@ -97,7 +96,7 @@ func main() {
 
 func cmdFunc(cmd *cobra.Command, args []string) {
 	initialWait := time.Duration(rand.Intn(initialWaitRandomSeconds)) * time.Second
-	logutil.S().Infow("starting 'aws-volume-provisioner'", "initialWait", initialWait)
+	logutil.S().Infow("starting 'aws-eni-provisioner'", "initialWait", initialWait)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	az, err := metadata.FetchAvailabilityZone(ctx)

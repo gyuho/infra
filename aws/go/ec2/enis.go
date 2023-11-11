@@ -3,6 +3,7 @@ package ec2
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -10,11 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gyuho/infra/go/logutil"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ec2_v2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/gyuho/infra/go/logutil"
 	"github.com/olekukonko/tablewriter"
 )
 
@@ -23,6 +23,7 @@ type ENI struct {
 	Name             string            `json:"name"`
 	Description      string            `json:"description"`
 	Status           string            `json:"status"`
+	AttachmentID     string            `json:"attachment_id"`
 	AttachmentStatus string            `json:"attachment_status"`
 	PrivateIP        string            `json:"private_ip"`
 	PrivateDNS       string            `json:"private_dns"`
@@ -33,10 +34,14 @@ type ENI struct {
 	Tags             map[string]string `json:"tags"`
 }
 
-func convertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
+func ConvertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
 	desc := ""
 	if raw.Description != nil {
 		desc = *raw.Description
+	}
+	attachmentID := ""
+	if raw.Attachment != nil {
+		attachmentID = *raw.Attachment.AttachmentId
 	}
 	attachmentStatus := ""
 	if raw.Attachment != nil {
@@ -55,6 +60,7 @@ func convertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
 		ID:               *raw.NetworkInterfaceId,
 		Description:      desc,
 		Status:           string(raw.Status),
+		AttachmentID:     attachmentID,
 		AttachmentStatus: attachmentStatus,
 		PrivateIP:        privateIP,
 		PrivateDNS:       privateDNS,
@@ -104,6 +110,15 @@ func (enis ENIs) Sort() {
 func (vss ENIs) String() string {
 	rows := make([][]string, 0, len(vss))
 	for _, v := range vss {
+		tags := "{}"
+		if len(v.Tags) > 0 {
+			b, err := json.Marshal(v.Tags)
+			if err == nil {
+				tags = string(b)
+			} else {
+				tags = fmt.Sprintf("error: %v", err)
+			}
+		}
 		row := []string{
 			v.Name,
 			v.ID,
@@ -115,6 +130,7 @@ func (vss ENIs) String() string {
 			v.SubnetID,
 			v.AvailabilityZone,
 			strings.Join(v.SecurityGroupIDs, ", "),
+			tags,
 		}
 		rows = append(rows, row)
 	}
@@ -124,7 +140,7 @@ func (vss ENIs) String() string {
 	tb.SetAutoWrapText(false)
 	tb.SetAlignment(tablewriter.ALIGN_LEFT)
 	tb.SetCenterSeparator("*")
-	tb.SetHeader([]string{"name", "eni id", "eni description", "eni status", "private ip", "private dns", "vpc id", "subnet id", "az", "sgs"})
+	tb.SetHeader([]string{"name", "eni id", "eni description", "eni status", "private ip", "private dns", "vpc id", "subnet id", "az", "sgs", "tags"})
 	tb.AppendBulk(rows)
 	tb.Render()
 
@@ -208,7 +224,7 @@ func GetENI(ctx context.Context, cfg aws.Config, eniID string) (ENI, bool, error
 	if len(out.NetworkInterfaces) != 1 {
 		return ENI{}, false, nil
 	}
-	return convertENI(out.NetworkInterfaces[0]), true, nil
+	return ConvertENI(out.NetworkInterfaces[0]), true, nil
 }
 
 // Returns false if the ENI does not exist.
@@ -232,24 +248,55 @@ func GetENIByName(ctx context.Context, cfg aws.Config, name string) (ENI, bool, 
 	if len(out.NetworkInterfaces) != 1 {
 		return ENI{}, false, nil
 	}
-	return convertENI(out.NetworkInterfaces[0]), true, nil
+	return ConvertENI(out.NetworkInterfaces[0]), true, nil
 }
 
 // List ENIs.
-func ListENIs(ctx context.Context, cfg aws.Config) (ENIs, error) {
-	logutil.S().Infow("listing ENIs")
+func ListENIs(ctx context.Context, cfg aws.Config, opts ...OpOption) (ENIs, error) {
+	ret := &Op{}
+	ret.applyOpts(opts)
+
+	logutil.S().Infow("listing ENIs",
+		"eniIDs", len(ret.eniIDs),
+		"subnetID", ret.subnetID,
+		"sgIDs", ret.sgIDs,
+		"tags", len(ret.tags),
+	)
+
+	input := aws_ec2_v2.DescribeNetworkInterfacesInput{}
+	if len(ret.eniIDs) > 0 {
+		input.NetworkInterfaceIds = ret.eniIDs
+	} else {
+		if ret.subnetID != "" {
+			input.Filters = append(input.Filters, aws_ec2_v2_types.Filter{
+				Name:   aws.String("subnet-id"),
+				Values: []string{ret.subnetID},
+			})
+		}
+		if len(ret.sgIDs) > 0 {
+			input.Filters = append(input.Filters, aws_ec2_v2_types.Filter{
+				Name:   aws.String("group-id"),
+				Values: ret.sgIDs,
+			})
+		}
+		if len(ret.tags) > 0 {
+			for k, v := range ret.tags {
+				input.Filters = append(input.Filters, aws_ec2_v2_types.Filter{
+					Name:   aws.String("tag:" + k),
+					Values: []string{v},
+				})
+			}
+		}
+	}
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 
 	raw := make([]aws_ec2_v2_types.NetworkInterface, 0, 10)
 	var nextToken *string = nil
 	for i := 0; i < 20; i++ {
-		out, err := cli.DescribeNetworkInterfaces(
-			ctx,
-			&aws_ec2_v2.DescribeNetworkInterfacesInput{
-				NextToken: nextToken,
-			},
-		)
+		copied := input
+		copied.NextToken = nextToken
+		out, err := cli.DescribeNetworkInterfaces(ctx, &copied)
 		if err != nil {
 			return nil, err
 		}
@@ -266,8 +313,10 @@ func ListENIs(ctx context.Context, cfg aws.Config) (ENIs, error) {
 
 	enis := make(ENIs, 0, len(raw))
 	for _, v := range raw {
-		enis = append(enis, convertENI(v))
+		enis = append(enis, ConvertENI(v))
 	}
+
+	logutil.S().Infow("listed ENIs", "enis", len(enis))
 	return enis, nil
 }
 
@@ -295,11 +344,12 @@ func CreateENI(ctx context.Context, cfg aws.Config, name string, subnetID string
 		return ENI{}, err
 	}
 
-	return convertENI(*out.NetworkInterface), nil
+	return ConvertENI(*out.NetworkInterface), nil
 }
 
-func DeleteENI(ctx context.Context, cfg aws.Config, eniID string) error {
-	logutil.S().Infow("deleting an ENI", "eniID", eniID)
+// Returns true if it's deleted. Returns false if it's already deleted.
+func DeleteENI(ctx context.Context, cfg aws.Config, eniID string) (bool, error) {
+	logutil.S().Infow("deleting ENI", "eniID", eniID)
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	_, err := cli.DeleteNetworkInterface(ctx,
@@ -307,14 +357,94 @@ func DeleteENI(ctx context.Context, cfg aws.Config, eniID string) error {
 			NetworkInterfaceId: aws.String(eniID),
 		},
 	)
+	deleted := false
 	if eniNotExist(err) {
 		err = nil
 		logutil.S().Infow("ENI does not exist", "eniID", eniID)
 	}
 	if err == nil {
+		deleted = true
 		logutil.S().Infow("successfully deleted ENI", "eniID", eniID)
 	}
-	return err
+	return deleted, err
+}
+
+// Returns true if it's deleted. Returns false if it's already deleted.
+func DeleteENIByName(ctx context.Context, cfg aws.Config, eniName string) (bool, error) {
+	logutil.S().Infow("deleting an ENI", "eniName", eniName)
+
+	eni, exists, err := GetENIByName(ctx, cfg, eniName)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, errors.New("eni does not exist")
+	}
+
+	return DeleteENI(ctx, cfg, eni.ID)
+}
+
+func AttachENI(ctx context.Context, cfg aws.Config, eniID string, instanceID string) (string, error) {
+	logutil.S().Infow("attaching ENI", "eniID", eniID, "instanceID", instanceID)
+
+	cli := aws_ec2_v2.NewFromConfig(cfg)
+	out, err := cli.DescribeInstances(ctx, &aws_ec2_v2.DescribeInstancesInput{
+		InstanceIds: []string{instanceID},
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(out.Reservations) != 1 {
+		return "", fmt.Errorf("expected 1 reservation, got %d", len(out.Reservations))
+	}
+	if len(out.Reservations[0].Instances) != 1 {
+		return "", fmt.Errorf("expected 1 instance, got %d", len(out.Reservations[0].Instances))
+	}
+	inst := out.Reservations[0].Instances[0]
+	index := int32(len(inst.NetworkInterfaces))
+	logutil.S().Infow("instance has network interfaces", "eniIDs", len(inst.NetworkInterfaces), "index", index)
+
+	attachOut, err := cli.AttachNetworkInterface(ctx,
+		&aws_ec2_v2.AttachNetworkInterfaceInput{
+			DeviceIndex:        &index,
+			InstanceId:         &instanceID,
+			NetworkInterfaceId: &eniID,
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+	attachID := *attachOut.AttachmentId
+
+	logutil.S().Infow("successfully attached ENI", "eniID", eniID, "attachmentID", attachID)
+	return attachID, nil
+}
+
+// Returns true if it's detached. Returns false if it's already detached.
+func DetachENI(ctx context.Context, cfg aws.Config, eniID string, force bool) (bool, error) {
+	eni, exists, err := GetENI(ctx, cfg, eniID)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, errors.New("eni does not exist")
+	}
+
+	logutil.S().Infow("detaching ENI", "eniID", eniID, "attachmentID", eni.AttachmentID)
+
+	cli := aws_ec2_v2.NewFromConfig(cfg)
+	_, err = cli.DetachNetworkInterface(ctx,
+		&aws_ec2_v2.DetachNetworkInterfaceInput{
+			AttachmentId: aws.String(eni.AttachmentID),
+			Force:        aws.Bool(force),
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+
+	logutil.S().Infow("successfully detached ENI", "eniID", eniID, "attachmentID", eni.AttachmentID)
+	return true, err
 }
 
 type ENIStatus struct {

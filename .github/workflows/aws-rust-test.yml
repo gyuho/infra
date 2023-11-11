@@ -1,4 +1,4 @@
-name: Test and release
+name: AWS rust test
 
 # ref. https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
 on:
