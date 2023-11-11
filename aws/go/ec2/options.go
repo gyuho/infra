@@ -10,6 +10,7 @@ type Op struct {
 	availabilityZone      string
 	desc                  string
 	eniIDs                []string
+	filters               map[string][]string
 	instanceStates        map[aws_ec2_v2_types.InstanceStateName]struct{}
 	interval              time.Duration
 	sgIDs                 []string
@@ -47,6 +48,12 @@ func WithDescription(v string) OpOption {
 func WithENIIDs(ss []string) OpOption {
 	return func(op *Op) {
 		op.eniIDs = ss
+	}
+}
+
+func WithFilters(filters map[string][]string) OpOption {
+	return func(op *Op) {
+		op.filters = filters
 	}
 }
 

@@ -43,6 +43,8 @@ var (
 	kindTagKey   string
 	kindTagValue string
 
+	localInstancePublishTagKey string
+
 	volLeaseHoldKey string
 
 	volType       string
@@ -71,6 +73,8 @@ func init() {
 
 	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the EBS volume 'Kind' tag (must be set via EC2 tags, or used for EBS volume creation)")
 	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "", "value for the EBS volume 'Kind' tag key (must be set via EC2 tags)")
+
+	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_VOLUME_PROVISIONER_ATTACHED_VOLUME_ID", "tag key to create with the resource value to the local EC2 instance")
 
 	cmd.PersistentFlags().StringVar(&volLeaseHoldKey, "volume-lease-hold-key", "LeaseHold", "key for the EBS volume lease holder (e.g., i-12345678_1662596730 means i-12345678 acquired the lease for this volume at the unix timestamp 1662596730)")
 
@@ -452,7 +456,22 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	logutil.S().Infow("successfully polled volume", "volumeID", *volStatus.Volume.VolumeId)
+	attachedVolumeID := *volStatus.Volume.VolumeId
+	logutil.S().Infow("successfully polled volume", "volumeID", attachedVolumeID)
+
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	err = ec2.CreateTags(
+		ctx,
+		cfg,
+		[]string{localInstanceID},
+		map[string]string{
+			localInstancePublishTagKey: attachedVolumeID,
+		})
+	cancel()
+	if err != nil {
+		logutil.S().Warnw("failed to create tags", "error", err)
+		os.Exit(1)
+	}
 
 	if needMkfs {
 		logutil.S().Infow("making filesystem", "filesystem", fsName, "blockDevice", blockDevice)
