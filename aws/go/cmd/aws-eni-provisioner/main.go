@@ -144,13 +144,15 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 	}
 	if len(curAttached1) > 0 {
 		for _, eni := range curAttached1 {
-			logutil.S().Infow("attached ENI (from query #1)",
+			logutil.S().Infow("currently attached ENI (from instance ID based EC2 query)",
+				"eniID", eni.ID,
+				"privateIP", eni.PrivateIP,
 				"attachmentDeviceIndex", eni.AttachmentDeviceIndex,
-				"AttachmentNetworkCardIndex", eni.AttachmentNetworkCardIndex,
+				"attachmentNetworkCardIndex", eni.AttachmentNetworkCardIndex,
 			)
 		}
 	} else {
-		logutil.S().Infow("no ENI attached (from query #1)")
+		logutil.S().Infow("no ENI attached (from instance ID based EC2 query)")
 	}
 
 	logutil.S().Infow("checking which ENIs are already associated #2", "localInstanceID", localInstanceID)
@@ -170,13 +172,15 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 	}
 	if len(curAttached2) > 0 {
 		for _, eni := range curAttached2 {
-			logutil.S().Infow("attached ENI (from query #2)",
+			logutil.S().Infow("currently attached ENI (from tag-based ENI query)",
+				"eniID", eni.ID,
+				"privateIP", eni.PrivateIP,
 				"attachmentDeviceIndex", eni.AttachmentDeviceIndex,
-				"AttachmentNetworkCardIndex", eni.AttachmentNetworkCardIndex,
+				"attachmentNetworkCardIndex", eni.AttachmentNetworkCardIndex,
 			)
 		}
 	} else {
-		logutil.S().Infow("no ENI attached (from query #2)")
+		logutil.S().Infow("no ENI attached (from tag-based ENI query)")
 	}
 
 	enisToAttach := make([]string, 0)
