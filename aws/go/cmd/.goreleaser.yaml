@@ -41,7 +41,8 @@ builds:
 
 # https://goreleaser.com/customization/archive/
 archives:
-  - format: tar.gz
+  - id: aws-eni-provisioner
+    format: tar.gz
 
     builds:
     - aws-eni-provisioner
@@ -60,7 +61,8 @@ archives:
       - goos: windows
         format: zip
 
-  - format: tar.gz
+  - id: aws-ip-provisioner
+    format: tar.gz
 
     builds:
     - aws-ip-provisioner
@@ -79,8 +81,8 @@ archives:
       - goos: windows
         format: zip
 
-  - format: tar.gz
-
+  - id: aws-volume-provisioner
+    format: tar.gz
     builds:
     - aws-volume-provisioner
 
