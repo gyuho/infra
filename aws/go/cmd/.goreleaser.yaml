@@ -2,7 +2,7 @@
 builds:
   - id: aws-eni-provisioner
     binary: aws-eni-provisioner
-    main: ./cmd/aws-eni-provisioner
+    main: ./aws-eni-provisioner
     env:
       - CGO_ENABLED=0
     flags:
@@ -15,7 +15,7 @@ builds:
 
   - id: aws-ip-provisioner
     binary: aws-ip-provisioner
-    main: ./cmd/aws-ip-provisioner
+    main: ./aws-ip-provisioner
     env:
       - CGO_ENABLED=0
     flags:
@@ -28,7 +28,7 @@ builds:
 
   - id: aws-volume-provisioner
     binary: aws-volume-provisioner
-    main: ./cmd/aws-volume-provisioner
+    main: ./aws-volume-provisioner
     env:
       - CGO_ENABLED=0
     flags:
