@@ -147,6 +147,63 @@ func (vss ENIs) String() string {
 	return buf.String()
 }
 
+// List ENIs.
+func ListENIs(ctx context.Context, cfg aws.Config, opts ...OpOption) (ENIs, error) {
+	ret := &Op{}
+	ret.applyOpts(opts)
+
+	logutil.S().Infow("listing ENIs",
+		"eniIDs", len(ret.eniIDs),
+		"filters", ret.filters,
+	)
+
+	input := aws_ec2_v2.DescribeNetworkInterfacesInput{}
+	if len(ret.eniIDs) > 0 {
+		input.NetworkInterfaceIds = ret.eniIDs
+	} else if len(ret.filters) > 0 {
+		input.Filters = make([]aws_ec2_v2_types.Filter, 0, len(ret.filters))
+		for k, vs := range ret.filters {
+			// TODO: remove this in Go 1.22
+			// ref. https://go.dev/blog/loopvar-preview
+			k, vs := k, vs
+			input.Filters = append(input.Filters, aws_ec2_v2_types.Filter{
+				Name:   &k,
+				Values: vs,
+			})
+		}
+	}
+
+	cli := aws_ec2_v2.NewFromConfig(cfg)
+
+	raw := make([]aws_ec2_v2_types.NetworkInterface, 0, 10)
+	var nextToken *string = nil
+	for i := 0; i < 20; i++ {
+		copied := input
+		copied.NextToken = nextToken
+		out, err := cli.DescribeNetworkInterfaces(ctx, &copied)
+		if err != nil {
+			return nil, err
+		}
+
+		raw = append(raw, out.NetworkInterfaces...)
+
+		if nextToken == nil {
+			// no more resources are available
+			break
+		}
+
+		// TODO: add wait to prevent api throttle (rate limit)?
+	}
+
+	enis := make(ENIs, 0, len(raw))
+	for _, v := range raw {
+		enis = append(enis, ConvertENI(v))
+	}
+
+	logutil.S().Infow("listed ENIs", "enis", len(enis))
+	return enis, nil
+}
+
 // Fetches the primary network interface of the EC2 instance.
 // Useful for --query "Reservations[0].Instances[0].PrivateIpAddress".
 func GetPrimaryENIByInstanceID(ctx context.Context, cfg aws.Config, instanceID string) (eni aws_ec2_v2_types.NetworkInterface, err error) {
@@ -249,75 +306,6 @@ func GetENIByName(ctx context.Context, cfg aws.Config, name string) (ENI, bool, 
 		return ENI{}, false, nil
 	}
 	return ConvertENI(out.NetworkInterfaces[0]), true, nil
-}
-
-// List ENIs.
-func ListENIs(ctx context.Context, cfg aws.Config, opts ...OpOption) (ENIs, error) {
-	ret := &Op{}
-	ret.applyOpts(opts)
-
-	logutil.S().Infow("listing ENIs",
-		"eniIDs", len(ret.eniIDs),
-		"subnetID", ret.subnetID,
-		"sgIDs", ret.sgIDs,
-		"tags", len(ret.tags),
-	)
-
-	input := aws_ec2_v2.DescribeNetworkInterfacesInput{}
-	if len(ret.eniIDs) > 0 {
-		input.NetworkInterfaceIds = ret.eniIDs
-	} else {
-		if ret.subnetID != "" {
-			input.Filters = append(input.Filters, aws_ec2_v2_types.Filter{
-				Name:   aws.String("subnet-id"),
-				Values: []string{ret.subnetID},
-			})
-		}
-		if len(ret.sgIDs) > 0 {
-			input.Filters = append(input.Filters, aws_ec2_v2_types.Filter{
-				Name:   aws.String("group-id"),
-				Values: ret.sgIDs,
-			})
-		}
-		if len(ret.tags) > 0 {
-			for k, v := range ret.tags {
-				input.Filters = append(input.Filters, aws_ec2_v2_types.Filter{
-					Name:   aws.String("tag:" + k),
-					Values: []string{v},
-				})
-			}
-		}
-	}
-
-	cli := aws_ec2_v2.NewFromConfig(cfg)
-
-	raw := make([]aws_ec2_v2_types.NetworkInterface, 0, 10)
-	var nextToken *string = nil
-	for i := 0; i < 20; i++ {
-		copied := input
-		copied.NextToken = nextToken
-		out, err := cli.DescribeNetworkInterfaces(ctx, &copied)
-		if err != nil {
-			return nil, err
-		}
-
-		raw = append(raw, out.NetworkInterfaces...)
-
-		if nextToken == nil {
-			// no more resources are available
-			break
-		}
-
-		// TODO: add wait to prevent api throttle (rate limit)?
-	}
-
-	enis := make(ENIs, 0, len(raw))
-	for _, v := range raw {
-		enis = append(enis, ConvertENI(v))
-	}
-
-	logutil.S().Infow("listed ENIs", "enis", len(enis))
-	return enis, nil
 }
 
 // Creates an ENI for a given subnet and security groups.

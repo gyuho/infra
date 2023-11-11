@@ -52,15 +52,15 @@ func init() {
 	cmd.PersistentFlags().StringVar(&region, "region", "us-east-1", "region to provision the volume in")
 	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 60, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
 
-	cmd.PersistentFlags().StringVar(&idTagKey, "id-tag-key", "Id", "key for the EBS volume 'Id' tag (must be set via EC2 tags, or used for EBS volume creation)")
-	cmd.PersistentFlags().StringVar(&idTagValue, "id-tag-value", "", "value for the EBS volume 'Id' tag key (must be set via EC2 tags)")
+	cmd.PersistentFlags().StringVar(&idTagKey, "id-tag-key", "Id", "key for the EIP 'Id' tag")
+	cmd.PersistentFlags().StringVar(&idTagValue, "id-tag-value", "", "value for the EIP 'Id' tag key")
 
-	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the EBS volume 'Kind' tag (must be set via EC2 tags, or used for EBS volume creation)")
-	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "", "value for the EBS volume 'Kind' tag key (must be set via EC2 tags)")
+	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the EIP 'Kind' tag")
+	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "aws-ip-provisioner", "value for the EIP 'Kind' tag key")
 
 	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_IP_PROVISIONER_EIP", "tag key to create with the resource value to the local EC2 instance")
 
-	cmd.PersistentFlags().StringVar(&curEIPFile, "current-eip-file", "/data/current-eip.yaml", "file path to write the current EIP (useful for paused instances)")
+	cmd.PersistentFlags().StringVar(&curEIPFile, "current-eip-file", "/data/current-eip.json", "file path to write the current EIP (useful for paused instances)")
 }
 
 func main() {
@@ -134,9 +134,11 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 	}
 	logutil.S().Infow("found asg tag", "key", asgNameTagKey, "value", asgNameTagValue)
 
+	// a single EC2 instance can have multiple EIPs
+	// ref. https://repost.aws/knowledge-center/secondary-private-ip-address
 	logutil.S().Infow("checking if EIP is already associated", "localInstanceID", localInstanceID)
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-	addrs, err := ec2.ListEIPs(
+	curAssociated, err := ec2.ListEIPs(
 		ctx,
 		cfg,
 		ec2.WithFilters(map[string][]string{
@@ -148,48 +150,37 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		logutil.S().Warnw("failed to list EIPs", "error", err)
 		os.Exit(1)
 	}
-	if len(addrs) > 1 {
-		logutil.S().Warnw("found more than one EIP associated to this instance", "eips", len(addrs))
-		os.Exit(1)
+	// TODO: limit a single EIP per instance?
+	if len(curAssociated) > 0 {
+		logutil.S().Warnw("EIP already associated to this instance -- may get charged extra", "eips", len(curAssociated))
 	}
 
-	needAssociateEIP := false
 	eip := ec2.EIP{}
-	if len(addrs) == 1 {
-		logutil.S().Infow("found EIP associated to this instance", "eip", addrs[0])
-		eip = ec2.EIP{
-			AllocationID: *addrs[0].AllocationId,
-			PublicIP:     *addrs[0].PublicIp,
-		}
-	} else {
-		needAssociateEIP = true
-
-		logutil.S().Infow("checking if EIP file exists locally", "file", curEIPFile)
-		exists, err := fileutil.FileExists(curEIPFile)
+	logutil.S().Infow("checking if EIP file exists locally", "file", curEIPFile)
+	exists, err := fileutil.FileExists(curEIPFile)
+	if err != nil {
+		logutil.S().Warnw("failed to check if EIP file exists locally", "error", err)
+		os.Exit(1)
+	}
+	if exists {
+		logutil.S().Infow("found EIP file locally", "file", curEIPFile)
+		eip, err = ec2.LoadEIP(curEIPFile)
 		if err != nil {
-			logutil.S().Warnw("failed to check if EIP file exists locally", "error", err)
+			logutil.S().Warnw("failed to load EIP", "error", err)
 			os.Exit(1)
 		}
-		if exists {
-			logutil.S().Infow("found EIP file locally", "file", curEIPFile)
-			eip, err = ec2.LoadEIP(curEIPFile)
-			if err != nil {
-				logutil.S().Warnw("failed to load EIP", "error", err)
-				os.Exit(1)
-			}
-		} else {
-			logutil.S().Infow("no EIP file found locally", "file", curEIPFile)
-			ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-			eip, err = ec2.AllocateEIP(ctx, cfg, asgNameTagValue, ec2.WithTags(map[string]string{
-				idTagKey:      idTagValue,
-				kindTagKey:    kindTagValue,
-				asgNameTagKey: asgNameTagValue,
-			}))
-			cancel()
-			if err != nil {
-				logutil.S().Warnw("failed to allocate EIP", "error", err)
-				os.Exit(1)
-			}
+	} else {
+		logutil.S().Infow("no EIP file found locally", "file", curEIPFile)
+		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+		eip, err = ec2.AllocateEIP(ctx, cfg, asgNameTagValue, ec2.WithTags(map[string]string{
+			idTagKey:      idTagValue,
+			kindTagKey:    kindTagValue,
+			asgNameTagKey: asgNameTagValue,
+		}))
+		cancel()
+		if err != nil {
+			logutil.S().Warnw("failed to allocate EIP", "error", err)
+			os.Exit(1)
 		}
 	}
 	if err := eip.Sync(curEIPFile); err != nil {
@@ -198,7 +189,20 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 	}
 	logutil.S().Infow("successfully synced EIP", "eip", eip)
 
-	if needAssociateEIP {
+	alreadyAssociated := false
+	for _, addr := range curAssociated {
+		allocationID := *addr.AllocationId
+		publicIP := *addr.PublicIp
+		logutil.S().Infow("found EIP associated to this instance", "allocationID", allocationID, "publicIP", publicIP)
+
+		if eip.AllocationID == allocationID && eip.PublicIP == publicIP {
+			logutil.S().Infow("EIP already associated to this instance -- no need to re-associate", "eip", eip)
+			alreadyAssociated = true
+			break
+		}
+	}
+	if !alreadyAssociated {
+		// re-association wouldn't fail when "AllowReassociation" is set to true
 		logutil.S().Infow("associating EIP to this instance", "eip", eip, "localInstanceID", localInstanceID)
 		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 		err = ec2.AssociateEIPByInstanceID(ctx, cfg, eip.AllocationID, localInstanceID)
@@ -207,12 +211,10 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 			logutil.S().Warnw("failed to associate EIP", "error", err)
 			os.Exit(1)
 		}
-	} else {
-		logutil.S().Infow("EIP already associated to this instance", "eip", eip, "localInstanceID", localInstanceID)
 	}
 
 	s := eip.String()
-	logutil.S().Infow("successfully associated EIP", "eip", s)
+	logutil.S().Infow("successfully associated or loaded EIP", "eip", s)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	err = ec2.CreateTags(

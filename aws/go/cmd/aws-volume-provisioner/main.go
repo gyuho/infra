@@ -68,11 +68,11 @@ func init() {
 	cmd.PersistentFlags().StringVar(&region, "region", "us-east-1", "region to provision the volume in")
 	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 60, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
 
-	cmd.PersistentFlags().StringVar(&idTagKey, "id-tag-key", "Id", "key for the EBS volume 'Id' tag (must be set via EC2 tags, or used for EBS volume creation)")
-	cmd.PersistentFlags().StringVar(&idTagValue, "id-tag-value", "", "value for the EBS volume 'Id' tag key (must be set via EC2 tags)")
+	cmd.PersistentFlags().StringVar(&idTagKey, "id-tag-key", "Id", "key for the EBS volume 'Id' tag")
+	cmd.PersistentFlags().StringVar(&idTagValue, "id-tag-value", "", "value for the EBS volume 'Id' tag key")
 
-	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the EBS volume 'Kind' tag (must be set via EC2 tags, or used for EBS volume creation)")
-	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "", "value for the EBS volume 'Kind' tag key (must be set via EC2 tags)")
+	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the EBS volume 'Kind' tag")
+	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "", "value for the EBS volume 'Kind' tag key")
 
 	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_VOLUME_PROVISIONER_ATTACHED_VOLUME_ID", "tag key to create with the resource value to the local EC2 instance")
 

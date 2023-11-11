@@ -13,8 +13,6 @@ type Op struct {
 	filters               map[string][]string
 	instanceStates        map[aws_ec2_v2_types.InstanceStateName]struct{}
 	interval              time.Duration
-	sgIDs                 []string
-	subnetID              string
 	tags                  map[string]string
 	volumeAttachmentState aws_ec2_v2_types.VolumeAttachmentState
 	volumeEncrypted       bool
@@ -69,18 +67,6 @@ func WithInstanceState(s aws_ec2_v2_types.InstanceStateName) OpOption {
 func WithInterval(v time.Duration) OpOption {
 	return func(op *Op) {
 		op.interval = v
-	}
-}
-
-func WithSecurityGroupIDs(ss []string) OpOption {
-	return func(op *Op) {
-		op.sgIDs = ss
-	}
-}
-
-func WithSubnetID(v string) OpOption {
-	return func(op *Op) {
-		op.subnetID = v
 	}
 }
 
