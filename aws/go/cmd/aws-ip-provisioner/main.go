@@ -187,6 +187,22 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		}
 	}
 	if len(needsAssociate) > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+		curAttached, err := ec2.GetENIsByInstanceID(
+			ctx,
+			cfg,
+			localInstanceID,
+		)
+		cancel()
+		if err != nil {
+			logutil.S().Warnw("failed to list ENIs by instance ID", "error", err)
+			os.Exit(1)
+		}
+		if len(curAttached) > 1 {
+			logutil.S().Infow("multiple interfaces attached to this instance -- attach EIP to instance will fail, need to attach to ENI instead", "enis", len(curAttached))
+			os.Exit(1)
+		}
+
 		for eip := range needsAssociate {
 			// re-association wouldn't fail when "AllowReassociation" is set to true
 			logutil.S().Infow("associating EIP to this instance", "eip", eip.AllocationID, "localInstanceID", localInstanceID)
