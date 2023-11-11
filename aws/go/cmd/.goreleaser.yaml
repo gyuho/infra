@@ -1,6 +1,7 @@
 # https://goreleaser.com/customization/builds/
 builds:
-  - binary: aws-eni-provisioner
+  - id: aws-eni-provisioner
+    binary: aws-eni-provisioner
     main: ./cmd/aws-eni-provisioner
     env:
       - CGO_ENABLED=0
@@ -12,7 +13,8 @@ builds:
       - amd64
       - arm64
 
-  - binary: aws-ip-provisioner
+  - id: aws-ip-provisioner
+    binary: aws-ip-provisioner
     main: ./cmd/aws-ip-provisioner
     env:
       - CGO_ENABLED=0
@@ -24,7 +26,8 @@ builds:
       - amd64
       - arm64
 
-  - binary: aws-volume-provisioner
+  - id: aws-volume-provisioner
+    binary: aws-volume-provisioner
     main: ./cmd/aws-volume-provisioner
     env:
       - CGO_ENABLED=0
