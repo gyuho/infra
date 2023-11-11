@@ -11,27 +11,30 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gyuho/infra/go/logutil"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ec2_v2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/gyuho/infra/go/logutil"
 	"github.com/olekukonko/tablewriter"
 )
 
 type ENI struct {
-	ID               string            `json:"id"`
-	Name             string            `json:"name"`
-	Description      string            `json:"description"`
-	Status           string            `json:"status"`
-	AttachmentID     string            `json:"attachment_id"`
-	AttachmentStatus string            `json:"attachment_status"`
-	PrivateIP        string            `json:"private_ip"`
-	PrivateDNS       string            `json:"private_dns"`
-	VPCID            string            `json:"vpc_id"`
-	SubnetID         string            `json:"subnet_id"`
-	AvailabilityZone string            `json:"availability_zone"`
-	SecurityGroupIDs []string          `json:"security_group_ids"`
-	Tags             map[string]string `json:"tags"`
+	ID                         string            `json:"id"`
+	Name                       string            `json:"name"`
+	Description                string            `json:"description"`
+	Status                     string            `json:"status"`
+	AttachmentID               string            `json:"attachment_id"`
+	AttachmentStatus           string            `json:"attachment_status"`
+	AttachmentDeviceIndex      int32             `json:"attachment_device_index"`
+	AttachmentNetworkCardIndex int32             `json:"attachment_network_card_index"`
+	PrivateIP                  string            `json:"private_ip"`
+	PrivateDNS                 string            `json:"private_dns"`
+	VPCID                      string            `json:"vpc_id"`
+	SubnetID                   string            `json:"subnet_id"`
+	AvailabilityZone           string            `json:"availability_zone"`
+	SecurityGroupIDs           []string          `json:"security_group_ids"`
+	Tags                       map[string]string `json:"tags"`
 }
 
 func ConvertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
@@ -47,6 +50,14 @@ func ConvertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
 	if raw.Attachment != nil {
 		attachmentStatus = string(raw.Attachment.Status)
 	}
+	attachmentDeviceIndex := int32(0)
+	if raw.Attachment != nil && raw.Attachment.DeviceIndex != nil {
+		attachmentDeviceIndex = *raw.Attachment.DeviceIndex
+	}
+	attachmentNetworkCardIndex := int32(0)
+	if raw.Attachment != nil && raw.Attachment.NetworkCardIndex != nil {
+		attachmentNetworkCardIndex = *raw.Attachment.NetworkCardIndex
+	}
 	privateIP := ""
 	if raw.PrivateIpAddress != nil {
 		privateIP = *raw.PrivateIpAddress
@@ -57,16 +68,18 @@ func ConvertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
 	}
 
 	eni := ENI{
-		ID:               *raw.NetworkInterfaceId,
-		Description:      desc,
-		Status:           string(raw.Status),
-		AttachmentID:     attachmentID,
-		AttachmentStatus: attachmentStatus,
-		PrivateIP:        privateIP,
-		PrivateDNS:       privateDNS,
-		VPCID:            *raw.VpcId,
-		SubnetID:         *raw.SubnetId,
-		AvailabilityZone: *raw.AvailabilityZone,
+		ID:                         *raw.NetworkInterfaceId,
+		Description:                desc,
+		Status:                     string(raw.Status),
+		AttachmentID:               attachmentID,
+		AttachmentStatus:           attachmentStatus,
+		AttachmentDeviceIndex:      attachmentDeviceIndex,
+		AttachmentNetworkCardIndex: attachmentNetworkCardIndex,
+		PrivateIP:                  privateIP,
+		PrivateDNS:                 privateDNS,
+		VPCID:                      *raw.VpcId,
+		SubnetID:                   *raw.SubnetId,
+		AvailabilityZone:           *raw.AvailabilityZone,
 	}
 
 	sgs := make([]string, 0, len(raw.Groups))
@@ -94,10 +107,10 @@ func (enis ENIs) Sort() {
 		if enis[i].VPCID == enis[j].VPCID {
 			if enis[i].SubnetID == enis[j].SubnetID {
 				if enis[i].Status == enis[j].Status {
-					if enis[i].ID == enis[j].ID {
-						return enis[i].Description < enis[j].Description
+					if enis[i].AttachmentDeviceIndex == enis[j].AttachmentDeviceIndex {
+						return enis[i].AttachmentNetworkCardIndex < enis[j].AttachmentNetworkCardIndex
 					}
-					return enis[i].ID < enis[j].ID
+					return enis[i].AttachmentDeviceIndex < enis[j].AttachmentDeviceIndex
 				}
 				return enis[i].Status < enis[j].Status
 			}
@@ -157,6 +170,7 @@ func ListENIs(ctx context.Context, cfg aws.Config, opts ...OpOption) (ENIs, erro
 		"filters", ret.filters,
 	)
 
+	// ref. https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/ec2#DescribeNetworkInterfacesInput
 	input := aws_ec2_v2.DescribeNetworkInterfacesInput{}
 	if len(ret.eniIDs) > 0 {
 		input.NetworkInterfaceIds = ret.eniIDs
@@ -308,12 +322,46 @@ func GetENIByName(ctx context.Context, cfg aws.Config, name string) (ENI, bool, 
 	return ConvertENI(out.NetworkInterfaces[0]), true, nil
 }
 
+// Returns the same order of EC2 attachment index.
+func GetENIsByInstanceID(ctx context.Context, cfg aws.Config, instanceID string) (ENIs, error) {
+	logutil.S().Infow("getting ENIs by instance ID", "instanceID", instanceID)
+
+	cli := aws_ec2_v2.NewFromConfig(cfg)
+	out, err := cli.DescribeInstances(
+		ctx,
+		&aws_ec2_v2.DescribeInstancesInput{
+			InstanceIds: []string{instanceID},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(out.Reservations) != 1 {
+		return nil, fmt.Errorf("expected 1 reservation, got %d", len(out.Reservations))
+	}
+
+	inst := out.Reservations[0].Instances[0]
+	enis := make(ENIs, 0, len(inst.NetworkInterfaces))
+	for _, v := range inst.NetworkInterfaces {
+		eniID := *v.NetworkInterfaceId
+		eni, exists, err := GetENI(ctx, cfg, eniID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, fmt.Errorf("eni %q attached in EC2 but does not exist", eniID)
+		}
+		enis = append(enis, eni)
+	}
+	return enis, nil
+}
+
 // Creates an ENI for a given subnet and security groups.
 func CreateENI(ctx context.Context, cfg aws.Config, name string, subnetID string, sgIDs []string, opts ...OpOption) (ENI, error) {
 	ret := &Op{}
 	ret.applyOpts(opts)
 
-	logutil.S().Infow("creating an ENI", "name", name, "subnetID", subnetID)
+	logutil.S().Infow("creating an ENI", "name", name, "subnetID", subnetID, "securityGroupIDs", sgIDs)
 
 	ts := toTags(name, ret.tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)

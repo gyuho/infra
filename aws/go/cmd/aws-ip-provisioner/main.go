@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"strings"
 	"time"
 
 	aws "github.com/gyuho/infra/aws/go"
@@ -44,12 +43,15 @@ var (
 	curEIPFile string
 )
 
+// Do not use "aws:" for custom tag creation, as it's not allowed.
+// e.g., aws:autoscaling:groupName
+// Only use "aws:autoscaling:groupName" for querying.
 const asgNameTagKey = "autoscaling:groupName"
 
 func init() {
 	cobra.EnablePrefixMatching = true
 
-	cmd.PersistentFlags().StringVar(&region, "region", "us-east-1", "region to provision the volume in")
+	cmd.PersistentFlags().StringVar(&region, "region", "us-east-1", "region to provision the EIP in")
 	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 60, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
 
 	cmd.PersistentFlags().StringVar(&idTagKey, "id-tag-key", "Id", "key for the EIP 'Id' tag")
@@ -97,37 +99,13 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		"asgNameTagKey", asgNameTagKey,
 	)
 
-	// poll until the expected tags are discovered
-	asgNameTagValue := ""
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
-	for ctx.Err() == nil {
-		select {
-		case <-ctx.Done():
-			logutil.S().Warnw("failed to get tags in time", "error", ctx.Err())
-			os.Exit(1)
-		case <-time.After(10 * time.Second):
-		}
-
-		localInstance, err := ec2.GetInstance(ctx, cfg, localInstanceID)
-		if err != nil {
-			logutil.S().Warnw("failed to get instance", "error", err)
-			os.Exit(1)
-		}
-
-		for _, tag := range localInstance.Tags {
-			k, v := *tag.Key, *tag.Value
-			logutil.S().Infow("found instance tag", "key", k, "value", v)
-			if k == asgNameTagKey || strings.HasSuffix(k, asgNameTagKey) { // e.g., aws:autoscaling:groupName
-				asgNameTagValue = v
-				break
-			}
-		}
-
-		if asgNameTagValue != "" {
-			break
-		}
-	}
+	_, asgNameTagValue, err := ec2.WaitInstanceTagValue(ctx, cfg, localInstanceID, "aws:autoscaling:groupName")
 	cancel()
+	if err != nil {
+		logutil.S().Warnw("failed to get asg tag value in time", "error", err)
+		os.Exit(1)
+	}
 	if asgNameTagValue == "" {
 		logutil.S().Warnw("failed to get asg tag value in time")
 		os.Exit(1)

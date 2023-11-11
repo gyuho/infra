@@ -4,6 +4,8 @@ package ec2
 import (
 	"context"
 	"errors"
+	"os"
+	"time"
 
 	"github.com/gyuho/infra/go/logutil"
 
@@ -31,4 +33,42 @@ func GetInstance(ctx context.Context, cfg aws.Config, instanceID string) (aws_ec
 		return aws_ec2_v2_types.Instance{}, errors.New("not found")
 	}
 	return out.Reservations[0].Instances[0], nil
+}
+
+// Waits until the instance has the expected tag key, and returns the value
+func WaitInstanceTagValue(ctx context.Context, cfg aws.Config, instanceID string, tagKey string) (aws_ec2_v2_types.Instance, string, error) {
+	logutil.S().Infow("waiting for instance tag value", "instanceID", instanceID, "tagKey", tagKey)
+	var instance aws_ec2_v2_types.Instance
+	tagValue := ""
+	for ctx.Err() == nil {
+		select {
+		case <-ctx.Done():
+			return aws_ec2_v2_types.Instance{}, "", ctx.Err()
+		case <-time.After(10 * time.Second):
+		}
+
+		var err error
+		instance, err = GetInstance(ctx, cfg, instanceID)
+		if err != nil {
+			logutil.S().Warnw("failed to get instance", "error", err)
+			os.Exit(1)
+		}
+
+		for _, tag := range instance.Tags {
+			k, v := *tag.Key, *tag.Value
+			logutil.S().Infow("found instance tag", "key", k, "value", v)
+			if k == tagKey { // e.g., aws:autoscaling:groupName
+				tagValue = v
+				break
+			}
+		}
+
+		if tagValue != "" {
+			break
+		}
+	}
+	if tagValue == "" {
+		return instance, "", errors.New("failed to get tag value in time")
+	}
+	return instance, tagValue, nil
 }
