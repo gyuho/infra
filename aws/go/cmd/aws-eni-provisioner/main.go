@@ -130,7 +130,7 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 	}
 
 	// a single EC2 instance can have multiple ENIs
-	logutil.S().Infow("checking which ENIs are already associated #1", "localInstanceID", localInstanceID)
+	logutil.S().Infow("checking which ENIs are already associated (using instance ID based EC2 query)", "localInstanceID", localInstanceID)
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	curAttached1, err := ec2.GetENIsByInstanceID(
 		ctx,
@@ -155,7 +155,7 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		logutil.S().Infow("no ENI attached (from instance ID based EC2 query)")
 	}
 
-	logutil.S().Infow("checking which ENIs are already associated #2", "localInstanceID", localInstanceID)
+	logutil.S().Infow("checking which ENIs are already associated (using tag-based ENI query)", "localInstanceID", localInstanceID)
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	curAttached2, err := ec2.ListENIs(
 		ctx,
@@ -268,5 +268,30 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		logutil.S().Warnw("failed to create tags", "error", err)
 		os.Exit(1)
+	}
+
+	logutil.S().Infow("checking after ENIs are attached", "localInstanceID", localInstanceID)
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	curAttached, err := ec2.GetENIsByInstanceID(
+		ctx,
+		cfg,
+		localInstanceID,
+	)
+	cancel()
+	if err != nil {
+		logutil.S().Warnw("failed to list ENIs by instance ID", "error", err)
+		os.Exit(1)
+	}
+	if len(curAttached) > 0 {
+		for _, eni := range curAttached {
+			logutil.S().Infow("currently attached ENI",
+				"eniID", eni.ID,
+				"privateIP", eni.PrivateIP,
+				"attachmentDeviceIndex", eni.AttachmentDeviceIndex,
+				"attachmentNetworkCardIndex", eni.AttachmentNetworkCardIndex,
+			)
+		}
+	} else {
+		logutil.S().Infow("no ENI attached")
 	}
 }
