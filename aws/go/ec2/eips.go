@@ -172,6 +172,11 @@ func LoadEIPs(p string) (EIPs, error) {
 	return e, nil
 }
 
+// Associates the EIP to the instance.
+// It will fail if the EC2 instance has multiple ENIs.
+// e.g.,
+// "operation error EC2: AssociateAddress, https response error StatusCode: 400, api error InvalidInstanceID:
+// There are multiple interfaces attached to instance 'i-...'. Please specify an interface ID for the operation instead."
 func AssociateEIPByInstanceID(ctx context.Context, cfg aws.Config, allocationID string, instanceID string) error {
 	logutil.S().Infow("associating EIP", "allocationID", allocationID, "instanceID", instanceID)
 
