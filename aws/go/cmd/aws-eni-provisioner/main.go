@@ -294,4 +294,6 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 	} else {
 		logutil.S().Infow("no ENI attached")
 	}
+
+	// TODO: attach ENI locally using ip route
 }
