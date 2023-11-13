@@ -43,7 +43,8 @@ func CreateRouteByInstanceID(ctx context.Context, cfg aws.Config, rtbID string, 
 		// operation error EC2: CreateRoute, https response error StatusCode: 400
 		// api error InvalidInstanceID: There are multiple interfaces attached to instance 'i-08d0d1c7144304719'. Please specify an interface ID for the operation instead.
 		//
-		// TODO: handle error if the request has the same route table ID + cidr as existing one
+		// no need to handle error when the request has the same route table ID + cidr as existing one
+		// duplicate applies do not incur error in the EC2 API
 		if strings.Contains(cerr.Error(), destinationCIDR+" already exists") {
 			logutil.S().Warnw("failed to create route due to conflict", "error", cerr.Error())
 
