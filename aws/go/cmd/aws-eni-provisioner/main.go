@@ -38,12 +38,11 @@ var (
 	kindTagKey   string
 	kindTagValue string
 
-	localInstancePublishTagKey string
-
 	subnetID string
 	sgIDs    []string
 
-	curENIsFile string
+	curENIsFile                string
+	localInstancePublishTagKey string
 )
 
 // Do not use "aws:" for custom tag creation, as it's not allowed.
@@ -63,12 +62,11 @@ func init() {
 	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the ENI 'Kind' tag")
 	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "aws-eni-provisioner", "value for the ENI 'Kind' tag key")
 
-	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_ENI_PROVISIONER_ENIS", "tag key to create with the resource value to the local EC2 instance")
-
 	cmd.PersistentFlags().StringVar(&subnetID, "subnet-id", "", "subnet ID to create the ENI in (leave empty to use the same as the instance)")
 	cmd.PersistentFlags().StringSliceVar(&sgIDs, "security-group-ids", nil, "security group IDs to create the ENI in (leave empty to use the same as the instance)")
 
 	cmd.PersistentFlags().StringVar(&curENIsFile, "current-enis-file", "/data/current-enis.json", "file path to write the current ENIs (useful for paused instances)")
+	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_ENI_PROVISIONER_ENIS", "tag key to create with the resource value to the local EC2 instance")
 }
 
 func main() {
@@ -99,12 +97,6 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		logutil.S().Warnw("failed to create aws config", "error", err)
 		os.Exit(1)
 	}
-
-	logutil.S().Infow("fetching instance tags to get the asg name",
-		"region", region,
-		"instanceID", localInstanceID,
-		"asgNameTagKey", asgNameTagKey,
-	)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	localInstance, asgNameTagValue, err := ec2.WaitInstanceTagValue(ctx, cfg, localInstanceID, "aws:autoscaling:groupName")

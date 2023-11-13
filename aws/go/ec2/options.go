@@ -13,6 +13,7 @@ type Op struct {
 	filters               map[string][]string
 	instanceStates        map[aws_ec2_v2_types.InstanceStateName]struct{}
 	interval              time.Duration
+	overwrite             bool
 	tags                  map[string]string
 	volumeAttachmentState aws_ec2_v2_types.VolumeAttachmentState
 	volumeEncrypted       bool
@@ -67,6 +68,12 @@ func WithInstanceState(s aws_ec2_v2_types.InstanceStateName) OpOption {
 func WithInterval(v time.Duration) OpOption {
 	return func(op *Op) {
 		op.interval = v
+	}
+}
+
+func WithOverwrite(b bool) OpOption {
+	return func(op *Op) {
+		op.overwrite = b
 	}
 }
 

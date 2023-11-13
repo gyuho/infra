@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -30,17 +31,12 @@ var (
 	region                   string
 	initialWaitRandomSeconds int
 
-	idTagKey   string
-	idTagValue string
-
-	kindTagKey   string
-	kindTagValue string
-
-	localInstancePublishTagKey string
-
 	routeTableIDs      []string
 	useLocalSubnetCIDR bool
 	destinationCIDR    string
+	overwrite          bool
+
+	localInstancePublishTagKey string
 )
 
 // Do not use "aws:" for custom tag creation, as it's not allowed.
@@ -54,11 +50,12 @@ func init() {
 	cmd.PersistentFlags().StringVar(&region, "region", "us-east-1", "region to provision the ENI in")
 	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 0, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
 
-	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_INSTANCE_ROUTE_PROVISIONER_ROUTES", "tag key to create with the resource value to the local EC2 instance")
-
 	cmd.PersistentFlags().StringSliceVar(&routeTableIDs, "route-table-ids", nil, "route table IDs to create routes")
 	cmd.PersistentFlags().BoolVar(&useLocalSubnetCIDR, "use-local-subnet-cidr", true, "true to fetch local subnet CIDR for routes")
 	cmd.PersistentFlags().StringVar(&destinationCIDR, "destination-cidr", "", "destination CIDR block for the routes (if not empty, overwrite --use-local-subnet-cidr)")
+	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", true, "true to overwrite if routes are in conflict (e.g., already mapped to different instance)")
+
+	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_INSTANCE_ROUTE_PROVISIONER_ROUTES", "tag key to create with the resource value to the local EC2 instance")
 }
 
 func main() {
@@ -94,12 +91,6 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		logutil.S().Warnw("failed to create aws config", "error", err)
 		os.Exit(1)
 	}
-
-	logutil.S().Infow("fetching instance tags to get the asg name",
-		"region", region,
-		"instanceID", localInstanceID,
-		"asgNameTagKey", asgNameTagKey,
-	)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	localInstance, asgNameTagValue, err := ec2.WaitInstanceTagValue(ctx, cfg, localInstanceID, "aws:autoscaling:groupName")
@@ -139,9 +130,8 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 			"instanceID", localInstanceID,
 		)
 
-		// TODO: handle retries
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
-		err := ec2.CreateRouteByInstanceID(ctx, cfg, rtbID, destinationCIDR, localInstanceID)
+		err := ec2.CreateRouteByInstanceID(ctx, cfg, rtbID, destinationCIDR, localInstanceID, ec2.WithOverwrite(overwrite))
 		cancel()
 		if err != nil {
 			logutil.S().Warnw("failed to create route", "error", err)
@@ -155,7 +145,47 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		)
 	}
 
-	// routes := make([]ec2.Route, 0, len(routeTableIDs))
-	// TODO: describe route table and get routes
-	// TODO: encode and publish
+	time.Sleep(2 * time.Second)
+
+	routes := make(ec2.Routes, 0, len(routeTableIDs))
+	for _, rtbID := range routeTableIDs {
+		rtb, err := ec2.GetRouteTable(ctx, cfg, rtbID)
+		if err != nil {
+			logutil.S().Warnw("failed to get route table", "error", err)
+			os.Exit(1)
+		}
+
+		instanceRouteFound := false
+		for _, route := range rtb.Routes {
+			logutil.S().Infow("route", "routeTableID", rtbID, "destinationCIDR", route.DestinationCIDRBlock, "instanceID", route.InstanceID)
+
+			if route.InstanceID == localInstanceID {
+				instanceRouteFound = true
+				routes = append(routes, route)
+			}
+		}
+		if !instanceRouteFound {
+			logutil.S().Warnw("route not found", "routeTableID", rtbID, "expectedDestinationCIDR", destinationCIDR, "instanceID", localInstanceID)
+			os.Exit(1)
+		}
+	}
+
+	routesContents, err := json.Marshal(routes)
+	if err != nil {
+		logutil.S().Warnw("failed to marshal routes", "error", err)
+		os.Exit(1)
+	}
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	err = ec2.CreateTags(
+		ctx,
+		cfg,
+		[]string{localInstanceID},
+		map[string]string{
+			localInstancePublishTagKey: string(routesContents),
+		})
+	cancel()
+	if err != nil {
+		logutil.S().Warnw("failed to create tags", "error", err)
+		os.Exit(1)
+	}
 }

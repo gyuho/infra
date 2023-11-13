@@ -17,11 +17,14 @@ import (
 )
 
 // Creates a route in the route table for the specified instance, with its primary ENI.
-func CreateRouteByInstanceID(ctx context.Context, cfg aws.Config, rtbID string, destinationCIDR string, instanceID string) error {
+func CreateRouteByInstanceID(ctx context.Context, cfg aws.Config, rtbID string, destinationCIDR string, instanceID string, opts ...OpOption) error {
+	ret := &Op{}
+	ret.applyOpts(opts)
+
 	logutil.S().Infow("creating a route in the route table", "routeTableID", rtbID, "destinationCIDR", destinationCIDR, "instanceID", instanceID)
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
-	out, err := cli.CreateRoute(
+	cout, cerr := cli.CreateRoute(
 		ctx,
 		&aws_ec2_v2.CreateRouteInput{
 			RouteTableId:         &rtbID,
@@ -29,14 +32,59 @@ func CreateRouteByInstanceID(ctx context.Context, cfg aws.Config, rtbID string, 
 			InstanceId:           &instanceID,
 		},
 	)
-	if err != nil {
-		return err
+	if cerr != nil {
+		// fail when the different nat instance already set up this route
+		// need some manual fix when the old nat instance goes down
+		// e.g.,
+		// "operation error EC2: CreateRoute, https response error StatusCode: 400, api error RouteAlreadyExists: The route identified by 10.0.80.0/20 already exists."
+		//
+		// and also fails if the instance has multiple ENIs
+		// e.g.,
+		// operation error EC2: CreateRoute, https response error StatusCode: 400
+		// api error InvalidInstanceID: There are multiple interfaces attached to instance 'i-08d0d1c7144304719'. Please specify an interface ID for the operation instead.
+		//
+		// TODO: handle error if the request has the same route table ID + cidr as existing one
+		if strings.Contains(cerr.Error(), destinationCIDR+" already exists") {
+			logutil.S().Warnw("failed to create route due to conflict", "error", cerr.Error())
+
+			if ret.overwrite {
+				logutil.S().Infow("deleting route to overwrite",
+					"routeTableID", rtbID,
+					"destinationCIDR", destinationCIDR,
+				)
+				if _, derr := cli.DeleteRoute(
+					ctx,
+					&aws_ec2_v2.DeleteRouteInput{
+						RouteTableId:         &rtbID,
+						DestinationCidrBlock: &destinationCIDR,
+					},
+				); derr != nil {
+					return derr
+				}
+
+				logutil.S().Infow("retry to create route again after delete")
+				cout, cerr = cli.CreateRoute(
+					ctx,
+					&aws_ec2_v2.CreateRouteInput{
+						RouteTableId:         &rtbID,
+						DestinationCidrBlock: &destinationCIDR,
+						InstanceId:           &instanceID,
+					},
+				)
+				if cerr != nil {
+					return cerr
+				}
+			}
+		}
+	}
+	if cerr != nil {
+		return cerr
 	}
 
 	// duplicate applies do not incur error in the EC2 API
 	success := false
-	if out.Return != nil {
-		success = *out.Return
+	if cout.Return != nil {
+		success = *cout.Return
 	}
 	if !success {
 		return errors.New("failed to create route")

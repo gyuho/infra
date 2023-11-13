@@ -43,8 +43,6 @@ var (
 	kindTagKey   string
 	kindTagValue string
 
-	localInstancePublishTagKey string
-
 	volLeaseHoldKey string
 
 	volType       string
@@ -53,11 +51,13 @@ var (
 	volIOPS       int32
 	volThroughput int32
 
-	ebsDevice       string
-	blockDevice     string
-	fsName          string
-	mountDir        string
-	curEBSVolIDFile string
+	ebsDevice   string
+	blockDevice string
+	fsName      string
+	mountDir    string
+
+	curEBSVolIDFile            string
+	localInstancePublishTagKey string
 )
 
 // Do not use "aws:" for custom tag creation, as it's not allowed.
@@ -77,8 +77,6 @@ func init() {
 	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the EBS volume 'Kind' tag")
 	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "aws-volume-provisioner", "value for the EBS volume 'Kind' tag key")
 
-	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_VOLUME_PROVISIONER_ATTACHED_VOLUME_ID", "tag key to create with the resource value to the local EC2 instance")
-
 	cmd.PersistentFlags().StringVar(&volLeaseHoldKey, "volume-lease-hold-key", "LeaseHold", "key for the EBS volume lease holder (e.g., i-12345678_1662596730 means i-12345678 acquired the lease for this volume at the unix timestamp 1662596730)")
 
 	cmd.PersistentFlags().StringVar(&volType, "volume-type", "gp3", "EBS volume type")
@@ -91,7 +89,9 @@ func init() {
 	cmd.PersistentFlags().StringVar(&blockDevice, "block-device", "", "OS-level block device name (e.g., /dev/nvme1n1)")
 	cmd.PersistentFlags().StringVar(&fsName, "filesystem", "", "filesystem name to create (e.g., ext4)")
 	cmd.PersistentFlags().StringVar(&mountDir, "mount-directory", "", "directory path to mount onto the device (e.g., /data)")
+
 	cmd.PersistentFlags().StringVar(&curEBSVolIDFile, "current-ebs-volume-id-file", "/data/current-ebs-volume-id", "file path to write the current EBS volume ID (useful for paused instances)")
+	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_VOLUME_PROVISIONER_ATTACHED_VOLUME_ID", "tag key to create with the resource value to the local EC2 instance")
 }
 
 func main() {
@@ -130,13 +130,6 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		logutil.S().Warnw("failed to create aws config", "error", err)
 		os.Exit(1)
 	}
-
-	logutil.S().Infow("fetching instance tags to get the asg name",
-		"region", region,
-		"az", az,
-		"instanceID", localInstanceID,
-		"asgNameTagKey", asgNameTagKey,
-	)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	_, asgNameTagValue, err := ec2.WaitInstanceTagValue(ctx, cfg, localInstanceID, "aws:autoscaling:groupName")

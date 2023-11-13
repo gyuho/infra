@@ -38,9 +38,8 @@ var (
 	kindTagKey   string
 	kindTagValue string
 
+	curEIPsFile                string
 	localInstancePublishTagKey string
-
-	curEIPsFile string
 )
 
 // Do not use "aws:" for custom tag creation, as it's not allowed.
@@ -60,9 +59,8 @@ func init() {
 	cmd.PersistentFlags().StringVar(&kindTagKey, "kind-tag-key", "Kind", "key for the EIP 'Kind' tag")
 	cmd.PersistentFlags().StringVar(&kindTagValue, "kind-tag-value", "aws-ip-provisioner", "value for the EIP 'Kind' tag key")
 
-	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_IP_PROVISIONER_EIPS", "tag key to create with the resource value to the local EC2 instance")
-
 	cmd.PersistentFlags().StringVar(&curEIPsFile, "current-eips-file", "/data/current-eips.json", "file path to write the current EIP (useful for paused instances)")
+	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_IP_PROVISIONER_EIPS", "tag key to create with the resource value to the local EC2 instance")
 }
 
 func main() {
@@ -93,12 +91,6 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		logutil.S().Warnw("failed to create aws config", "error", err)
 		os.Exit(1)
 	}
-
-	logutil.S().Infow("fetching instance tags to get the asg name",
-		"region", region,
-		"instanceID", localInstanceID,
-		"asgNameTagKey", asgNameTagKey,
-	)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Minute)
 	_, asgNameTagValue, err := ec2.WaitInstanceTagValue(ctx, cfg, localInstanceID, "aws:autoscaling:groupName")
