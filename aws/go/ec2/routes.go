@@ -24,6 +24,9 @@ func CreateRouteByInstanceID(ctx context.Context, cfg aws.Config, rtbID string, 
 	logutil.S().Infow("creating a route in the route table", "routeTableID", rtbID, "destinationCIDR", destinationCIDR, "instanceID", instanceID)
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
+
+	// this does not fail even if the destination CIDR is the same, so long as the target instance/ENI is the same
+	// (you can run this multiple times)
 	cout, cerr := cli.CreateRoute(
 		ctx,
 		&aws_ec2_v2.CreateRouteInput{
