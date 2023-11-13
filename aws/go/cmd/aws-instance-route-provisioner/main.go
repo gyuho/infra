@@ -48,7 +48,7 @@ func init() {
 	cobra.EnablePrefixMatching = true
 
 	cmd.PersistentFlags().StringVar(&region, "region", "us-east-1", "region to provision the ENI in")
-	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 0, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
+	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 10, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
 
 	cmd.PersistentFlags().StringSliceVar(&routeTableIDs, "route-table-ids", nil, "route table IDs to create routes")
 	cmd.PersistentFlags().BoolVar(&useLocalSubnetCIDR, "use-local-subnet-cidr", true, "true to fetch local subnet CIDR for routes")
@@ -149,7 +149,9 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 
 	routes := make(ec2.Routes, 0, len(routeTableIDs))
 	for _, rtbID := range routeTableIDs {
+		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 		rtb, err := ec2.GetRouteTable(ctx, cfg, rtbID)
+		cancel()
 		if err != nil {
 			logutil.S().Warnw("failed to get route table", "error", err)
 			os.Exit(1)
