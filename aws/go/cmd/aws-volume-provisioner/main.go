@@ -105,6 +105,7 @@ func main() {
 func cmdFunc(cmd *cobra.Command, args []string) {
 	initialWait := time.Duration(rand.Intn(initialWaitRandomSeconds)) * time.Second
 	logutil.S().Infow("starting 'aws-volume-provisioner'", "initialWait", initialWait)
+	time.Sleep(initialWait)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	az, err := metadata.FetchAvailabilityZone(ctx)

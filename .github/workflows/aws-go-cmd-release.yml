@@ -51,6 +51,8 @@ jobs:
           files: |
             ./aws/go/cmd/dist/aws-eni-provisioner-linux-arm64.tar.gz
             ./aws/go/cmd/dist/aws-eni-provisioner-linux-x86_64.tar.gz
+            ./aws/go/cmd/dist/aws-instance-route-provisioner-linux-arm64.tar.gz
+            ./aws/go/cmd/dist/aws-instance-route-provisioner-linux-x86_64.tar.gz
             ./aws/go/cmd/dist/aws-ip-provisioner-linux-arm64.tar.gz
             ./aws/go/cmd/dist/aws-ip-provisioner-linux-x86_64.tar.gz
             ./aws/go/cmd/dist/aws-volume-provisioner-linux-arm64.tar.gz

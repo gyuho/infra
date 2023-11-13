@@ -55,7 +55,7 @@ func init() {
 	cobra.EnablePrefixMatching = true
 
 	cmd.PersistentFlags().StringVar(&region, "region", "us-east-1", "region to provision the ENI in")
-	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 60, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
+	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 20, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
 
 	cmd.PersistentFlags().StringVar(&idTagKey, "id-tag-key", "Id", "key for the ENI 'Id' tag")
 	cmd.PersistentFlags().StringVar(&idTagValue, "id-tag-value", "", "value for the ENI 'Id' tag key")
@@ -82,6 +82,7 @@ func main() {
 func cmdFunc(cmd *cobra.Command, args []string) {
 	initialWait := time.Duration(rand.Intn(initialWaitRandomSeconds)) * time.Second
 	logutil.S().Infow("starting 'aws-eni-provisioner'", "initialWait", initialWait)
+	time.Sleep(initialWait)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	localInstanceID, err := metadata.FetchInstanceID(ctx)

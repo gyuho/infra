@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/gyuho/infra/go/logutil"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ec2_v2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -23,6 +25,43 @@ type Subnet struct {
 }
 
 type Subnets []Subnet
+
+func GetSubnet(ctx context.Context, cfg aws.Config, subnetID string) (Subnet, error) {
+	logutil.S().Infow("getting subnet", "subnetID", subnetID)
+
+	cli := aws_ec2_v2.NewFromConfig(cfg)
+
+	out, err := cli.DescribeSubnets(ctx,
+		&aws_ec2_v2.DescribeSubnetsInput{
+			SubnetIds: []string{subnetID},
+		},
+	)
+	if err != nil {
+		return Subnet{}, err
+	}
+	if len(out.Subnets) != 1 {
+		return Subnet{}, fmt.Errorf("expected 1 Subnet, got %d", len(out.Subnets))
+	}
+	sb := out.Subnets[0]
+
+	tags := make(map[string]string, len(sb.Tags))
+	subnet := Subnet{
+		VPCID:            *sb.VpcId,
+		ID:               *sb.SubnetId,
+		Name:             "",
+		AvailabilityZone: *sb.AvailabilityZone,
+		State:            string(sb.State),
+		CIDRBlock:        *sb.CidrBlock,
+		Tags:             tags,
+	}
+	for _, tg := range sb.Tags {
+		subnet.Tags[*tg.Key] = *tg.Value
+		if *tg.Key == "Name" {
+			subnet.Name = *tg.Value
+		}
+	}
+	return subnet, nil
+}
 
 type VPC struct {
 	ID      string            `json:"id"`

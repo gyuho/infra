@@ -177,11 +177,11 @@ type Route struct {
 	RouteOrigin          string `json:"route_origin"`
 	State                string `json:"state"`
 	DestinationCIDRBlock string `json:"destination_cidr_block"`
-	InstanceID           string `json:"instance_id"`
-	ENI                  string `json:"eni"`
-	NATGateway           string `json:"nat_gateway"`
-	LocalGateway         string `json:"local_gateway"`
-	Gateway              string `json:"gateway"`
+	InstanceID           string `json:"instance_id,omitempty"`
+	ENI                  string `json:"eni,omitempty"`
+	NATGateway           string `json:"nat_gateway,omitempty"`
+	LocalGateway         string `json:"local_gateway,omitempty"`
+	Gateway              string `json:"gateway,omitempty"`
 }
 
 type Routes []Route

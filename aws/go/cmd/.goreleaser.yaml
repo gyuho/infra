@@ -13,6 +13,19 @@ builds:
       - amd64
       - arm64
 
+  - id: aws-instance-route-provisioner
+    binary: aws-instance-route-provisioner
+    main: ./aws-instance-route-provisioner
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -v
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
   - id: aws-ip-provisioner
     binary: aws-ip-provisioner
     main: ./aws-ip-provisioner
