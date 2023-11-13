@@ -74,11 +74,11 @@ archives:
       - goos: windows
         format: zip
 
-  - id: aws-instance-router-provisioner
+  - id: aws-instance-route-provisioner
     format: tar.gz
 
     builds:
-    - aws-instance-router-provisioner
+    - aws-instance-route-provisioner
 
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
