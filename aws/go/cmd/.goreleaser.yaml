@@ -74,6 +74,26 @@ archives:
       - goos: windows
         format: zip
 
+  - id: aws-instance-router-provisioner
+    format: tar.gz
+
+    builds:
+    - aws-instance-router-provisioner
+
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .Binary }}-
+      {{- .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        format: zip
+
   - id: aws-ip-provisioner
     format: tar.gz
 
