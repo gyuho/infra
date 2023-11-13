@@ -15,7 +15,7 @@ license = "Apache-2.0"
 [dependencies]
 aws-config = "0.56.1" # https://github.com/awslabs/aws-sdk-rust/releases
 aws-smithy-client = "0.56.1"
-aws-smithy-runtime-api = "0.56.1"
+aws-smithy-runtime-api = "0.57.1"
 aws-smithy-types = "0.56.1"
 aws-types = "0.56.1" # https://crates.io/crates/aws-types/versions
 log = "0.4.20"
