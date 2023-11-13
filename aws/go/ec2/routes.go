@@ -201,6 +201,27 @@ func GetRouteTable(ctx context.Context, cfg aws.Config, rtbID string) (RouteTabl
 	return rtbs[0], nil
 }
 
+// Deletes "blackhole" state routes in the route table.
+func DeleteBlackholeRoutes(ctx context.Context, cfg aws.Config, rtbID string) error {
+	rtb, err := GetRouteTable(ctx, cfg, rtbID)
+	if err != nil {
+		return err
+	}
+	for _, route := range rtb.Routes {
+		if route.State != "blackhole" {
+			continue
+		}
+		logutil.S().Warnw("found blackhole route",
+			"routeTableID", rtbID,
+			"destinationCIDR", route.DestinationCIDRBlock,
+		)
+		if err := DeleteRouteByDestinationCIDR(ctx, cfg, rtbID, route.DestinationCIDRBlock); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Deletes a route in the route table for the specified destination CIDR.
 func DeleteRouteByDestinationCIDR(ctx context.Context, cfg aws.Config, rtbID string, destinationCIDR string) error {
 	logutil.S().Infow("deleting a route in the route table", "routeTableID", rtbID, "destinationCIDR", destinationCIDR)
@@ -222,9 +243,11 @@ func DeleteRouteByDestinationCIDR(ctx context.Context, cfg aws.Config, rtbID str
 }
 
 type Route struct {
-	RouteTableID         string `json:"route_table_id"`
-	RouteOrigin          string `json:"route_origin"`
-	State                string `json:"state"`
+	RouteTableID string `json:"route_table_id"`
+	RouteOrigin  string `json:"route_origin,omitempty"`
+	// State is set to "blackhole" if the previously mapped
+	// ENI or EC2 instance got deleted.
+	State                string `json:"state,omitempty"`
 	DestinationCIDRBlock string `json:"destination_cidr_block"`
 	InstanceID           string `json:"instance_id,omitempty"`
 	ENI                  string `json:"eni,omitempty"`

@@ -31,10 +31,11 @@ var (
 	region                   string
 	initialWaitRandomSeconds int
 
-	routeTableIDs      []string
-	useLocalSubnetCIDR bool
-	destinationCIDR    string
-	overwrite          bool
+	routeTableIDs         []string
+	useLocalSubnetCIDR    bool
+	destinationCIDR       string
+	deleteBlackholeRoutes bool
+	overwrite             bool
 
 	localInstancePublishTagKey string
 )
@@ -53,6 +54,7 @@ func init() {
 	cmd.PersistentFlags().StringSliceVar(&routeTableIDs, "route-table-ids", nil, "route table IDs to create routes")
 	cmd.PersistentFlags().BoolVar(&useLocalSubnetCIDR, "use-local-subnet-cidr", true, "true to fetch local subnet CIDR for routes")
 	cmd.PersistentFlags().StringVar(&destinationCIDR, "destination-cidr", "", "destination CIDR block for the routes (if not empty, overwrite --use-local-subnet-cidr)")
+	cmd.PersistentFlags().BoolVar(&deleteBlackholeRoutes, "delete-blackhole-routes", true, "true to delete blackhole routes in the route tables")
 	cmd.PersistentFlags().BoolVar(&overwrite, "overwrite", true, "true to overwrite if routes are in conflict (e.g., already mapped to different instance)")
 
 	cmd.PersistentFlags().StringVar(&localInstancePublishTagKey, "local-instance-publish-tag-key", "AWS_INSTANCE_ROUTE_PROVISIONER_ROUTES", "tag key to create with the resource value to the local EC2 instance")
@@ -130,11 +132,21 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 			"instanceID", localInstanceID,
 		)
 
+		if deleteBlackholeRoutes {
+			ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+			derr := ec2.DeleteBlackholeRoutes(ctx, cfg, rtbID)
+			cancel()
+			if derr != nil {
+				logutil.S().Warnw("failed to delete blackhole routes", "error", derr)
+				os.Exit(1)
+			}
+		}
+
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
-		err := ec2.CreateRouteByInstanceID(ctx, cfg, rtbID, destinationCIDR, localInstanceID, ec2.WithOverwrite(overwrite))
+		cerr := ec2.CreateRouteByInstanceID(ctx, cfg, rtbID, destinationCIDR, localInstanceID, ec2.WithOverwrite(overwrite))
 		cancel()
-		if err != nil {
-			logutil.S().Warnw("failed to create route", "error", err)
+		if cerr != nil {
+			logutil.S().Warnw("failed to create route", "error", cerr)
 			os.Exit(1)
 		}
 
@@ -147,7 +159,7 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 
 	time.Sleep(2 * time.Second)
 
-	routes := make(ec2.Routes, 0, len(routeTableIDs))
+	routes := make([]Route, 0, len(routeTableIDs))
 	for _, rtbID := range routeTableIDs {
 		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 		rtb, err := ec2.GetRouteTable(ctx, cfg, rtbID)
@@ -163,7 +175,12 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 
 			if route.InstanceID == localInstanceID {
 				instanceRouteFound = true
-				routes = append(routes, route)
+				routes = append(routes, Route{
+					RouteTableID:         route.RouteTableID,
+					DestinationCIDRBlock: route.DestinationCIDRBlock,
+					InstanceID:           route.InstanceID,
+					ENI:                  route.ENI,
+				})
 			}
 		}
 		if !instanceRouteFound {
@@ -190,4 +207,14 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		logutil.S().Warnw("failed to create tags", "error", err)
 		os.Exit(1)
 	}
+}
+
+// EC2 tag value limits are 256 characters,
+// so we define a custom, subset type of ec2.Route
+// ref. https://docs.aws.amazon.com/config/latest/APIReference/API_Tag.html
+type Route struct {
+	RouteTableID         string `json:"rtb"`
+	DestinationCIDRBlock string `json:"cidr"`
+	InstanceID           string `json:"ec2,omitempty"`
+	ENI                  string `json:"eni,omitempty"`
 }
