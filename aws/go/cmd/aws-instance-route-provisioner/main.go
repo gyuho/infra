@@ -194,6 +194,11 @@ func cmdFunc(cmd *cobra.Command, args []string) {
 		logutil.S().Warnw("failed to marshal routes", "error", err)
 		os.Exit(1)
 	}
+	// ref. https://docs.aws.amazon.com/config/latest/APIReference/API_Tag.html
+	if len(routesContents) > 256 {
+		routesContents = routesContents[:255:255]
+	}
+
 	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	err = ec2.CreateTags(
 		ctx,
