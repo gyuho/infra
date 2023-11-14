@@ -368,9 +368,9 @@ type RouteTableAssociation struct {
 	ID               string `json:"id"`
 	RouteTableID     string `json:"route_table_id"`
 	SubnetID         string `json:"subnet_id"`
-	AvailabilityZone string `json:"availability_zone"`
-	State            string `json:"state"`
-	Gateway          string `json:"gateway"`
+	AvailabilityZone string `json:"availability_zone,omitempty"`
+	State            string `json:"state,omitempty"`
+	Gateway          string `json:"gateway,omitempty"`
 	Main             bool   `json:"main"`
 }
 
