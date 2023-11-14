@@ -20,21 +20,21 @@ import (
 )
 
 type ENI struct {
-	ID                         string            `json:"id"`
-	Name                       string            `json:"name"`
-	Description                string            `json:"description"`
-	Status                     string            `json:"status"`
-	AttachmentID               string            `json:"attachment_id"`
-	AttachmentStatus           string            `json:"attachment_status"`
-	AttachmentDeviceIndex      int32             `json:"attachment_device_index"`
-	AttachmentNetworkCardIndex int32             `json:"attachment_network_card_index"`
-	PrivateIP                  string            `json:"private_ip"`
-	PrivateDNS                 string            `json:"private_dns"`
-	VPCID                      string            `json:"vpc_id"`
-	SubnetID                   string            `json:"subnet_id"`
-	AvailabilityZone           string            `json:"availability_zone"`
-	SecurityGroupIDs           []string          `json:"security_group_ids"`
-	Tags                       map[string]string `json:"tags"`
+	ID                         string            `json:"id,omitempty"`
+	Name                       string            `json:"name,omitempty"`
+	Description                string            `json:"description,omitempty"`
+	Status                     string            `json:"status,omitempty"`
+	AttachmentID               string            `json:"attachment_id,omitempty"`
+	AttachmentStatus           string            `json:"attachment_status,omitempty"`
+	AttachmentDeviceIndex      int32             `json:"attachment_device_index,omitempty"`
+	AttachmentNetworkCardIndex int32             `json:"attachment_network_card_index,omitempty"`
+	PrivateIP                  string            `json:"private_ip,omitempty"`
+	PrivateDNS                 string            `json:"private_dns,omitempty"`
+	VPCID                      string            `json:"vpc_id,omitempty"`
+	SubnetID                   string            `json:"subnet_id,omitempty"`
+	AvailabilityZone           string            `json:"availability_zone,omitempty"`
+	SecurityGroupIDs           []string          `json:"security_group_ids,omitempty"`
+	Tags                       map[string]string `json:"tags,omitempty"`
 }
 
 func ConvertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
