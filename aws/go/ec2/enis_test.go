@@ -20,24 +20,24 @@ func TestSortENIs(t *testing.T) {
 		expected ENIs
 	}{
 		{
-			input:    ENIs{{ID: "2"}, {ID: "1"}, {ID: "0"}},
-			expected: ENIs{{ID: "0"}, {ID: "1"}, {ID: "2"}},
+			input:    ENIs{{AttachmentDeviceIndex: 2}, {AttachmentDeviceIndex: 1}, {AttachmentDeviceIndex: 0}},
+			expected: ENIs{{AttachmentDeviceIndex: 0}, {AttachmentDeviceIndex: 1}, {AttachmentDeviceIndex: 2}},
 		},
 		{
-			input:    ENIs{{ID: "a"}, {ID: "b"}, {ID: "c"}},
-			expected: ENIs{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+			input:    ENIs{{AttachmentDeviceIndex: 0}, {AttachmentDeviceIndex: 1}, {AttachmentDeviceIndex: 2}},
+			expected: ENIs{{AttachmentDeviceIndex: 0}, {AttachmentDeviceIndex: 1}, {AttachmentDeviceIndex: 2}},
 		},
 		{
-			input:    ENIs{{ID: "b"}, {ID: "c"}, {ID: "a"}},
-			expected: ENIs{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+			input:    ENIs{{AttachmentDeviceIndex: 1}, {AttachmentDeviceIndex: 2}, {AttachmentDeviceIndex: 0}},
+			expected: ENIs{{AttachmentDeviceIndex: 0}, {AttachmentDeviceIndex: 1}, {AttachmentDeviceIndex: 2}},
 		},
 		{
-			input:    ENIs{{ID: "b"}, {ID: "a"}, {ID: "c"}},
-			expected: ENIs{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+			input:    ENIs{{AttachmentDeviceIndex: 1}, {AttachmentDeviceIndex: 0}, {AttachmentDeviceIndex: 2}},
+			expected: ENIs{{AttachmentDeviceIndex: 0}, {AttachmentDeviceIndex: 1}, {AttachmentDeviceIndex: 2}},
 		},
 		{
-			input:    ENIs{{ID: "b", VPCID: "c"}, {ID: "a", VPCID: "b"}, {ID: "a", VPCID: "a"}},
-			expected: ENIs{{ID: "a", VPCID: "a"}, {ID: "a", VPCID: "b"}, {ID: "b", VPCID: "c"}},
+			input:    ENIs{{AttachmentDeviceIndex: 1, VPCID: "2"}, {AttachmentDeviceIndex: 0, VPCID: "1"}, {AttachmentDeviceIndex: 0, VPCID: "0"}},
+			expected: ENIs{{AttachmentDeviceIndex: 0, VPCID: "0"}, {AttachmentDeviceIndex: 0, VPCID: "1"}, {AttachmentDeviceIndex: 1, VPCID: "2"}},
 		},
 	}
 	for i, tv := range tt {
