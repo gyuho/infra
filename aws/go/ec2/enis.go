@@ -298,16 +298,15 @@ func GetENI(ctx context.Context, cfg aws.Config, eniID string) (ENI, bool, error
 	return ConvertENI(out.NetworkInterfaces[0]), true, nil
 }
 
-// Returns false if the ENI does not exist.
-func GetENIByName(ctx context.Context, cfg aws.Config, name string) (ENI, bool, error) {
+func GetENIByTagKey(ctx context.Context, cfg aws.Config, tagKey string, tagValue string) (ENI, bool, error) {
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 
 	out, err := cli.DescribeNetworkInterfaces(ctx,
 		&aws_ec2_v2.DescribeNetworkInterfacesInput{
 			Filters: []aws_ec2_v2_types.Filter{
 				{
-					Name:   aws.String("tag:Name"),
-					Values: []string{name},
+					Name:   aws.String("tag:" + tagKey),
+					Values: []string{tagValue},
 				},
 			},
 		},
@@ -320,6 +319,11 @@ func GetENIByName(ctx context.Context, cfg aws.Config, name string) (ENI, bool, 
 		return ENI{}, false, nil
 	}
 	return ConvertENI(out.NetworkInterfaces[0]), true, nil
+}
+
+// Returns false if the ENI does not exist.
+func GetENIByName(ctx context.Context, cfg aws.Config, name string) (ENI, bool, error) {
+	return GetENIByTagKey(ctx, cfg, "Name", name)
 }
 
 // Returns the same order of EC2 attachment index.
