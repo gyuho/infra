@@ -174,7 +174,7 @@ func TestS3PrivatePreSigned(t *testing.T) {
 
 func TestS3Public(t *testing.T) {
 	if os.Getenv("RUN_AWS_TESTS") != "1" {
-		// t.Skip()
+		t.Skip()
 	}
 
 	cfg, err := aws.New(&aws.Config{
