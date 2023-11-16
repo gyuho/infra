@@ -10,7 +10,7 @@ use aws_sdk_acmpca::{
     },
     Client,
 };
-use aws_smithy_client::SdkError;
+use aws_smithy_runtime_api::client::result::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::fs;
 
@@ -57,11 +57,25 @@ impl Manager {
                             .common_name(common_name)
                             .build(),
                     )
-                    .build(),
+                    .build()
+                    .map_err(|e| Error::Other {
+                        message: format!("failed to build CertificateAuthorityConfiguration {}", e),
+                        retryable: false,
+                    })?,
             );
         if let Some(tags) = &tags {
             for (k, v) in tags.iter() {
-                req = req.tags(Tag::builder().key(k).value(v).build());
+                req =
+                    req.tags(
+                        Tag::builder()
+                            .key(k)
+                            .value(v)
+                            .build()
+                            .map_err(|e| Error::Other {
+                                message: format!("failed to build Tag {}", e),
+                                retryable: false,
+                            })?,
+                    );
             }
         }
 
@@ -70,7 +84,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed create_certificate_authority {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -98,7 +115,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed update_certificate_authority {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -150,7 +170,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_certificate_authority {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -177,7 +200,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed get_certificate_authority_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -212,7 +238,11 @@ impl Manager {
                 Validity::builder()
                     .r#type(ValidityPeriodType::Days)
                     .value(valid_days)
-                    .build(),
+                    .build()
+                    .map_err(|e| Error::Other {
+                        message: format!("failed to build Validity {}", e),
+                        retryable: false,
+                    })?,
             )
             .csr(csr_blob)
             // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#privateca-IssueCertificate-request-TemplateArn>
@@ -227,7 +257,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed issue_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -264,7 +297,11 @@ impl Manager {
                 Validity::builder()
                     .r#type(ValidityPeriodType::Days)
                     .value(valid_days)
-                    .build(),
+                    .build()
+                    .map_err(|e| Error::Other {
+                        message: format!("failed to build Validity {}", e),
+                        retryable: false,
+                    })?,
             )
             .csr(csr_blob)
             // ref. <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html#privateca-IssueCertificate-request-TemplateArn>
@@ -279,7 +316,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed issue_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -310,7 +350,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed get_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -346,7 +389,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed import_certificate_authority_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -372,7 +418,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed get_certificate_authority_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -398,7 +447,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed revoke_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };

@@ -1,4 +1,4 @@
-use crate::errors::{self, Error, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_ssm::{types::CommandInvocationStatus, Client};
 use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::time::{sleep, Duration, Instant};
@@ -37,10 +37,13 @@ impl Manager {
             .await
             .map_err(|e| Error::Other {
                 message: format!("failed get_parameters {}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
-        if let Some(ps) = out.parameters() {
+        if let Some(ps) = out.parameters {
             if ps.len() == 1 {
                 Ok(Ami {
                     arn: ps[0].arn().clone().unwrap().to_string(),
@@ -111,7 +114,10 @@ impl Manager {
                 Err(e) => {
                     return Err(Error::API {
                         message: format!("failed get_command_invocation {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
             };

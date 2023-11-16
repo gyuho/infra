@@ -11,7 +11,7 @@ use aws_sdk_cloudwatchlogs::{
     operation::{create_log_group::CreateLogGroupError, delete_log_group::DeleteLogGroupError},
     Client as LogsClient,
 };
-use aws_smithy_client::SdkError;
+use aws_smithy_runtime_api::client::result::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};

@@ -10,7 +10,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::errors::{self, Error, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_ec2::{
     operation::delete_key_pair::DeleteKeyPairError,
     types::{
@@ -20,7 +20,7 @@ use aws_sdk_ec2::{
     },
     Client,
 };
-use aws_smithy_client::SdkError;
+use aws_smithy_runtime_api::client::result::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -623,10 +623,13 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed import_key_pair {} {:?}", pubkey_path, e),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
-        let key_pair_id = out.key_pair_id().unwrap().clone();
+        let key_pair_id = out.key_pair_id().unwrap();
         log::info!("imported key pair id '{key_pair_id}' -- describing");
 
         let out = self
@@ -637,18 +640,28 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed describe_key_pairs {} {:?}", pubkey_path, e),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
-        if let Some(kps) = out.key_pairs() {
-            if kps.len() != 1 {
+        if !out.key_pairs().is_empty() {
+            if out.key_pairs().len() != 1 {
                 return Err(Error::API {
-                    message: format!("unexpected {} key pairs from describe_key_pairs", kps.len()),
+                    message: format!(
+                        "unexpected {} key pairs from describe_key_pairs",
+                        out.key_pairs().len()
+                    ),
                     retryable: false,
                 });
             }
 
-            let described_key_name = kps[0].key_name().clone().unwrap().to_string();
-            let described_key_pair_id = kps[0].key_pair_id().clone().unwrap().to_string();
+            let described_key_name = out.key_pairs()[0].key_name().clone().unwrap().to_string();
+            let described_key_pair_id = out.key_pairs()[0]
+                .key_pair_id()
+                .clone()
+                .unwrap()
+                .to_string();
             log::info!("described imported key name {described_key_name} and key pair id {described_key_pair_id}");
 
             if described_key_name != key_name {
@@ -669,12 +682,13 @@ impl Manager {
                     retryable: false,
                 });
             }
+            out.key_pairs().to_vec()
         } else {
             return Err(Error::API {
                 message: format!("unexpected empty key pair from describe_key_pairs"),
                 retryable: false,
             });
-        }
+        };
 
         log::info!(
             "successfully imported the key {key_name} with the public key file {pubkey_path}"
@@ -716,7 +730,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed create_key_pair {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -763,7 +780,10 @@ impl Manager {
                 if !is_err_does_not_exist_delete_key_pair(&e) {
                     return Err(Error::API {
                         message: format!("failed delete_key_pair {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
                 log::warn!("key already deleted ({})", e);
@@ -780,7 +800,7 @@ impl Manager {
         let ret = self.cli.describe_vpcs().vpc_ids(vpc_id).send().await;
         let vpcs = match ret {
             Ok(out) => {
-                if let Some(vpcs) = out.vpcs() {
+                if let Some(vpcs) = out.vpcs {
                     vpcs.to_vec()
                 } else {
                     return Err(Error::API {
@@ -792,7 +812,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_vpcs {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -829,7 +852,7 @@ impl Manager {
             .await;
         match ret {
             Ok(out) => {
-                if let Some(sgs) = out.security_groups() {
+                if let Some(sgs) = out.security_groups {
                     Ok(sgs.to_vec())
                 } else {
                     return Err(Error::API {
@@ -841,7 +864,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_security_groups {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         }
@@ -867,7 +893,7 @@ impl Manager {
             .await;
         match ret {
             Ok(out) => {
-                if let Some(ss) = out.subnets() {
+                if let Some(ss) = out.subnets {
                     Ok(ss.to_vec())
                 } else {
                     return Err(Error::API {
@@ -879,7 +905,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_subnets {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         }
@@ -900,7 +929,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_volumes {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -1112,11 +1144,11 @@ impl Manager {
                 continue;
             }
             let volume = volumes[0].clone();
-            if volume.attachments().is_none() {
+            if volume.attachments().is_empty() {
                 log::warn!("no attachment found");
                 continue;
             }
-            let attachments = volume.attachments().unwrap();
+            let attachments = volume.attachments().to_vec();
             if attachments.is_empty() {
                 log::warn!("no attachment found");
                 continue;
@@ -1166,7 +1198,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_instances {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -1236,7 +1271,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_instances {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -1251,11 +1289,11 @@ impl Manager {
 
         let mut droplets: Vec<Droplet> = Vec::new();
         for rsv in reservations.iter() {
-            let instances = rsv.instances().unwrap();
+            let instances = rsv.instances().to_vec();
             for instance in instances {
                 let instance_id = instance.instance_id().unwrap();
                 log::info!("instance {}", instance_id);
-                droplets.push(Droplet::new(instance));
+                droplets.push(Droplet::new(&instance));
             }
         }
 
@@ -1283,7 +1321,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed allocate_address {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -1320,7 +1361,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed associate_address {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -1353,11 +1397,14 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_addresses {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
-        let addrs = if let Some(addrs) = resp.addresses() {
+        let addrs = if let Some(addrs) = resp.addresses {
             addrs.to_vec()
         } else {
             Vec::new()
@@ -1395,11 +1442,14 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_addresses {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
-        let addrs = if let Some(addrs) = resp.addresses() {
+        let addrs = if let Some(addrs) = resp.addresses {
             addrs.to_vec()
         } else {
             Vec::new()
@@ -1463,11 +1513,14 @@ impl Manager {
                 Err(e) => {
                     return Err(Error::API {
                         message: format!("failed describe_addresses {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
             };
-            let addrs = if let Some(addrs) = resp.addresses() {
+            let addrs = if let Some(addrs) = resp.addresses {
                 addrs.to_vec()
             } else {
                 Vec::new()
@@ -1512,7 +1565,10 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed create_image {:?}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
         let ami_id = ami.image_id().clone().unwrap().to_string();
@@ -1553,11 +1609,14 @@ impl Manager {
                 Err(e) => {
                     return Err(Error::API {
                         message: format!("failed describe_images {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
             };
-            let images = if let Some(images) = resp.images() {
+            let images = if let Some(images) = resp.images {
                 images.to_vec()
             } else {
                 Vec::new()
@@ -1626,7 +1685,7 @@ impl Droplet {
         };
         let launch_time = inst.launch_time().unwrap();
         let native_dt = NaiveDateTime::from_timestamp_opt(launch_time.secs(), 0).unwrap();
-        let launched_at_utc = DateTime::<Utc>::from_utc(native_dt, Utc);
+        let launched_at_utc = DateTime::<Utc>::from_naive_utc_and_offset(native_dt, Utc);
 
         let instance_state = match inst.state.to_owned() {
             Some(v) => v,
@@ -1656,7 +1715,7 @@ impl Droplet {
             .unwrap_or_else(|| String::from(""));
 
         let mut block_device_mappings = Vec::new();
-        if let Some(mappings) = inst.block_device_mappings() {
+        if let Some(mappings) = &inst.block_device_mappings {
             for block_device_mapping in mappings.iter() {
                 let device_name = block_device_mapping
                     .device_name

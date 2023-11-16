@@ -3,7 +3,7 @@ use std::{
     {os::unix::fs::PermissionsExt, path::Path},
 };
 
-use crate::errors::{self, Error, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_s3::{
     operation::{
         create_bucket::CreateBucketError,
@@ -23,14 +23,13 @@ use aws_sdk_s3::{
     },
     Client,
 };
-use aws_smithy_client::SdkError;
+use aws_smithy_runtime_api::client::result::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::{
     fs::{self, File},
     io::AsyncWriteExt,
     time::{sleep, Duration, Instant},
 };
-use tokio_stream::StreamExt;
 
 /// Implements AWS S3 manager.
 #[derive(Debug, Clone)]
@@ -73,7 +72,10 @@ impl Manager {
                 if !is_err_already_exists_create_bucket(&e) {
                     return Err(Error::API {
                         message: format!("failed create_bucket {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
                 log::warn!(
@@ -103,19 +105,30 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed put_public_access_block {}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
         let algo = ServerSideEncryption::Aes256;
         let sse = ServerSideEncryptionByDefault::builder()
             .set_sse_algorithm(Some(algo))
-            .build();
+            .build()
+            .map_err(|e| Error::API {
+                message: format!("failed build ServerSideEncryptionByDefault {}", e),
+                retryable: false,
+            })?;
         let server_side_encryption_rule = ServerSideEncryptionRule::builder()
             .apply_server_side_encryption_by_default(sse)
             .build();
         let server_side_encryption_cfg = ServerSideEncryptionConfiguration::builder()
             .rules(server_side_encryption_rule)
-            .build();
+            .build()
+            .map_err(|e| Error::API {
+                message: format!("failed build ServerSideEncryptionConfiguration {}", e),
+                retryable: false,
+            })?;
         self.cli
             .put_bucket_encryption()
             .bucket(s3_bucket)
@@ -124,7 +137,10 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed put_bucket_encryption {}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
         Ok(())
@@ -160,13 +176,21 @@ impl Manager {
                         .filter(LifecycleRuleFilter::Prefix(pfx.to_owned()))
                         .expiration(LifecycleExpiration::builder().days(days.to_owned()).build())
                         .status(ExpirationStatus::Enabled) // If 'Enabled', the rule is currently being applied.
-                        .build(),
+                        .build()
+                        .map_err(|e| Error::API {
+                            message: format!("failed build LifecycleRule {}", e),
+                            retryable: false,
+                        })?,
                 );
             }
         }
         let lifecycle = BucketLifecycleConfiguration::builder()
             .set_rules(Some(rules))
-            .build();
+            .build()
+            .map_err(|e| Error::API {
+                message: format!("failed build BucketLifecycleConfiguration {}", e),
+                retryable: false,
+            })?;
 
         // ref. <https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketLifecycleConfiguration.html>
         let _ = self
@@ -181,7 +205,10 @@ impl Manager {
                     "failed put_bucket_lifecycle_configuration '{}'",
                     explain_err_put_bucket_lifecycle_configuration(&e)
                 ),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
         log::info!("successfullhy updated bucket lifecycle configuration");
@@ -202,7 +229,10 @@ impl Manager {
                             "failed delete_bucket '{}'",
                             explain_err_delete_bucket(&e)
                         ),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
                 log::warn!(
@@ -227,7 +257,10 @@ impl Manager {
                 }
                 return Err(Error::API {
                     message: format!("failed head_bucket '{}'", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         }
@@ -256,17 +289,29 @@ impl Manager {
             });
         }
 
-        let objects = self.list_objects(s3_bucket.clone(), prefix).await?;
+        let objects = self.list_objects(s3_bucket, prefix).await?;
         let mut object_ids: Vec<ObjectIdentifier> = vec![];
         for obj in objects {
             let k = String::from(obj.key().unwrap_or(""));
-            let obj_id = ObjectIdentifier::builder().set_key(Some(k)).build();
+            let obj_id = ObjectIdentifier::builder()
+                .set_key(Some(k))
+                .build()
+                .map_err(|e| Error::API {
+                    message: format!("failed build ObjectIdentifier {}", e),
+                    retryable: false,
+                })?;
             object_ids.push(obj_id);
         }
 
         let n = object_ids.len();
         if n > 0 {
-            let deletes = Delete::builder().set_objects(Some(object_ids)).build();
+            let deletes = Delete::builder()
+                .set_objects(Some(object_ids))
+                .build()
+                .map_err(|e| Error::API {
+                    message: format!("failed build Delete {}", e),
+                    retryable: false,
+                })?;
             match self
                 .cli
                 .delete_objects()
@@ -282,7 +327,10 @@ impl Manager {
                             "failed delete_objects '{}'",
                             explain_err_delete_objects(&e)
                         ),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
             };
@@ -337,7 +385,10 @@ impl Manager {
                 Err(e) => {
                     return Err(Error::API {
                         message: format!("failed list_objects_v2 {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
             };
@@ -541,7 +592,10 @@ impl Manager {
 
         req.send().await.map_err(|e| Error::API {
             message: format!("failed put_object '{}'", e),
-            retryable: errors::is_sdk_err_retryable(&e),
+            retryable: match e.raw_response() {
+                Some(v) => v.status().is_server_error(),
+                None => false, // TODO: use "errors::is_sdk_err_retryable"
+            },
         })?;
 
         Ok(())
@@ -625,7 +679,10 @@ impl Manager {
                 log::warn!("failed to head {s3_key}: {}", explain_err_head_object(&e));
                 return Err(Error::API {
                     message: format!("failed head_object {}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -735,7 +792,10 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed get_object {}", e),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
         if need_delete {

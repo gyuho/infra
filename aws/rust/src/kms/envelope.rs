@@ -411,8 +411,7 @@ impl<'k> Manager<'k> {
             "compress-seal: sealing the compressed file '{}'",
             compressed_path
         );
-        self.seal_aes_256_file(&compressed_path, dst_file.clone())
-            .await
+        self.seal_aes_256_file(&compressed_path, dst_file).await
     }
 
     /// Reverse of "compress_seal".

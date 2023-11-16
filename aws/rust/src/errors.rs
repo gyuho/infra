@@ -1,4 +1,5 @@
-use aws_smithy_client::SdkError;
+use aws_smithy_runtime_api::client::result::SdkError;
+
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;

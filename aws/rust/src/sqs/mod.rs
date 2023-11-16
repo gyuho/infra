@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-use crate::errors::{self, Error, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_sqs::{
     error::ProvideErrorMetadata,
     {
@@ -13,7 +13,7 @@ use aws_sdk_sqs::{
         Client,
     },
 };
-use aws_smithy_client::SdkError;
+use aws_smithy_runtime_api::client::result::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 
 /// Implements AWS SQS manager.
@@ -115,7 +115,10 @@ impl Manager {
             .await
             .map_err(|e| Error::API {
                 message: format!("failed create_queue '{}'", explain_err_create_queue(&e)),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
         if let Some(queue_url) = resp.queue_url() {
@@ -142,7 +145,10 @@ impl Manager {
                 if !is_err_does_not_exist_delete_queue(&e) {
                     return Err(Error::API {
                         message: format!("failed delete_queue '{}'", explain_err_delete_queue(&e)),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
                 log::warn!(
@@ -178,7 +184,10 @@ impl Manager {
                     "failed get_queue_attributes '{}'",
                     explain_err_get_queue_attributes(&e)
                 ),
-                retryable: errors::is_sdk_err_retryable(&e),
+                retryable: match e.raw_response() {
+                    Some(v) => v.status().is_server_error(),
+                    None => false, // TODO: use "errors::is_sdk_err_retryable"
+                },
             })?;
 
         if let Some(attr) = resp.attributes() {
@@ -259,7 +268,10 @@ impl Manager {
 
         let resp = req.send().await.map_err(|e| Error::API {
             message: format!("failed send_message '{}'", explain_err_send_message(&e)),
-            retryable: errors::is_sdk_err_retryable(&e),
+            retryable: match e.raw_response() {
+                Some(v) => v.status().is_server_error(),
+                None => false, // TODO: use "errors::is_sdk_err_retryable"
+            },
         })?;
 
         if let Some(msg_id) = resp.message_id() {
@@ -335,10 +347,13 @@ impl Manager {
                 "failed receive_message '{}'",
                 explain_err_receive_message(&e)
             ),
-            retryable: errors::is_sdk_err_retryable(&e),
+            retryable: match e.raw_response() {
+                Some(v) => v.status().is_server_error(),
+                None => false, // TODO: use "errors::is_sdk_err_retryable"
+            },
         })?;
 
-        if let Some(msgs) = resp.messages() {
+        if let Some(msgs) = resp.messages {
             log::info!(
                 "received {} messages (requested max messages {max_msgs})",
                 msgs.len()
@@ -377,7 +392,10 @@ impl Manager {
                             "failed delete_message '{}'",
                             explain_err_delete_message(&e)
                         ),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
                 log::warn!(

@@ -28,7 +28,7 @@ use aws_sdk_kms::{
     },
     Client,
 };
-use aws_smithy_client::SdkError;
+use aws_smithy_runtime_api::client::result::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 
 /// Represents the data encryption key.
@@ -89,7 +89,16 @@ impl Manager {
             .key_usage(key_usage);
         if let Some(tags) = &tags {
             for (k, v) in tags.iter() {
-                req = req.tags(Tag::builder().tag_key(k).tag_value(v).build());
+                req = req.tags(
+                    Tag::builder()
+                        .tag_key(k)
+                        .tag_value(v)
+                        .build()
+                        .map_err(|e| Error::API {
+                            message: format!("failed build Tag {}", e),
+                            retryable: false,
+                        })?,
+                );
             }
         }
         if multi_region {
@@ -111,7 +120,7 @@ impl Manager {
             }
         };
 
-        let key_id = meta.key_id().unwrap_or("");
+        let key_id = meta.key_id();
         let key_arn = meta.arn().unwrap_or("");
         log::info!(
             "successfully KMS CMK -- key Id '{}' and Arn '{}'",
@@ -226,7 +235,7 @@ impl Manager {
                 retryable: errors::is_sdk_err_retryable(&e) || is_err_retryable_describe_key(&e),
             })?;
 
-        let key_id = desc.key_metadata().unwrap().key_id().unwrap().to_string();
+        let key_id = desc.key_metadata().unwrap().key_id().to_string();
         log::info!(
             "successfully described KMS CMK -- key Id '{}' and Arn '{}'",
             key_id,
@@ -366,7 +375,10 @@ impl Manager {
                 if !ignore_err {
                     return Err(Error::API {
                         message: format!("failed schedule_key_deletion {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
                 false

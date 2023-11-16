@@ -28,7 +28,7 @@ async fn main() {
         .await
         .unwrap();
     let az = {
-        if let Some(v) = resp.availability_zones() {
+        if let Some(v) = &resp.availability_zones {
             for z in v {
                 log::info!("found AZ {:?}", z.zone_name());
             }

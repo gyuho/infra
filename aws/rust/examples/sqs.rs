@@ -37,14 +37,16 @@ async fn main() {
             MessageAttributeValue::builder()
                 .string_value(format!("{}", unix_ts.as_secs()))
                 .data_type("String")
-                .build(),
+                .build()
+                .unwrap(),
         );
         msg_attributes.insert(
             random_manager::secure_string(10),
             MessageAttributeValue::builder()
                 .string_value(random_manager::secure_string(10))
                 .data_type("String")
-                .build(),
+                .build()
+                .unwrap(),
         );
 
         let _ = sqs_manager

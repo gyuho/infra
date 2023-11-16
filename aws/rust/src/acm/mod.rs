@@ -1,4 +1,4 @@
-use crate::errors::{self, Error, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_acm::{
     operation::export_certificate::ExportCertificateOutput, types::CertificateDetail, Client,
 };
@@ -35,7 +35,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed request_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -63,7 +66,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed delete_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -91,7 +97,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed export_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -114,7 +123,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed describe_certificate {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };

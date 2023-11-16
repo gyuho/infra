@@ -1,10 +1,10 @@
-use crate::errors::{self, Error, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_cloudformation::{
     operation::{delete_stack::DeleteStackError, describe_stacks::DescribeStacksError},
     types::{Capability, OnFailure, Output, Parameter, StackStatus, Tag},
     Client,
 };
-use aws_smithy_client::SdkError;
+use aws_smithy_runtime_api::client::result::SdkError;
 use aws_types::SdkConfig as AwsSdkConfig;
 use tokio::time::{sleep, Duration, Instant};
 
@@ -51,7 +51,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed create_stack {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
@@ -77,7 +80,10 @@ impl Manager {
                 if !is_err_does_not_exist_delete_stack(&e) {
                     return Err(Error::API {
                         message: format!("failed schedule_key_deletion {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
                 log::warn!("stack already deleted so returning DeleteComplete status (original error '{}')", e);
@@ -150,7 +156,10 @@ impl Manager {
                     }
                     return Err(Error::API {
                         message: format!("failed describe_stacks {:?}", e),
-                        retryable: errors::is_sdk_err_retryable(&e),
+                        retryable: match e.raw_response() {
+                            Some(v) => v.status().is_server_error(),
+                            None => false, // TODO: use "errors::is_sdk_err_retryable"
+                        },
                     });
                 }
             };
@@ -225,8 +234,8 @@ impl Manager {
             }
 
             if current_stack_status.eq(&desired_status) {
-                let outputs = if let Some(outputs) = stack.outputs() {
-                    Some(Vec::from(outputs))
+                let outputs = if let Some(outputs) = &stack.outputs {
+                    Some(outputs.clone())
                 } else {
                     None
                 };

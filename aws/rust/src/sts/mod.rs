@@ -1,4 +1,4 @@
-use crate::errors::{self, Error, Result};
+use crate::errors::{Error, Result};
 use aws_sdk_sts::Client;
 use aws_types::SdkConfig as AwsSdkConfig;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,10 @@ impl Manager {
             Err(e) => {
                 return Err(Error::API {
                     message: format!("failed get_caller_identity {:?}", e),
-                    retryable: errors::is_sdk_err_retryable(&e),
+                    retryable: match e.raw_response() {
+                        Some(v) => v.status().is_server_error(),
+                        None => false, // TODO: use "errors::is_sdk_err_retryable"
+                    },
                 });
             }
         };
