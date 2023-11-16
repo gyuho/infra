@@ -113,7 +113,7 @@ async fn main() {
     }
 
     let vpc = ec2_manager.describe_vpc(&vpc_id).await.unwrap();
-    log::info!("VPC: {:?}", vpc);
+    log::info!("VPC: {:?}, sg_id: {}", vpc, sg_id);
 
     let sgs = ec2_manager
         .describe_security_groups_by_vpc(&vpc_id)
