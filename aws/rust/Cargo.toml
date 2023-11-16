@@ -67,7 +67,7 @@ tokio-stream = { version = "0.1.14", optional = true } # https://github.com/toki
 # [OPTIONAL] for "cloudwatch"
 # https://github.com/awslabs/aws-sdk-rust/releases
 aws-sdk-cloudwatch = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatch/versions
-aws-sdk-cloudwatchlogs = { version = "0.34.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
+aws-sdk-cloudwatchlogs = { version = "0.36.0", optional = true } # https://crates.io/crates/aws-sdk-cloudwatchlogs/versions
 serde_json = { version = "1.0.108", optional = true } # https://github.com/serde-rs/json/releases
 
 # [OPTIONAL] for "ec2"
