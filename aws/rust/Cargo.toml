@@ -24,7 +24,7 @@ aws-smithy-client = "0.56.1"
 
 # https://github.com/smithy-lang/smithy-rs/releases
 # https://crates.io/crates/aws-smithy-runtime-api/versions
-aws-smithy-runtime-api = "0.56.1"
+aws-smithy-runtime-api = "0.100.0"
 
 # https://github.com/smithy-lang/smithy-rs/releases
 # https://crates.io/crates/aws-smithy-types/versions
