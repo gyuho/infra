@@ -1,4 +1,3 @@
-// Package s3 implements S3 utils.
 package s3
 
 import (
@@ -106,14 +105,17 @@ func CreateBucket(ctx context.Context, cfg aws.Config, bucketName string, opts .
 	// Bucket cannot have public ACLs set with BlockPublicAccess enabled
 	// acl = aws_s3_v2_types.BucketCannedACLPublicRead
 	acl := aws_s3_v2_types.BucketCannedACLPrivate
+	if ret.bucketACL != nil {
+		acl = *ret.bucketACL
+	}
 
 	// default is "Bucket owner enforced"
 	ownership := aws_s3_v2_types.ObjectOwnershipBucketOwnerEnforced
-	if ret.publicRead {
-		ownership = aws_s3_v2_types.ObjectOwnershipBucketOwnerPreferred
+	if ret.objectOwnership != nil {
+		ownership = *ret.objectOwnership
 	}
 
-	logutil.S().Infow("creating bucket", "bucket", bucketName, "acl", acl)
+	logutil.S().Infow("creating bucket", "bucket", bucketName, "acl", acl, "ownership", ownership)
 	input := &aws_s3_v2.CreateBucketInput{
 		Bucket:          &bucketName,
 		ACL:             acl,
@@ -133,80 +135,62 @@ func CreateBucket(ctx context.Context, cfg aws.Config, bucketName string, opts .
 	if err != nil {
 		// if already exists, ignore
 		if strings.Contains(err.Error(), bucketAlreadyExists) {
-			logutil.S().Warnw("bucket already exists", "bucket", bucketName, "error", err)
+			logutil.S().Warnw("bucket already exists -- proceed to update bucket policy", "bucket", bucketName, "error", err)
 			err = nil
 		}
 		if err != nil && strings.Contains(err.Error(), bucketAlreadyOwnedByYou) {
-			logutil.S().Warnw("bucket already exists", "bucket", bucketName, "error", err)
+			logutil.S().Warnw("bucket already exists -- proceed to update bucket policy", "bucket", bucketName, "error", err)
 			err = nil
 		}
 		if err != nil {
 			return err
 		}
 	}
-	logutil.S().Infow("successfully created the bucket", "bucket", bucketName)
+	logutil.S().Infow("successfully created bucket", "bucket", bucketName)
 
-	if ret.publicRead {
-		logutil.S().Infow("setting public access block", "bucket", bucketName)
-		_, err = cli.PutPublicAccessBlock(ctx, &aws_s3_v2.PutPublicAccessBlockInput{
-			Bucket: &bucketName,
-			PublicAccessBlockConfiguration: &aws_s3_v2_types.PublicAccessBlockConfiguration{
-				BlockPublicAcls:       false,
-				BlockPublicPolicy:     false,
-				IgnorePublicAcls:      true,
-				RestrictPublicBuckets: false,
-			},
-		})
-		if err != nil {
-			return err
-		}
-		logutil.S().Infow("successfully set public access block", "bucket", bucketName)
-
-		policy := `{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "PublicReadGetObject",
-            "Effect": "Allow",
-            "Principal": "*",
-            "Action": "s3:GetObject",
-            "Resource": "arn:aws:s3:::` + bucketName + `/*"
-        }
-    ]
-}`
-		logutil.S().Infow("setting public bucket read policy", "bucket", bucketName)
-		_, err = cli.PutBucketPolicy(ctx, &aws_s3_v2.PutBucketPolicyInput{
-			Bucket: &bucketName,
-			Policy: &policy,
-		})
-		if err != nil {
-			return err
-		}
-		logutil.S().Infow("successfully set public bucket read policy", "bucket", bucketName)
-
-		// PutBucketAcl with aws_s3_v2_types.BucketCannedACLPublicRead will fail here:
-		// "AccessControlListNotSupported: The bucket does not allow ACLs"
+	// block everything by default
+	publicAccessBlock := aws_s3_v2.PutPublicAccessBlockInput{
+		Bucket: &bucketName,
+		PublicAccessBlockConfiguration: &aws_s3_v2_types.PublicAccessBlockConfiguration{
+			BlockPublicAcls:       true,
+			BlockPublicPolicy:     true,
+			IgnorePublicAcls:      true,
+			RestrictPublicBuckets: true,
+		},
 	}
 
-	if !ret.publicRead {
-		logutil.S().Infow("setting private permission", "bucket", bucketName)
-		_, err = cli.PutPublicAccessBlock(ctx, &aws_s3_v2.PutPublicAccessBlockInput{
+	if ret.bucketBlockPublicACLs != nil {
+		publicAccessBlock.PublicAccessBlockConfiguration.BlockPublicAcls = *ret.bucketBlockPublicACLs
+	}
+	if ret.bucketBlockPublicPolicy != nil {
+		publicAccessBlock.PublicAccessBlockConfiguration.BlockPublicPolicy = *ret.bucketBlockPublicPolicy
+	}
+	if ret.bucketIgnorePublicACLs != nil {
+		publicAccessBlock.PublicAccessBlockConfiguration.IgnorePublicAcls = *ret.bucketIgnorePublicACLs
+	}
+	if ret.bucketRestrictPublicBuckets != nil {
+		publicAccessBlock.PublicAccessBlockConfiguration.RestrictPublicBuckets = *ret.bucketRestrictPublicBuckets
+	}
+
+	logutil.S().Infow("applying public access block", "bucket", bucketName)
+	_, err = cli.PutPublicAccessBlock(ctx, &publicAccessBlock)
+	if err != nil {
+		return err
+	}
+
+	if ret.bucketPolicy != "" {
+		logutil.S().Infow("applying bucket policy", "bucket", bucketName)
+		_, err = cli.PutBucketPolicy(ctx, &aws_s3_v2.PutBucketPolicyInput{
 			Bucket: &bucketName,
-			PublicAccessBlockConfiguration: &aws_s3_v2_types.PublicAccessBlockConfiguration{
-				BlockPublicAcls:       true,
-				BlockPublicPolicy:     true,
-				IgnorePublicAcls:      true,
-				RestrictPublicBuckets: true,
-			},
+			Policy: &ret.bucketPolicy,
 		})
 		if err != nil {
 			return err
 		}
-		logutil.S().Infow("successfully set private permission", "bucket", bucketName)
 	}
 
 	if ret.serverSideEncryption {
-		logutil.S().Infow("setting server-side encryption", "bucket", bucketName)
+		logutil.S().Infow("applying server-side encryption", "bucket", bucketName)
 		_, err = cli.PutBucketEncryption(ctx, &aws_s3_v2.PutBucketEncryptionInput{
 			Bucket: &bucketName,
 			ServerSideEncryptionConfiguration: &aws_s3_v2_types.ServerSideEncryptionConfiguration{
@@ -222,15 +206,13 @@ func CreateBucket(ctx context.Context, cfg aws.Config, bucketName string, opts .
 		if err != nil {
 			return err
 		}
-		logutil.S().Infow("successfully applied server-side encryption", "bucket", bucketName)
 	}
 
 	if ret.lifecycle != nil && len(ret.lifecycle) > 0 {
-		logutil.S().Infow("setting lifecycle", "bucket", bucketName, "lifecycle", ret.lifecycle)
+		logutil.S().Infow("applying object lifecycle configuration", "bucket", bucketName, "lifecycle", ret.lifecycle)
 		if err := PutBucketObjectExpireConfiguration(ctx, cfg, bucketName, ret.lifecycle); err != nil {
 			return err
 		}
-		logutil.S().Infow("successfully set lifecycle", "bucket", bucketName, "lifecycle", ret.lifecycle)
 	}
 
 	return nil
@@ -390,7 +372,7 @@ func PutObject(ctx context.Context, cfg aws.Config, localFilePath string, bucket
 	ret := &Op{}
 	ret.applyOpts(opts)
 
-	logutil.S().Infow("uploading file", "localFilePath", localFilePath, "bucket", bucketName, "s3Key", s3Key, "publicRead", ret.publicRead)
+	logutil.S().Infow("uploading file", "localFilePath", localFilePath, "bucket", bucketName, "s3Key", s3Key)
 
 	f, err := os.OpenFile(localFilePath, os.O_RDONLY, 0444)
 	if err != nil {
@@ -404,26 +386,26 @@ func PutObject(ctx context.Context, cfg aws.Config, localFilePath string, bucket
 		Body:     f,
 		Metadata: ret.metadata,
 	}
-	if ret.publicRead {
-		input.ACL = aws_s3_v2_types.ObjectCannedACLPublicRead
+	if ret.objectACL != nil {
+		logutil.S().Infow("putting object with acl", "bucket", bucketName, "s3Key", s3Key, "acl", *ret.objectACL)
+		input.ACL = *ret.objectACL
 	}
-
 	cli := aws_s3_v2.NewFromConfig(cfg)
 	_, err = cli.PutObject(ctx, input)
 	if err != nil {
 		return err
 	}
 
-	if ret.publicRead {
+	if ret.objectACL != nil {
+		logutil.S().Infow("applying put object acl", "bucket", bucketName, "s3Key", s3Key, "acl", *ret.objectACL)
 		_, err = cli.PutObjectAcl(ctx, &aws_s3_v2.PutObjectAclInput{
 			Bucket: &bucketName,
 			Key:    &s3Key,
-			ACL:    aws_s3_v2_types.ObjectCannedACLPublicRead,
+			ACL:    *ret.objectACL,
 		})
 		if err != nil {
 			return err
 		}
-		logutil.S().Infow("successfully applied public read permission", "bucket", bucketName, "s3Key", s3Key)
 	}
 
 	logutil.S().Infow("successfully uploaded file", "localFilePath", localFilePath, "bucket", bucketName, "s3Key", s3Key)
@@ -488,14 +470,56 @@ func GetObject(ctx context.Context, cfg aws.Config, bucketName string, s3Key str
 	return nil
 }
 
+func CreateGetPreSignedURL(ctx context.Context, cfg aws.Config, bucketName string, s3Key string, opts ...OpOption) (string, error) {
+	ret := &Op{}
+	ret.applyOpts(opts)
+
+	logutil.S().Infow("creating a pre-signed URL", "bucket", bucketName, "s3Key", s3Key, "expires", ret.preSignDuration)
+
+	cli := aws_s3_v2.NewFromConfig(cfg)
+	preSignCli := aws_s3_v2.NewPresignClient(cli)
+
+	req, err := preSignCli.PresignGetObject(
+		ctx,
+		&aws_s3_v2.GetObjectInput{
+			Bucket: &bucketName,
+			Key:    &s3Key,
+		},
+		func(opts *aws_s3_v2.PresignOptions) {
+			// default is 900-second
+			opts.Expires = 15 * time.Minute
+			if ret.preSignDuration > 0 {
+				opts.Expires = ret.preSignDuration
+			}
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+
+	logutil.S().Infow("created pre-signed URL", "url", req.URL)
+	return req.URL, nil
+}
+
 type Op struct {
-	publicRead           bool
+	bucketACL       *aws_s3_v2_types.BucketCannedACL
+	objectACL       *aws_s3_v2_types.ObjectCannedACL
+	objectOwnership *aws_s3_v2_types.ObjectOwnership
+
+	bucketPolicy                string
+	bucketBlockPublicACLs       *bool
+	bucketBlockPublicPolicy     *bool
+	bucketIgnorePublicACLs      *bool
+	bucketRestrictPublicBuckets *bool
+
 	serverSideEncryption bool
 
 	// map prefix to expiration days
 	lifecycle map[string]int32
 
 	metadata map[string]string
+
+	preSignDuration time.Duration
 }
 
 type OpOption func(*Op)
@@ -506,9 +530,51 @@ func (op *Op) applyOpts(opts []OpOption) {
 	}
 }
 
-func WithPublicRead(b bool) OpOption {
+func WithBucketACL(v aws_s3_v2_types.BucketCannedACL) OpOption {
 	return func(op *Op) {
-		op.publicRead = b
+		op.bucketACL = &v
+	}
+}
+
+func WithObjectACL(v aws_s3_v2_types.ObjectCannedACL) OpOption {
+	return func(op *Op) {
+		op.objectACL = &v
+	}
+}
+
+func WithObjectOwnership(v aws_s3_v2_types.ObjectOwnership) OpOption {
+	return func(op *Op) {
+		op.objectOwnership = &v
+	}
+}
+
+func WithBucketPolicy(policy string) OpOption {
+	return func(op *Op) {
+		op.bucketPolicy = policy
+	}
+}
+
+func WithBucketBlockPublicACLs(b bool) OpOption {
+	return func(op *Op) {
+		op.bucketBlockPublicACLs = &b
+	}
+}
+
+func WithBucketBlockPublicPolicy(b bool) OpOption {
+	return func(op *Op) {
+		op.bucketBlockPublicPolicy = &b
+	}
+}
+
+func WithBucketIgnorePublicACLs(b bool) OpOption {
+	return func(op *Op) {
+		op.bucketIgnorePublicACLs = &b
+	}
+}
+
+func WithBucketRestrictPublicBuckets(b bool) OpOption {
+	return func(op *Op) {
+		op.bucketRestrictPublicBuckets = &b
 	}
 }
 
@@ -527,5 +593,11 @@ func WithLifecycle(m map[string]int32) OpOption {
 func WithMetadata(m map[string]string) OpOption {
 	return func(op *Op) {
 		op.metadata = m
+	}
+}
+
+func WithPreSignDuration(d time.Duration) OpOption {
+	return func(op *Op) {
+		op.preSignDuration = d
 	}
 }
