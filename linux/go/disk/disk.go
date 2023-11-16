@@ -137,7 +137,7 @@ func UpdateFstab(ctx context.Context, fsName string, blockDevice string, mountDi
 	b = append(b, []byte("\n")...)
 	b = append(b, []byte(line)...)
 
-	tmpPath := filepath.Join(os.TempDir(), "fstab."+randutil.String(10)+".tmp")
+	tmpPath := filepath.Join(os.TempDir(), "fstab."+randutil.AlphabetsLowerCase(10)+".tmp")
 	if err := os.WriteFile(tmpPath, b, 0644); err != nil {
 		return nil, err
 	}

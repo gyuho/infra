@@ -8,7 +8,7 @@ import (
 func TestRand(t *testing.T) {
 	prev := ""
 	for i := 0; i < 10; i++ {
-		v := String(5)
+		v := AlphabetsLowerCase(5)
 		fmt.Println(v)
 
 		if prev == "" {

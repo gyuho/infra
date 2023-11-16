@@ -24,7 +24,7 @@ func main() {
 		panic(err)
 	}
 
-	publicBucket := randutil.String(20)
+	publicBucket := randutil.AlphabetsLowerCase(20)
 	logutil.S().Infow("bucket name", "bucket", publicBucket)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -58,9 +58,9 @@ func main() {
 		panic(err)
 	}
 
-	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.String(10)), filepath.Join(randutil.String(10), randutil.String(10))
+	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1)
-	err = os.WriteFile(localFile1, randutil.Bytes(100), 0644)
+	err = os.WriteFile(localFile1, randutil.BytesAlphabetsLowerCase(100), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -87,9 +87,9 @@ func main() {
 	}
 	logutil.S().Infow("object exists", "exists", out)
 
-	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.String(10)), filepath.Join(randutil.String(10), randutil.String(10))
+	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2)
-	err = os.WriteFile(localFile2, randutil.Bytes(100), 0644)
+	err = os.WriteFile(localFile2, randutil.BytesAlphabetsLowerCase(100), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +100,7 @@ func main() {
 		panic(err)
 	}
 
-	localFile1New := filepath.Join(os.TempDir(), randutil.String(10))
+	localFile1New := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = s3.GetObject(ctx, cfg, publicBucket, s3Key1, localFile1New)
 	cancel()

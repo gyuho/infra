@@ -61,7 +61,7 @@ func TestENIs(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	_, exists, err := GetENIByName(ctx, cfg, randutil.String(10))
+	_, exists, err := GetENIByName(ctx, cfg, randutil.AlphabetsLowerCase(10))
 	cancel()
 	if err != nil {
 		t.Fatal(err)

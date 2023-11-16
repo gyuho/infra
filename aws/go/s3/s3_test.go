@@ -29,7 +29,7 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	privateBucket := randutil.String(10)
+	privateBucket := randutil.AlphabetsLowerCase(10)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	err = CreateBucket(
@@ -56,9 +56,9 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.String(10)), filepath.Join(randutil.String(10), randutil.String(10))
+	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1)
-	err = os.WriteFile(localFile1, []byte(randutil.String(100)), 0644)
+	err = os.WriteFile(localFile1, []byte(randutil.AlphabetsLowerCase(100)), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,9 +69,9 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.String(10)), filepath.Join(randutil.String(10), randutil.String(10))
+	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2)
-	err = os.WriteFile(localFile2, []byte(randutil.String(100)), 0644)
+	err = os.WriteFile(localFile2, []byte(randutil.AlphabetsLowerCase(100)), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile1New := filepath.Join(os.TempDir(), randutil.String(10))
+	localFile1New := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1New)
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = GetObject(ctx, cfg, privateBucket, s3Key1, localFile1New)
@@ -91,7 +91,7 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile2New := filepath.Join(os.TempDir(), randutil.String(10))
+	localFile2New := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2New)
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = GetObject(ctx, cfg, privateBucket, s3Key2, localFile2New)
@@ -184,7 +184,7 @@ func TestS3Public(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	publicBucket := randutil.String(10)
+	publicBucket := randutil.AlphabetsLowerCase(10)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	err = CreateBucket(
@@ -229,9 +229,9 @@ func TestS3Public(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.String(10)), filepath.Join(randutil.String(10), randutil.String(10))
+	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1)
-	err = os.WriteFile(localFile1, []byte(randutil.String(100)), 0644)
+	err = os.WriteFile(localFile1, []byte(randutil.AlphabetsLowerCase(100)), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,9 +250,9 @@ func TestS3Public(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.String(10)), filepath.Join(randutil.String(10), randutil.String(10))
+	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2)
-	err = os.WriteFile(localFile2, []byte(randutil.String(100)), 0644)
+	err = os.WriteFile(localFile2, []byte(randutil.AlphabetsLowerCase(100)), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestS3Public(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile1New := filepath.Join(os.TempDir(), randutil.String(10))
+	localFile1New := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1New)
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = GetObject(ctx, cfg, publicBucket, s3Key1, localFile1New)
@@ -310,7 +310,7 @@ func downloadFileToTmp(url string) (string, error) {
 		return "", fmt.Errorf("failed to download file: %s", resp.Status)
 	}
 
-	file := filepath.Join(os.TempDir(), randutil.String(10))
+	file := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
 	f, err := os.Create(file)
 	if err != nil {
 		return "", err

@@ -24,7 +24,7 @@ func TestKeyPair(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	keyName := randutil.String(10)
+	keyName := randutil.AlphabetsLowerCase(10)
 	tags := map[string]string{
 		"a": "b",
 	}
@@ -55,7 +55,7 @@ func TestKeyPair(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pubKeyPath := filepath.Join(os.TempDir(), randutil.String(10)+".pub")
+	pubKeyPath := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)+".pub")
 	defer os.RemoveAll(pubKeyPath)
 	if err = os.WriteFile(pubKeyPath, []byte(pub), 0644); err != nil {
 		t.Fatal(err)

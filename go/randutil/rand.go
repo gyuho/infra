@@ -15,11 +15,11 @@ const (
 	alphaNumerics = "0123456789abcdefghijklmnopqrstuvwxyz"
 )
 
-func String(n int) string {
-	return string(Bytes(n))
+func AlphabetsLowerCase(n int) string {
+	return string(BytesAlphabetsLowerCase(n))
 }
 
-func Bytes(n int) []byte {
+func BytesAlphabetsLowerCase(n int) []byte {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, n)
 	for i := range b {
