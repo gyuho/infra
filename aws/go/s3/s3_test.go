@@ -12,6 +12,7 @@ import (
 	"time"
 
 	aws "github.com/gyuho/infra/aws/go"
+	"github.com/gyuho/infra/go/httputil"
 	"github.com/gyuho/infra/go/randutil"
 
 	aws_s3_v2_types "github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -29,9 +30,19 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	buckets, err := ListBuckets(ctx, cfg)
+	cancel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bucket := range buckets {
+		t.Logf("bucket %s (created %s)", bucket.Name, bucket.Created)
+	}
+
 	privateBucket := randutil.AlphabetsLowerCase(10)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = CreateBucket(
 		ctx,
 		cfg,
@@ -58,7 +69,8 @@ func TestS3PrivatePreSigned(t *testing.T) {
 
 	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1)
-	err = os.WriteFile(localFile1, []byte(randutil.AlphabetsLowerCase(100)), 0644)
+	localFile1b := []byte(randutil.AlphabetsLowerCase(100))
+	err = os.WriteFile(localFile1, localFile1b, 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +83,8 @@ func TestS3PrivatePreSigned(t *testing.T) {
 
 	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2)
-	err = os.WriteFile(localFile2, []byte(randutil.AlphabetsLowerCase(100)), 0644)
+	localFile2b := []byte(randutil.AlphabetsLowerCase(100))
+	err = os.WriteFile(localFile2, localFile2b, 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,10 +113,6 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile1b, err := os.ReadFile(localFile1)
-	if err != nil {
-		t.Fatal(err)
-	}
 	localFile1Newb, err := os.ReadFile(localFile1New)
 	if err != nil {
 		t.Fatal(err)
@@ -112,10 +121,6 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatalf("localFile1b != localFile1Newb: %s != %s", string(localFile1b), string(localFile1Newb))
 	}
 
-	localFile2b, err := os.ReadFile(localFile2)
-	if err != nil {
-		t.Fatal(err)
-	}
 	localFile2Newb, err := os.ReadFile(localFile2New)
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +136,7 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 	time.Sleep(time.Second)
-	tmpFile, err := downloadFileToTmp(preSignedURL)
+	tmpFile, err := httputil.DownloadFileToTmp(preSignedURL)
 	if err != nil {
 		t.Fatal(err)
 	}

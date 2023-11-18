@@ -94,6 +94,7 @@ const (
 )
 
 // CreateBucket creates a bucket.
+// Shared with Cloudflare R2 API https://developers.cloudflare.com/r2/api/s3/api/.
 func CreateBucket(ctx context.Context, cfg aws.Config, bucketName string, opts ...OpOption) error {
 	ret := &Op{}
 	ret.applyOpts(opts)
@@ -148,44 +149,46 @@ func CreateBucket(ctx context.Context, cfg aws.Config, bucketName string, opts .
 	}
 	logutil.S().Infow("successfully created bucket", "bucket", bucketName)
 
-	// block everything by default
-	publicAccessBlock := aws_s3_v2.PutPublicAccessBlockInput{
-		Bucket: &bucketName,
-		PublicAccessBlockConfiguration: &aws_s3_v2_types.PublicAccessBlockConfiguration{
-			BlockPublicAcls:       true,
-			BlockPublicPolicy:     true,
-			IgnorePublicAcls:      true,
-			RestrictPublicBuckets: true,
-		},
-	}
-
-	if ret.bucketBlockPublicACLs != nil {
-		publicAccessBlock.PublicAccessBlockConfiguration.BlockPublicAcls = *ret.bucketBlockPublicACLs
-	}
-	if ret.bucketBlockPublicPolicy != nil {
-		publicAccessBlock.PublicAccessBlockConfiguration.BlockPublicPolicy = *ret.bucketBlockPublicPolicy
-	}
-	if ret.bucketIgnorePublicACLs != nil {
-		publicAccessBlock.PublicAccessBlockConfiguration.IgnorePublicAcls = *ret.bucketIgnorePublicACLs
-	}
-	if ret.bucketRestrictPublicBuckets != nil {
-		publicAccessBlock.PublicAccessBlockConfiguration.RestrictPublicBuckets = *ret.bucketRestrictPublicBuckets
-	}
-
-	logutil.S().Infow("applying public access block", "bucket", bucketName)
-	_, err = cli.PutPublicAccessBlock(ctx, &publicAccessBlock)
-	if err != nil {
-		return err
-	}
-
-	if ret.bucketPolicy != "" {
-		logutil.S().Infow("applying bucket policy", "bucket", bucketName)
-		_, err = cli.PutBucketPolicy(ctx, &aws_s3_v2.PutBucketPolicyInput{
+	if !ret.skipBucketPolicy {
+		// block everything by default
+		publicAccessBlock := aws_s3_v2.PutPublicAccessBlockInput{
 			Bucket: &bucketName,
-			Policy: &ret.bucketPolicy,
-		})
+			PublicAccessBlockConfiguration: &aws_s3_v2_types.PublicAccessBlockConfiguration{
+				BlockPublicAcls:       aws.Bool(true),
+				BlockPublicPolicy:     aws.Bool(true),
+				IgnorePublicAcls:      aws.Bool(true),
+				RestrictPublicBuckets: aws.Bool(true),
+			},
+		}
+
+		if ret.bucketBlockPublicACLs != nil {
+			publicAccessBlock.PublicAccessBlockConfiguration.BlockPublicAcls = ret.bucketBlockPublicACLs
+		}
+		if ret.bucketBlockPublicPolicy != nil {
+			publicAccessBlock.PublicAccessBlockConfiguration.BlockPublicPolicy = ret.bucketBlockPublicPolicy
+		}
+		if ret.bucketIgnorePublicACLs != nil {
+			publicAccessBlock.PublicAccessBlockConfiguration.IgnorePublicAcls = ret.bucketIgnorePublicACLs
+		}
+		if ret.bucketRestrictPublicBuckets != nil {
+			publicAccessBlock.PublicAccessBlockConfiguration.RestrictPublicBuckets = ret.bucketRestrictPublicBuckets
+		}
+
+		logutil.S().Infow("applying public access block", "bucket", bucketName)
+		_, err = cli.PutPublicAccessBlock(ctx, &publicAccessBlock)
 		if err != nil {
 			return err
+		}
+
+		if ret.bucketPolicy != "" {
+			logutil.S().Infow("applying bucket policy", "bucket", bucketName)
+			_, err = cli.PutBucketPolicy(ctx, &aws_s3_v2.PutBucketPolicyInput{
+				Bucket: &bucketName,
+				Policy: &ret.bucketPolicy,
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -302,7 +305,7 @@ func ListObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx str
 		}
 		logutil.S().Infow("listed objects", "maxKeys", out.MaxKeys, "contents", len(out.Contents))
 
-		if out.MaxKeys == 0 {
+		if out.MaxKeys == nil && *out.MaxKeys == 0 {
 			break
 		}
 		if len(out.Contents) == 0 {
@@ -343,10 +346,10 @@ func PutBucketObjectExpireConfiguration(ctx context.Context, cfg aws.Config, buc
 					Value: pfx,
 				},
 				Expiration: &aws_s3_v2_types.LifecycleExpiration{
-					Days: days,
+					Days: &days,
 				},
 				AbortIncompleteMultipartUpload: &aws_s3_v2_types.AbortIncompleteMultipartUpload{
-					DaysAfterInitiation: days,
+					DaysAfterInitiation: &days,
 				},
 			},
 		)
@@ -438,7 +441,7 @@ func GetObject(ctx context.Context, cfg aws.Config, bucketName string, s3Key str
 	if err != nil {
 		return err
 	}
-	size := headOut.ContentLength
+	size := *headOut.ContentLength
 	logutil.S().Infow("downloading file",
 		"bucket", bucketName,
 		"s3Key", s3Key,
@@ -506,6 +509,7 @@ type Op struct {
 	objectACL       *aws_s3_v2_types.ObjectCannedACL
 	objectOwnership *aws_s3_v2_types.ObjectOwnership
 
+	// does not work for Cloudflare R2
 	bucketPolicy                string
 	bucketBlockPublicACLs       *bool
 	bucketBlockPublicPolicy     *bool
@@ -515,11 +519,14 @@ type Op struct {
 	serverSideEncryption bool
 
 	// map prefix to expiration days
+	// works for Cloudflare R2
 	lifecycle map[string]int32
 
 	metadata map[string]string
 
 	preSignDuration time.Duration
+
+	skipBucketPolicy bool
 }
 
 type OpOption func(*Op)
@@ -599,5 +606,11 @@ func WithMetadata(m map[string]string) OpOption {
 func WithPreSignDuration(d time.Duration) OpOption {
 	return func(op *Op) {
 		op.preSignDuration = d
+	}
+}
+
+func WithSkipBucketPolicy(b bool) OpOption {
+	return func(op *Op) {
+		op.skipBucketPolicy = b
 	}
 }
