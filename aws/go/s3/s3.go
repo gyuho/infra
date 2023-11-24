@@ -21,6 +21,7 @@ import (
 type Bucket struct {
 	Name    string
 	Created time.Time
+	URL     string
 }
 
 type Buckets []Bucket
@@ -35,6 +36,7 @@ func (buckets Buckets) String() string {
 		row := []string{
 			v.Name,
 			v.Created.String(),
+			v.URL,
 		}
 		rows = append(rows, row)
 	}
@@ -44,7 +46,7 @@ func (buckets Buckets) String() string {
 	tb.SetAutoWrapText(false)
 	tb.SetAlignment(tablewriter.ALIGN_LEFT)
 	tb.SetCenterSeparator("*")
-	tb.SetHeader([]string{"name", "created"})
+	tb.SetHeader([]string{"name", "created", "url"})
 	tb.AppendBulk(rows)
 	tb.Render()
 
