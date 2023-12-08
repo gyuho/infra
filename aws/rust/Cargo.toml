@@ -48,7 +48,7 @@ human-readable = { version = "0.0.1", optional = true }
 random-manager = { version = "0.0.5", optional = true }
 
 # https://github.com/serde-rs/serde/releases
-serde = { version = "1.0.192", features = ["derive"], optional = true }
+serde = { version = "1.0.193", features = ["derive"], optional = true }
 
 # https://github.com/awslabs/aws-sdk-rust/releases
 aws-sdk-acm = { version = "0.36.0", optional = true } # https://crates.io/crates/aws-sdk-acm/versions

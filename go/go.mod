@@ -1,6 +1,6 @@
 module github.com/gyuho/infra/go
 
-go 1.21.3
+go 1.21.5
 
 require go.uber.org/zap v1.26.0
 
