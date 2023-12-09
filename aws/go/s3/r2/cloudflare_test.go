@@ -1,8 +1,9 @@
-package cloudflare
+package r2
 
 import (
 	"bytes"
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,7 +17,7 @@ import (
 )
 
 func TestCloudflarePrivate(t *testing.T) {
-	if os.Getenv("RUN_CLOUDFLARE_TESTS") != "1" {
+	if os.Getenv("RUN_CLOUDFLARE_R2_TESTS") != "1" {
 		t.Skip()
 	}
 
@@ -71,6 +72,34 @@ func TestCloudflarePrivate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	defer func() {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		err = s3.DeleteObjects(ctx, cfg, privateBucket, "")
+		cancel()
+		if err != nil {
+			t.Error(err)
+		}
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		err = s3.DeleteObjects(ctx, cfg, privateBucket, "")
+		cancel()
+		if err != nil {
+			t.Error(err)
+		}
+
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		err = s3.DeleteBucket(ctx, cfg, privateBucket)
+		cancel()
+		if err != nil {
+			t.Error(err)
+		}
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		err = s3.DeleteBucket(ctx, cfg, privateBucket)
+		cancel()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 
 	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1)
@@ -134,20 +163,20 @@ func TestCloudflarePrivate(t *testing.T) {
 		t.Fatalf("localFile2b != localFile2Newb: %s != %s", string(localFile2b), string(localFile2Newb))
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
-	preSignedURL, err := s3.CreateGetPreSignedURL(ctx, cfg, privateBucket, s3Key2)
+	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Minute)
+	preSignedURLForGet, err := s3.CreatePreSignedURLForGet(ctx, cfg, privateBucket, s3Key2, 0)
 	cancel()
 	if err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(time.Second)
-	tmpFile, err := httputil.DownloadFileToTmp(preSignedURL)
+	tmpFileForGet, err := httputil.DownloadFileToTmp(preSignedURLForGet)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpFile)
+	defer os.RemoveAll(tmpFileForGet)
 
-	tmpFileb, err := os.ReadFile(tmpFile)
+	tmpFileb, err := os.ReadFile(tmpFileForGet)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,29 +184,57 @@ func TestCloudflarePrivate(t *testing.T) {
 		t.Fatalf("tmpFileb != localFile2Newb: %s != %s", string(tmpFileb), string(localFile2Newb))
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
-	err = s3.DeleteObjects(ctx, cfg, privateBucket, "")
-	cancel()
+	s3KeyForPut := filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
+	preSignedURLForPut, err := s3.CreatePreSignedURLForPut(ctx, cfg, privateBucket, s3KeyForPut, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
-	err = s3.DeleteObjects(ctx, cfg, privateBucket, "")
-	cancel()
+	putReq, err := http.NewRequest(http.MethodPut, preSignedURLForPut, bytes.NewReader(tmpFileb))
 	if err != nil {
 		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(putReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	preSignedURLForGet, err = s3.CreatePreSignedURLForGet(ctx, cfg, privateBucket, s3KeyForPut, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(time.Second)
+	tmpFileFromPut, err := httputil.DownloadFileToTmp(preSignedURLForGet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpFileFromPut)
+	tmpFileb, err = os.ReadFile(tmpFileFromPut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(tmpFileb, tmpFileb) {
+		t.Fatalf("tmpFileb != tmpFileb: %s != %s", string(tmpFileb), string(tmpFileb))
 	}
 
-	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
-	err = s3.DeleteBucket(ctx, cfg, privateBucket)
-	cancel()
+	preSignedURLForDelete, err := s3.CreatePreSignedURLForDelete(ctx, cfg, privateBucket, s3KeyForPut, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
-	err = s3.DeleteBucket(ctx, cfg, privateBucket)
-	cancel()
+	deleteReq, err := http.NewRequest(http.MethodDelete, preSignedURLForDelete, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	resp, err = http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	time.Sleep(time.Second)
+
+	// on delete, the download should fail
+	if _, err = httputil.DownloadFileToTmp(preSignedURLForGet); err == nil {
+		t.Fatalf("expected error, got nil")
 	}
 }

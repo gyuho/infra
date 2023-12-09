@@ -1,4 +1,4 @@
-package cloudflare
+package r2
 
 import (
 	"context"

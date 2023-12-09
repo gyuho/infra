@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gyuho/infra/go/logutil"
@@ -44,8 +45,11 @@ func FetchToken(ctx context.Context) (string, error) {
 // ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
 // ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
 // e.g., curl -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/public-ipv4
-func FetchMetadataByPath(ctx context.Context, path string) (string, error) {
+func FetchPath(ctx context.Context, path string) (string, error) {
+	path = strings.TrimPrefix(path, "/latest/meta-data/")
+	path = strings.TrimPrefix(path, "/")
 	uri := fmt.Sprintf("http://169.254.169.254/latest/meta-data/%s", path)
+
 	logutil.S().Infow("fetching meta-data", "uri", uri)
 
 	token, err := FetchToken(ctx)
@@ -75,25 +79,25 @@ func FetchMetadataByPath(ctx context.Context, path string) (string, error) {
 // Fetches the instance ID on the host EC2 machine.
 // ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-categories.html
 func FetchInstanceID(ctx context.Context) (string, error) {
-	return FetchMetadataByPath(ctx, "instance-id")
+	return FetchPath(ctx, "instance-id")
 }
 
 // Fetches the public hostname of the host EC2 machine.
 // ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-categories.html
 func FetchPublicHostname(ctx context.Context) (string, error) {
-	return FetchMetadataByPath(ctx, "public-hostname")
+	return FetchPath(ctx, "public-hostname")
 }
 
 // Fetches the public IPv4 address of the host EC2 machine.
 // ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-categories.html
 func FetchPublicIPV4(ctx context.Context) (string, error) {
-	return FetchMetadataByPath(ctx, "public-ipv4")
+	return FetchPath(ctx, "public-ipv4")
 }
 
 // Fetches the availability of the host EC2 machine.
 // ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-categories.html
 func FetchAvailabilityZone(ctx context.Context) (string, error) {
-	return FetchMetadataByPath(ctx, "placement/availability-zone")
+	return FetchPath(ctx, "placement/availability-zone")
 }
 
 // Fetches the region of the host EC2 machine.
@@ -125,7 +129,7 @@ type InstanceAction struct {
 // ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-categories.html
 // ref. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/prepare-for-interruptions.html
 func FetchSpotInstanceAction(ctx context.Context) (InstanceAction, error) {
-	s, err := FetchMetadataByPath(ctx, "spot/instance-action")
+	s, err := FetchPath(ctx, "spot/instance-action")
 	if err != nil {
 		return InstanceAction{}, err
 	}

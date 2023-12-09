@@ -3,6 +3,7 @@ package s3
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -21,7 +22,10 @@ import (
 type Bucket struct {
 	Name    string
 	Created time.Time
-	URL     string
+
+	// Path-style bucket URL.
+	// ref. https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access
+	URL string
 }
 
 type Buckets []Bucket
@@ -66,7 +70,14 @@ func ListBuckets(ctx context.Context, cfg aws.Config) (Buckets, error) {
 	logutil.S().Infow("listed buckets", "buckets", len(out.Buckets))
 	buckets := make([]Bucket, 0, len(out.Buckets))
 	for _, b := range out.Buckets {
-		buckets = append(buckets, Bucket{Name: *b.Name, Created: *b.CreationDate})
+		buckets = append(buckets, Bucket{
+			Name:    *b.Name,
+			Created: *b.CreationDate,
+
+			// note that this is different for Cloudflare R2 buckets
+			// ref. https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html#path-style-access
+			URL: fmt.Sprintf("https://s3.%s.amazonaws.com/%s", cfg.Region, *b.Name),
+		})
 	}
 	return Buckets(buckets), nil
 }
@@ -282,6 +293,22 @@ func DeleteObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx s
 	return nil
 }
 
+// DeleteObject deletes an object.
+func DeleteObject(ctx context.Context, cfg aws.Config, bucketName string, s3Key string) error {
+	logutil.S().Infow("deleting object", "bucket", bucketName, "s3Key", s3Key)
+	cli := aws_s3_v2.NewFromConfig(cfg)
+	_, err := cli.DeleteObject(ctx, &aws_s3_v2.DeleteObjectInput{
+		Bucket: &bucketName,
+		Key:    &s3Key,
+	})
+	if err != nil {
+		return err
+	}
+
+	logutil.S().Infow("successfully deleted object", "bucket", bucketName, "s3Key", s3Key)
+	return nil
+}
+
 // ListObjects deletes objects in a bucket by the prefix.
 // If empty, deletes all.
 func ListObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx string) ([]aws_s3_v2_types.Object, error) {
@@ -307,7 +334,7 @@ func ListObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx str
 		}
 		logutil.S().Infow("listed objects", "maxKeys", out.MaxKeys, "contents", len(out.Contents))
 
-		if out.MaxKeys == nil && *out.MaxKeys == 0 {
+		if out.MaxKeys == nil || *out.MaxKeys == 0 {
 			break
 		}
 		if len(out.Contents) == 0 {
@@ -326,7 +353,7 @@ func ListObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx str
 
 	if len(objects) > 1 {
 		sort.SliceStable(objects, func(i, j int) bool {
-			return objects[i].LastModified.Nanosecond() < objects[j].LastModified.Nanosecond()
+			return (*objects[i].Key) < (*objects[j].Key)
 		})
 	}
 
@@ -473,37 +500,6 @@ func GetObject(ctx context.Context, cfg aws.Config, bucketName string, s3Key str
 
 	logutil.S().Infow("successfully downloaded file", "bucket", bucketName, "s3Key", s3Key, "localFilePath", localFilePath)
 	return nil
-}
-
-func CreateGetPreSignedURL(ctx context.Context, cfg aws.Config, bucketName string, s3Key string, opts ...OpOption) (string, error) {
-	ret := &Op{}
-	ret.applyOpts(opts)
-
-	logutil.S().Infow("creating a pre-signed URL", "bucket", bucketName, "s3Key", s3Key, "expires", ret.preSignDuration)
-
-	cli := aws_s3_v2.NewFromConfig(cfg)
-	preSignCli := aws_s3_v2.NewPresignClient(cli)
-
-	req, err := preSignCli.PresignGetObject(
-		ctx,
-		&aws_s3_v2.GetObjectInput{
-			Bucket: &bucketName,
-			Key:    &s3Key,
-		},
-		func(opts *aws_s3_v2.PresignOptions) {
-			// default is 900-second
-			opts.Expires = 15 * time.Minute
-			if ret.preSignDuration > 0 {
-				opts.Expires = ret.preSignDuration
-			}
-		},
-	)
-	if err != nil {
-		return "", err
-	}
-
-	logutil.S().Infow("created pre-signed URL", "url", req.URL)
-	return req.URL, nil
 }
 
 type Op struct {
