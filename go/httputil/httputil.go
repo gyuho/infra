@@ -13,7 +13,7 @@ import (
 func DownloadFileToTmp(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	defer resp.Body.Close()
 
@@ -33,4 +33,18 @@ func DownloadFileToTmp(url string) (string, error) {
 		return "", err
 	}
 	return file, nil
+}
+
+func ReadAll(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to GET: %s", resp.Status)
+	}
+
+	return io.ReadAll(resp.Body)
 }
