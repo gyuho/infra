@@ -33,7 +33,9 @@ pub mod ssm;
 #[cfg(feature = "sts")]
 pub mod sts;
 
-use aws_config::{self, meta::region::RegionProviderChain, timeout::TimeoutConfig};
+use aws_config::{
+    self, meta::region::RegionProviderChain, timeout::TimeoutConfig, BehaviorVersion,
+};
 use aws_types::{region::Region, SdkConfig as AwsSdkConfig};
 use tokio::time::Duration;
 
@@ -58,7 +60,7 @@ pub async fn load_config(
     }
     let timeout_cfg = builder.build();
 
-    let mut cfg = aws_config::from_env()
+    let mut cfg = aws_config::defaults(BehaviorVersion::v2023_11_09())
         .region(reg_provider)
         .timeout_config(timeout_cfg);
     if let Some(p) = profile_name {

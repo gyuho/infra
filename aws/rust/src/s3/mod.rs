@@ -392,7 +392,7 @@ impl Manager {
                     });
                 }
             };
-            if ret.key_count == 0 {
+            if ret.key_count == Some(0) {
                 break;
             }
             if ret.contents.is_none() {
@@ -692,7 +692,7 @@ impl Manager {
             s3_bucket,
             s3_key,
             head_output.content_type().unwrap(),
-            human_readable::bytes(head_output.content_length() as f64),
+            human_readable::bytes(head_output.content_length().unwrap_or(0) as f64),
         );
         Ok(Some(head_output))
     }
