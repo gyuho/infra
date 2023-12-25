@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/kms v1.27.5
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.47.5
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.44.5
-	github.com/aws/aws-sdk-go-v2/service/sts v1.26.5
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.6
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gyuho/infra/go v0.0.0-00010101000000-000000000000
 	github.com/gyuho/infra/linux/go v0.0.0-00010101000000-000000000000
