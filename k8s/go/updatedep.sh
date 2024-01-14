@@ -8,6 +8,9 @@ fi
 
 # go get -u -v ./...
 
+go get -u golang.org/x/sync
+go get -u k8s.io/api
+go get -u k8s.io/apimachinery
 go get -u k8s.io/client-go
 
 go mod tidy -v
