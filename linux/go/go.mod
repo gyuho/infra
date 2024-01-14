@@ -6,7 +6,7 @@ replace github.com/gyuho/infra/go => ../../go
 
 require (
 	github.com/gyuho/infra/go v0.0.0-00010101000000-000000000000
-	k8s.io/utils v0.0.0-20231127182322-b307cd553661
+	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
 )
 
 require (
