@@ -40,8 +40,8 @@ func TestEnvelope(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plaintext := randutil.BytesAlphabetsLowerCase(3 * 1024 * 1024)
-	aadTag := randutil.BytesAlphabetsLowerCase(32)
+	plaintext := randutil.BytesAlphaNumeric(3 * 1024 * 1024)
+	aadTag := randutil.BytesAlphaNumeric(32)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
 	encrypted, err := SealAES256(ctx, cfg, keyID, plaintext, aadTag)

@@ -60,7 +60,7 @@ func main() {
 
 	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1)
-	err = os.WriteFile(localFile1, randutil.BytesAlphabetsLowerCase(100), 0644)
+	err = os.WriteFile(localFile1, randutil.BytesAlphaNumeric(100), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -89,7 +89,7 @@ func main() {
 
 	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2)
-	err = os.WriteFile(localFile2, randutil.BytesAlphabetsLowerCase(100), 0644)
+	err = os.WriteFile(localFile2, randutil.BytesAlphaNumeric(100), 0644)
 	if err != nil {
 		panic(err)
 	}
