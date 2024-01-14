@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	k8s "github.com/gyuho/k8s/go"
+	k8s "github.com/gyuho/infra/k8s/go"
 )
 
 // KUBECONFIG=~/.kube/config go test -v -run TestList

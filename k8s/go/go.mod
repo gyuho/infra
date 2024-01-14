@@ -1,4 +1,4 @@
-module github.com/gyuho/k8s/go
+module github.com/gyuho/infra/k8s/go
 
 go 1.21.6
 
