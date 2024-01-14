@@ -19,10 +19,6 @@ license = "Apache-2.0"
 aws-config = "1.0.3"
 
 # https://github.com/smithy-lang/smithy-rs/releases
-# https://crates.io/crates/aws-smithy-client/versions
-aws-smithy-client = "0.61.0"
-
-# https://github.com/smithy-lang/smithy-rs/releases
 # https://crates.io/crates/aws-smithy-runtime-api/versions
 aws-smithy-runtime-api = { version = "1.1.0", features = ["client"] }
 
