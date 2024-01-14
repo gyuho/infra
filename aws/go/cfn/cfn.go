@@ -17,24 +17,18 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-func GetStack(
-	ctx context.Context,
-	cfg aws.Config,
-	stackName string,
-) (string, error) {
-	logutil.S().Infow("getting stack", "stackName", stackName)
+func GetStack(ctx context.Context, cfg aws.Config, stackName string) (aws_cloudformation_v2_types.Stack, error) {
+	logutil.S().Infow("getting stack", "name", stackName)
 
 	cli := aws_cloudformation_v2.NewFromConfig(cfg)
-	out, err := cli.DescribeStacks(ctx, &aws_cloudformation_v2.DescribeStacksInput{
-		StackName: &stackName,
-	})
+	out, err := cli.DescribeStacks(ctx, &aws_cloudformation_v2.DescribeStacksInput{StackName: &stackName})
 	if err != nil {
-		return "", err
+		return aws_cloudformation_v2_types.Stack{}, err
 	}
 	if len(out.Stacks) != 1 {
-		return "", fmt.Errorf("expected only 1 stack; got %v", len(out.Stacks))
+		return aws_cloudformation_v2_types.Stack{}, fmt.Errorf("expected only 1 stack; got %v", len(out.Stacks))
 	}
-	return *out.Stacks[0].StackId, nil
+	return out.Stacks[0], nil
 }
 
 func CreateStack(
@@ -44,8 +38,8 @@ func CreateStack(
 	templateBody string,
 	params map[string]string,
 	tags map[string]string,
-) (string, error) {
-	logutil.S().Infow("creating stack", "stack-name", stackName)
+) (aws_cloudformation_v2_types.Stack, error) {
+	logutil.S().Infow("creating stack", "name", stackName)
 
 	cli := aws_cloudformation_v2.NewFromConfig(cfg)
 	input := &aws_cloudformation_v2.CreateStackInput{
@@ -72,15 +66,15 @@ func CreateStack(
 				if len(out.Stacks) != 1 {
 					logutil.S().Warnw("expected describing already existing stack returning 1", "stacks", len(out.Stacks))
 				} else {
-					return *out.Stacks[0].StackId, err
+					return out.Stacks[0], err
 				}
 			}
 		}
-		return "", err
+		return aws_cloudformation_v2_types.Stack{}, err
 	}
 	logutil.S().Infow("requests to create stack", "stack-id", *out.StackId)
 
-	return *out.StackId, nil
+	return GetStack(ctx, cfg, stackName)
 }
 
 func DeleteStack(
@@ -88,16 +82,16 @@ func DeleteStack(
 	cfg aws.Config,
 	stackName string,
 ) error {
-	logutil.S().Infow("deleting stack", "stack-name", stackName)
+	logutil.S().Infow("deleting stack", "name", stackName)
 
 	cli := aws_cloudformation_v2.NewFromConfig(cfg)
 	_, err := cli.DeleteStack(ctx, &aws_cloudformation_v2.DeleteStackInput{
 		StackName: &stackName,
 	})
 	if err != nil {
-		if StackNotExist(err) {
+		if IsErrStackNotExist(err) {
 			logutil.S().Warnw("stack does not exist; ignoring",
-				"stack-name", stackName,
+				"name", stackName,
 				"err", err,
 			)
 			return nil
@@ -105,7 +99,7 @@ func DeleteStack(
 		return err
 	}
 
-	logutil.S().Infow("delete stack requested", "stack-name", stackName)
+	logutil.S().Infow("delete stack requested", "name", stackName)
 	return nil
 }
 
@@ -176,7 +170,7 @@ func Poll(
 				},
 			)
 			if err != nil {
-				if StackNotExist(err) {
+				if IsErrStackNotExist(err) {
 					if desiredStackStatus == aws_cloudformation_v2_types.StackStatusDeleteComplete {
 						logutil.S().Infow("stack is already deleted as desired; exiting", "err", err)
 						ch <- StackStatus{Error: nil}
@@ -214,7 +208,7 @@ func Poll(
 			}
 
 			logutil.S().Infow("poll",
-				"stack-name", *stack.StackName,
+				"name", *stack.StackName,
 				"desired", string(desiredStackStatus),
 				"current", string(currentStatus),
 				"current-reason", currentStatusReason,
@@ -309,15 +303,15 @@ func StackCreateFailed(status string) bool {
 	return !strings.HasPrefix(status, "REVIEW_") && !strings.HasPrefix(status, "CREATE_")
 }
 
-// StackNotExist returns true if cloudformation errror indicates
+// IsErrStackNotExist returns true if cloudformation errror indicates
 // that the stack has already been deleted.
 // This message is Go client specific.
 // e.g. ValidationError: Stack with id AWSTESTER-155460CAAC98A17003-CF-STACK-VPC does not exist\n\tstatus code: 400, request id: bf45410b-b863-11e8-9550-914acc220b7c
-func StackNotExist(err error) bool {
+func IsErrStackNotExist(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), "ValidationError:") && strings.Contains(err.Error(), " does not exist")
+	return strings.Contains(err.Error(), " does not exist")
 }
 
 func NewParameters(m map[string]string) (params []aws_cloudformation_v2_types.Parameter) {

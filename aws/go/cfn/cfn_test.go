@@ -30,7 +30,7 @@ func TestCFN(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	stackID, err := CreateStack(
+	stack, err := CreateStack(
 		ctx,
 		cfg,
 		"test-stack",
@@ -50,14 +50,14 @@ func TestCFN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("stack id: %s", stackID)
+	t.Logf("stack id: %s", *stack.StackId)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
 	ch := Poll(
 		ctx,
 		make(chan struct{}),
 		cfg,
-		stackID,
+		*stack.StackId,
 		aws_cloudformation_v2_types.StackStatusCreateComplete,
 		30*time.Second,
 		10*time.Second,
@@ -68,7 +68,7 @@ func TestCFN(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-	err = DeleteStack(ctx, cfg, stackID)
+	err = DeleteStack(ctx, cfg, *stack.StackId)
 	cancel()
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestCFN(t *testing.T) {
 		ctx,
 		make(chan struct{}),
 		cfg,
-		stackID,
+		*stack.StackId,
 		aws_cloudformation_v2_types.StackStatusDeleteComplete,
 		30*time.Second,
 		10*time.Second,
@@ -90,14 +90,14 @@ func TestCFN(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-	err = DeleteStack(ctx, cfg, stackID)
+	err = DeleteStack(ctx, cfg, *stack.StackId)
 	cancel()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-	err = DeleteStack(ctx, cfg, stackID)
+	err = DeleteStack(ctx, cfg, *stack.StackId)
 	cancel()
 	if err != nil {
 		t.Fatal(err)
