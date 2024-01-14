@@ -24,7 +24,6 @@ func TestCloudflarePrivate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	cfg, err := NewAWSCompatibleConfig(
 		ctx,
-		"",
 		os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
 		os.Getenv("CLOUDFLARE_ACCESS_KEY_ID"),
 		os.Getenv("CLOUDFLARE_ACCESS_KEY_SECRET"),

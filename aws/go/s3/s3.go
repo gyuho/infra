@@ -345,8 +345,10 @@ func ListObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx str
 
 		if out.NextMarker != nil && *out.NextMarker != "" {
 			token = *out.NextMarker
+			logutil.S().Infow("next page", "nextMarker", token)
 		}
 		if token == "" {
+			logutil.S().Infow("no next page")
 			break
 		}
 	}
@@ -470,7 +472,13 @@ func GetObject(ctx context.Context, cfg aws.Config, bucketName string, s3Key str
 	if err != nil {
 		return err
 	}
-	size := *headOut.ContentLength
+	if headOut == nil {
+		return fmt.Errorf("object does not exist: %s/%s", bucketName, s3Key)
+	}
+	size := int64(0)
+	if headOut != nil && headOut.ContentLength != nil && *headOut.ContentLength > 0 {
+		size = *headOut.ContentLength
+	}
 	logutil.S().Infow("downloading file",
 		"bucket", bucketName,
 		"s3Key", s3Key,
