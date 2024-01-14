@@ -3,5 +3,6 @@ go 1.21.6
 use (
 	./aws/go
 	./go
+	./k8s/go
 	./linux/go
 )
