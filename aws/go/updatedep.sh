@@ -18,5 +18,7 @@ go get -u github.com/aws/aws-sdk-go-v2/service/s3
 go get -u github.com/aws/aws-sdk-go-v2/service/secretsmanager
 go get -u github.com/aws/aws-sdk-go-v2/service/ssm
 go get -u github.com/aws/aws-sdk-go-v2/service/sts
+go get -u k8s.io/client-go
+go get -u sigs.k8s.io/yaml
 
 go mod tidy -v
