@@ -48,6 +48,7 @@ func AssumeRole(ctx context.Context, roleARN string, accessKey string, secretKey
 
 	cfg, err := config_v2.LoadDefaultConfig(
 		ctx,
+		config_v2.WithRegion("us-east-1"),
 		config_v2.WithCredentialsProvider(credentials_v2.StaticCredentialsProvider{
 			Value: aws_v2.Credentials{
 				AccessKeyID:     accessKey,
