@@ -6,12 +6,20 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gyuho/infra/go/randutil"
 )
 
-func DownloadFileToTmp(url string) (string, error) {
-	resp, err := http.Get(url)
+func DownloadFileToTmp(url string, opts ...OpOption) (string, error) {
+	ret := &Op{}
+	ret.applyOpts(opts)
+
+	client := http.Client{
+		Timeout: ret.timeout,
+	}
+
+	resp, err := client.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -47,4 +55,22 @@ func ReadAll(url string) ([]byte, error) {
 	}
 
 	return io.ReadAll(resp.Body)
+}
+
+type Op struct {
+	timeout time.Duration
+}
+
+type OpOption func(*Op)
+
+func (op *Op) applyOpts(opts []OpOption) {
+	for _, opt := range opts {
+		opt(op)
+	}
+}
+
+func WithTimeout(dur time.Duration) OpOption {
+	return func(op *Op) {
+		op.timeout = dur
+	}
 }
