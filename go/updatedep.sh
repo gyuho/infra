@@ -8,6 +8,7 @@ fi
 
 # go get -u -v ./...
 
+go get -u github.com/prometheus/procfs
 go get -u go.uber.org/zap
 
 go mod tidy -v

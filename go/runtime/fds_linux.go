@@ -18,6 +18,8 @@ package runtime
 import (
 	"os"
 	"syscall"
+
+	"github.com/prometheus/procfs"
 )
 
 func FDLimit() (uint64, error) {
@@ -28,7 +30,26 @@ func FDLimit() (uint64, error) {
 	return rlimit.Cur, nil
 }
 
+// "process_open_fds" in prometheus collector
+// ref. https://github.com/prometheus/client_golang/blob/main/prometheus/process_collector_other.go
+// ref. https://pkg.go.dev/github.com/prometheus/procfs
 func FDUsage() (uint64, error) {
+	procs, err := procfs.AllProcs()
+	if err != nil {
+		return 0, err
+	}
+	total := uint64(0)
+	for _, proc := range procs {
+		l, err := proc.FileDescriptorsLen()
+		if err != nil {
+			return 0, err
+		}
+		total += uint64(l)
+	}
+	return total, nil
+}
+
+func FDUsageSelf() (uint64, error) {
 	return countFiles("/proc/self/fd")
 }
 

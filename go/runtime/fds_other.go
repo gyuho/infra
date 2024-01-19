@@ -25,6 +25,13 @@ func FDLimit() (uint64, error) {
 	return 0, fmt.Errorf("cannot get FDLimit on %s", runtime.GOOS)
 }
 
+// "process_open_fds" in prometheus collector
+// ref. https://github.com/prometheus/client_golang/blob/main/prometheus/process_collector_other.go
+// ref. https://pkg.go.dev/github.com/prometheus/procfs
 func FDUsage() (uint64, error) {
 	return 0, fmt.Errorf("cannot get FDUsage on %s", runtime.GOOS)
+}
+
+func FDUsageSelf() (uint64, error) {
+	return 0, fmt.Errorf("cannot get FDUsageSelf on %s", runtime.GOOS)
 }
