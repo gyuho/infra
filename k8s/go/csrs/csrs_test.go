@@ -25,7 +25,7 @@ func TestList(t *testing.T) {
 	csrs, err := List(
 		ctx,
 		cli,
-		WithListPendings(true),
+		WithSelectPendings(true),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -35,17 +35,10 @@ func TestList(t *testing.T) {
 		t.Skip("no pending CSR")
 	}
 
-	names := make([]string, 0, len(csrs))
-	for _, csr := range csrs {
-		names = append(names, csr.Name)
-	}
-
 	if err := Approve(
 		ctx,
 		cli,
-		names,
-		WithApproveInterval(10*time.Second),
-		WithApproveLimit(1),
+		[]string{csrs[0].Name},
 	); err != nil {
 		t.Fatal(err)
 	}
