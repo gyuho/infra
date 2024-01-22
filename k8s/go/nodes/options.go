@@ -3,7 +3,7 @@ package nodes
 import "time"
 
 type Op struct {
-	labelsAND map[string][]string
+	labelSelector string
 
 	timeout            time.Duration
 	gracePeriod        time.Duration
@@ -20,10 +20,12 @@ func (op *Op) applyOpts(opts []OpOption) {
 	}
 }
 
-// WithLabelsAND sets the labels matching requirements with AND conditions.
-func WithLabelsAND(labels map[string][]string) OpOption {
+// WithLabelSelector sets the labels matching requirements.
+// Use https://pkg.go.dev/k8s.io/apimachinery/pkg/labels#NewSelector
+// and https://pkg.go.dev/k8s.io/apimachinery/pkg/labels#NewRequirement.
+func WithLabelSelector(s string) OpOption {
 	return func(op *Op) {
-		op.labelsAND = labels
+		op.labelSelector = s
 	}
 }
 

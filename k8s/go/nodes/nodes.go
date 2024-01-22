@@ -13,8 +13,6 @@ import (
 	core_v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -29,18 +27,9 @@ func List(ctx context.Context, clientset *kubernetes.Clientset, opts ...OpOption
 	ret := &Op{}
 	ret.applyOpts(opts)
 
-	labelSelector := labels.NewSelector()
-	for k, v := range ret.labelsAND {
-		selector, err := labels.NewRequirement(k, selection.In, v)
-		if err != nil {
-			return nil, err
-		}
-		labelSelector = labelSelector.Add(*selector)
-	}
-
-	logutil.S().Infow("listing nodes")
+	logutil.S().Infow("listing nodes", "labelSelector", ret.labelSelector)
 	resp, err := clientset.CoreV1().Nodes().List(ctx, meta_v1.ListOptions{
-		LabelSelector: labelSelector.String(),
+		LabelSelector: ret.labelSelector,
 	})
 	if err != nil {
 		return nil, err
@@ -62,7 +51,7 @@ func Get(ctx context.Context, clientset *kubernetes.Clientset, name string) (*co
 	node, err := clientset.CoreV1().Nodes().Get(ctx, name, meta_v1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			logutil.S().Warnw("node not found", "node", name)
+			logutil.S().Warnw("node not found", "name", name)
 			return nil, false, nil
 		}
 		return nil, false, err
@@ -80,14 +69,14 @@ var defaultBackoff = wait.Backoff{
 // Deletes the node object by name and waits for its deletion.
 // Returns no error if the node does not exist.
 func Delete(ctx context.Context, clientset *kubernetes.Clientset, name string) error {
-	logutil.S().Infow("deleting node", "name", name)
+	logutil.S().Infow("deleting", "name", name)
 	return clientretry.RetryOnConflict(
 		defaultBackoff,
 		func() error {
 			err := clientset.CoreV1().Nodes().Delete(ctx, name, meta_v1.DeleteOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
-					logutil.S().Warnw("node not found", "node", name)
+					logutil.S().Warnw("node not found", "name", name)
 					return nil
 				}
 				return err
@@ -98,33 +87,17 @@ func Delete(ctx context.Context, clientset *kubernetes.Clientset, name string) e
 }
 
 func ApplyLabels(ctx context.Context, clientset *kubernetes.Clientset, name string, labels map[string]string) error {
-	logutil.S().Infow("applying node labels", "name", name, "labels", labels)
-
-	for {
-		_, exists, err := Get(ctx, clientset, name)
-		if err == nil && exists {
-			break
-		}
-
-		logutil.S().Warnw("node not found yet -- retrying", "name", name, "error", err)
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(10 * time.Second):
-		}
-	}
-
-	// ref. https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/controller_utils.go
-	return clientretry.RetryOnConflict(
-		defaultBackoff,
-		func() error {
-			return applyLabelsOnce(ctx, clientset, name, labels)
-		},
-	)
+	logutil.S().Infow("applying labels", "name", name, "labels", labels)
+	return patchWithRetries(ctx, clientset, name, nodePatch{Metadata: &meta_v1.ObjectMeta{
+		Labels: labels,
+	}})
 }
 
 func Cordon(ctx context.Context, clientset *kubernetes.Clientset, name string) error {
-	return applyUnschedulable(ctx, clientset, name, true)
+	logutil.S().Infow("cordoning", "name", name)
+	return patchWithRetries(ctx, clientset, name, nodePatch{Spec: &core_v1.NodeSpec{
+		Unschedulable: true,
+	}})
 }
 
 // Removes "node.kubernetes.io/unschedulable" taint from the node.
@@ -132,12 +105,13 @@ func Cordon(ctx context.Context, clientset *kubernetes.Clientset, name string) e
 // ref. https://github.com/leptonai/lepton/issues/5257
 // ref. "pkg/controller/nodelifecycle/node_lifecycle_controller.go" "markNodeAsReachable"
 func Uncordon(ctx context.Context, clientset *kubernetes.Clientset, name string) error {
-	return applyUnschedulable(ctx, clientset, name, false)
+	logutil.S().Infow("uncordoning", "name", name)
+	return patchWithRetries(ctx, clientset, name, nodePatch{Spec: &core_v1.NodeSpec{
+		Unschedulable: false,
+	}})
 }
 
-func applyUnschedulable(ctx context.Context, clientset *kubernetes.Clientset, name string, unschedulable bool) error {
-	logutil.S().Infow("setting node unschedulable", "name", name, "unschedulable", unschedulable)
-
+func patchWithRetries(ctx context.Context, clientset *kubernetes.Clientset, name string, patch nodePatch) error {
 	for {
 		_, exists, err := Get(ctx, clientset, name)
 		if err == nil && exists {
@@ -156,39 +130,24 @@ func applyUnschedulable(ctx context.Context, clientset *kubernetes.Clientset, na
 	return clientretry.RetryOnConflict(
 		defaultBackoff,
 		func() error {
-			return applyUnschedulableOnce(ctx, clientset, name, unschedulable)
+			return patchOnce(ctx, clientset, name, patch)
 		},
 	)
 }
 
-type metadataToPatch struct {
-	Metadata meta_v1.ObjectMeta `json:"metadata,omitempty"`
-}
-
-type specToPatch struct {
-	Spec core_v1.NodeSpec `json:"spec,omitempty"`
-}
-
-func applyLabelsOnce(ctx context.Context, clientset *kubernetes.Clientset, name string, labels map[string]string) error {
-	patch := metadataToPatch{Metadata: meta_v1.ObjectMeta{Labels: labels}}
+func patchOnce(ctx context.Context, clientset *kubernetes.Clientset, name string, patch nodePatch) error {
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
 		return err
 	}
-	logutil.S().Infow("patching node labels", "name", name, "patch", string(patchBytes))
+	logutil.S().Infow("applying patch", "name", name, "patch", string(patchBytes))
 	_, err = clientset.CoreV1().Nodes().Patch(ctx, name, types.StrategicMergePatchType, patchBytes, meta_v1.PatchOptions{})
 	return err
 }
 
-func applyUnschedulableOnce(ctx context.Context, clientset *kubernetes.Clientset, name string, unschedulable bool) error {
-	patch := specToPatch{Spec: core_v1.NodeSpec{Unschedulable: unschedulable}}
-	patchBytes, err := json.Marshal(patch)
-	if err != nil {
-		return err
-	}
-	logutil.S().Infow("patching node unschedulable", "name", name, "patch", string(patchBytes))
-	_, err = clientset.CoreV1().Nodes().Patch(ctx, name, types.StrategicMergePatchType, patchBytes, meta_v1.PatchOptions{})
-	return err
+type nodePatch struct {
+	Metadata *meta_v1.ObjectMeta `json:"metadata,omitempty"`
+	Spec     *core_v1.NodeSpec   `json:"spec,omitempty"`
 }
 
 // ref. "pkg/controller/nodelifecycle/node_lifecycle_controller.go" "markNodeAsReachable" "AddOrUpdateTaintOnNode"
@@ -235,7 +194,7 @@ func ApplyTaint(ctx context.Context, clientset *kubernetes.Clientset, name strin
 			_, err = clientset.CoreV1().Nodes().Patch(cctx, name, types.StrategicMergePatchType, patch, meta_v1.PatchOptions{})
 			ccancel()
 			if err == nil {
-				logutil.S().Infow("successfully applied taint", "node", name, "taint", *taint)
+				logutil.S().Infow("successfully applied taint", "name", name, "taint", *taint)
 			}
 			return err
 		},
@@ -302,7 +261,7 @@ func Drain(ctx context.Context, clientset *kubernetes.Clientset, name string, op
 	}
 	ret.applyOpts(opts)
 
-	logutil.S().Infow("draining node", "name", name)
+	logutil.S().Infow("draining", "name", name)
 
 	// e.g.,
 	// k drain ip-10-0-7-236.us-west-2.compute.internal --delete-emptydir-data --ignore-daemonsets
@@ -326,7 +285,7 @@ func Drain(ctx context.Context, clientset *kubernetes.Clientset, name string, op
 		return err
 	}
 
-	logutil.S().Warnw("successfully drained node", "name", name)
+	logutil.S().Warnw("successfully drained", "name", name)
 	return nil
 }
 
