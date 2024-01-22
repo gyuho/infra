@@ -12,5 +12,7 @@ go get -u golang.org/x/sync
 go get -u k8s.io/api
 go get -u k8s.io/apimachinery
 go get -u k8s.io/client-go
+go get -u k8s.io/kubectl
+go get -u k8s.io/kubernetes
 
 go mod tidy -v
