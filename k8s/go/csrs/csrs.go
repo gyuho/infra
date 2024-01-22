@@ -45,16 +45,9 @@ func List(ctx context.Context, clientset *kubernetes.Clientset, opts ...OpOption
 
 		keep := make([]certs_v1.CertificateSigningRequest, 0)
 		for _, csr := range csrList.Items {
-			// CSR is pending when
-			// len(csr.Status.Conditions) == 0 && len(csr.Status.Certificate) == 0
-
-			if len(csr.Status.Conditions) > 0 {
+			if !isPending(csr) {
 				continue
 			}
-			if len(csr.Status.Certificate) > 0 {
-				continue
-			}
-
 			keep = append(keep, csr)
 		}
 
@@ -178,4 +171,9 @@ func delete(ctx context.Context, clientset *kubernetes.Clientset, name string) e
 	}
 
 	return err
+}
+
+func isPending(csr certs_v1.CertificateSigningRequest) bool {
+	// CSR is pending when
+	return len(csr.Status.Conditions) == 0 && len(csr.Status.Certificate) == 0
 }
