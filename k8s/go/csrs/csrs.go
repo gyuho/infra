@@ -95,7 +95,7 @@ func Approve(ctx context.Context, clientset *kubernetes.Clientset, names []strin
 
 // ref. https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/kubectl/pkg/cmd/certificates/certificates.go
 func approve(ctx context.Context, clientset *kubernetes.Clientset, name string) error {
-	logutil.S().Infow("approving CSR", "name", name)
+	logutil.S().Infow("approving", "name", name)
 
 	csr, err := clientset.
 		CertificatesV1().
@@ -127,15 +127,15 @@ func approve(ctx context.Context, clientset *kubernetes.Clientset, name string) 
 			},
 		)
 	if err == nil {
-		logutil.S().Infow("approved CSR", "name", name)
+		logutil.S().Infow("approved", "name", name)
 	} else {
 		// e.g.,
 		// "CertificateSigningRequest.certificates.k8s.io \"csr-42pnj\" is invalid: status.conditions[1].type: Duplicate value: \"Approved\""
 		if strings.Contains(err.Error(), "Duplicate value") && strings.Contains(err.Error(), "Approved") {
-			logutil.S().Infow("duplicate CSR approve", "name", name)
+			logutil.S().Infow("duplicate approve", "name", name)
 			return nil
 		}
-		logutil.S().Warnw("failed to approve CSR", "name", name, "err", err)
+		logutil.S().Warnw("failed to approve", "name", name, "err", err)
 	}
 
 	return err
@@ -145,7 +145,7 @@ func Delete(ctx context.Context, clientset *kubernetes.Clientset, names []string
 	ret := &Op{}
 	ret.applyOpts(opts)
 
-	logutil.S().Infow("deleting CSRs", "names", names)
+	logutil.S().Infow("deleting", "names", names)
 	for _, name := range names {
 		if err := clientretry.RetryOnConflict(defaultBackoff, func() error {
 			return delete(ctx, clientset, name)
@@ -157,7 +157,7 @@ func Delete(ctx context.Context, clientset *kubernetes.Clientset, names []string
 }
 
 func delete(ctx context.Context, clientset *kubernetes.Clientset, name string) error {
-	logutil.S().Infow("deleting CSR", "name", name)
+	logutil.S().Infow("deleting", "name", name)
 
 	err := clientset.
 		CertificatesV1().
@@ -165,9 +165,9 @@ func delete(ctx context.Context, clientset *kubernetes.Clientset, name string) e
 		Delete(ctx, name, meta_v1.DeleteOptions{})
 
 	if err == nil {
-		logutil.S().Infow("deleted CSR", "name", name)
+		logutil.S().Infow("deleted", "name", name)
 	} else {
-		logutil.S().Warnw("failed to delete CSR", "name", name, "err", err)
+		logutil.S().Warnw("failed to delete", "name", name, "err", err)
 	}
 
 	return err
