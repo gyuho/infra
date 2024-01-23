@@ -9,7 +9,7 @@ import (
 	aws "github.com/gyuho/infra/aws/go"
 )
 
-func TestTest(t *testing.T) {
+func TestSTS(t *testing.T) {
 	if os.Getenv("RUN_AWS_TESTS") != "1" {
 		t.Skip()
 	}
