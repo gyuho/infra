@@ -29,28 +29,38 @@ func List(ctx context.Context, clientset *kubernetes.Clientset, opts ...OpOption
 
 	if len(ret.usernames) > 0 {
 		logutil.S().Infow("filtering CSRs by usernames", "usernames", ret.usernames)
-
 		keep := make([]certs_v1.CertificateSigningRequest, 0)
 		for _, csr := range csrList.Items {
 			if _, ok := ret.usernames[csr.Spec.Username]; ok {
 				keep = append(keep, csr)
 			}
 		}
-
 		csrList.Items = keep
 	}
 
 	if ret.selectPendings {
 		logutil.S().Infow("selecting only the CSRs with pending condition")
-
 		keep := make([]certs_v1.CertificateSigningRequest, 0)
 		for _, csr := range csrList.Items {
-			if !isPending(csr) {
+			if !IsPending(csr) {
 				continue
 			}
 			keep = append(keep, csr)
 		}
+		csrList.Items = keep
+	}
 
+	if ret.minCreateAge > 0 {
+		logutil.S().Infow("selecting with minimum create age", "age", ret.minCreateAge)
+		now := time.Now()
+		keep := make([]certs_v1.CertificateSigningRequest, 0)
+		for _, csr := range csrList.Items {
+			dur := now.Sub(csr.CreationTimestamp.Time)
+			if dur < ret.minCreateAge {
+				continue
+			}
+			keep = append(keep, csr)
+		}
 		csrList.Items = keep
 	}
 
@@ -173,7 +183,7 @@ func delete(ctx context.Context, clientset *kubernetes.Clientset, name string) e
 	return err
 }
 
-func isPending(csr certs_v1.CertificateSigningRequest) bool {
+func IsPending(csr certs_v1.CertificateSigningRequest) bool {
 	// CSR is pending when
 	return len(csr.Status.Conditions) == 0 && len(csr.Status.Certificate) == 0
 }
