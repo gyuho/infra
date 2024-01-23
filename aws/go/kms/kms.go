@@ -12,13 +12,14 @@ import (
 	aws_kms_v2_types "github.com/aws/aws-sdk-go-v2/service/kms/types"
 )
 
-func CreateKey(
+// Creates a KMS key.
+func Create(
 	ctx context.Context,
 	cfg aws.Config,
 	keyName string,
 	keySpec aws_kms_v2_types.KeySpec,
 	keyUsage aws_kms_v2_types.KeyUsageType,
-	tags map[string]string) (string, error) {
+	tags map[string]string) (*aws_kms_v2_types.KeyMetadata, error) {
 	logutil.S().Infow("creating key", "keyName", keyName, "keySpec", keySpec, "keyUsage", keyUsage)
 
 	tss := make([]aws_kms_v2_types.Tag, 0)
@@ -46,33 +47,41 @@ func CreateKey(
 		Tags:        tss,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	keyID := *out.KeyMetadata.KeyId
 
 	logutil.S().Infow("successfully created key", "keyName", keyName, "keySpec", keySpec, "keyUsage", keyUsage, "keyID", keyID)
-	return keyID, nil
+	return out.KeyMetadata, nil
 }
 
-// Creates a default symmetric encryption key.
-// ref. https://github.com/gyuho/aws-manager/tree/main/src/kms
-func CreateEncryptKey(
-	ctx context.Context,
-	cfg aws.Config,
-	keyName string,
-	tags map[string]string) (string, error) {
-	return CreateKey(
-		ctx,
-		cfg,
-		keyName,
-		aws_kms_v2_types.KeySpecSymmetricDefault,
-		aws_kms_v2_types.KeyUsageTypeEncryptDecrypt,
-		tags,
-	)
+// Describes the key either by its key ID or ARN.
+func Describe(ctx context.Context, cfg aws.Config, id string) (*aws_kms_v2_types.KeyMetadata, error) {
+	logutil.S().Infow("describing a key", "id", id)
+	cli := aws_kms_v2.NewFromConfig(cfg)
+	out, err := cli.DescribeKey(ctx, &aws_kms_v2.DescribeKeyInput{
+		KeyId: &id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out.KeyMetadata, err
 }
 
-// DeleteKey schedules to delete a key by ID.
-func DeleteKey(ctx context.Context, cfg aws.Config, keyID string, pendingWindowInDays int32) error {
+func GetPublicKey(ctx context.Context, cfg aws.Config, id string) (*aws_kms_v2.GetPublicKeyOutput, error) {
+	logutil.S().Infow("getting public key", "id", id)
+	cli := aws_kms_v2.NewFromConfig(cfg)
+	out, err := cli.GetPublicKey(ctx, &aws_kms_v2.GetPublicKeyInput{
+		KeyId: &id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, err
+}
+
+// Delete schedules to delete a key by ID.
+func Delete(ctx context.Context, cfg aws.Config, keyID string, pendingWindowInDays int32) error {
 	if pendingWindowInDays < 7 {
 		pendingWindowInDays = 7
 	}
