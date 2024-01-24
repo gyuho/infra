@@ -13,8 +13,11 @@ import (
 	aws_sts_v2 "github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
+// For AWS partition, default to us-east-1.
+const IAMRegion = "us-east-1"
+
 func GetCallerIdentity(ctx context.Context) (Identity, error) {
-	cfg, err := aws.New(&aws.Config{Region: "us-east-1"})
+	cfg, err := aws.New(&aws.Config{Region: IAMRegion})
 	if err != nil {
 		return Identity{}, err
 	}
@@ -48,7 +51,7 @@ func AssumeRole(ctx context.Context, roleARN string, accessKey string, secretKey
 
 	cfg, err := config_v2.LoadDefaultConfig(
 		ctx,
-		config_v2.WithRegion("us-east-1"),
+		config_v2.WithRegion(IAMRegion),
 		config_v2.WithCredentialsProvider(credentials_v2.StaticCredentialsProvider{
 			Value: aws_v2.Credentials{
 				AccessKeyID:     accessKey,
