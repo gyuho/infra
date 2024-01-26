@@ -3,6 +3,7 @@ package sts
 
 import (
 	"context"
+	"os"
 
 	aws "github.com/gyuho/infra/aws/go"
 	"github.com/gyuho/infra/go/logutil"
@@ -70,4 +71,25 @@ func AssumeRole(ctx context.Context, roleARN string, accessKey string, secretKey
 		DurationSeconds: aws_v2.Int32(durationSecs),
 	}
 	return cli.AssumeRole(ctx, input)
+}
+
+// Assumes the role and sets the AWS env vars.
+func AssumeRoleAndSetEnv(ctx context.Context, roleARN string, accessKey string, secretKey string, durationSecs int32) error {
+	out, err := AssumeRole(ctx, roleARN, accessKey, secretKey, durationSecs)
+	if err != nil {
+		return err
+	}
+
+	if err := os.Setenv("AWS_ACCESS_KEY_ID", *out.Credentials.AccessKeyId); err != nil {
+		return err
+	}
+	if err := os.Setenv("AWS_SECRET_ACCESS_KEY", *out.Credentials.SecretAccessKey); err != nil {
+		return err
+	}
+	if err := os.Setenv("AWS_SESSION_TOKEN", *out.Credentials.SessionToken); err != nil {
+		return err
+	}
+
+	logutil.S().Infow("successfully set aws credentials env vars")
+	return nil
 }
