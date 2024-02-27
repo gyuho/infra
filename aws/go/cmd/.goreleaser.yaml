@@ -7,6 +7,11 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -v
+    ldflags:
+      - -s -w
+      - -X github.com/gyuho/infra/aws/go/cmd/version.GitCommit={{.Commit}}
+      - -X github.com/gyuho/infra/aws/go/cmd/version.BuildTime={{.Date}}
+      # - -X github.com/gyuho/infra/aws/go/cmd/version.ReleaseVersion={{.Version}}
     goos:
       - linux
     goarch:
@@ -20,6 +25,11 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -v
+    ldflags:
+      - -s -w
+      - -X github.com/gyuho/infra/aws/go/cmd/version.GitCommit={{.Commit}}
+      - -X github.com/gyuho/infra/aws/go/cmd/version.BuildTime={{.Date}}
+      # - -X github.com/gyuho/infra/aws/go/cmd/version.ReleaseVersion={{.Version}}
     goos:
       - linux
     goarch:
@@ -33,6 +43,11 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -v
+    ldflags:
+      - -s -w
+      - -X github.com/gyuho/infra/aws/go/cmd/version.GitCommit={{.Commit}}
+      - -X github.com/gyuho/infra/aws/go/cmd/version.BuildTime={{.Date}}
+      # - -X github.com/gyuho/infra/aws/go/cmd/version.ReleaseVersion={{.Version}}
     goos:
       - linux
     goarch:
@@ -46,6 +61,11 @@ builds:
       - CGO_ENABLED=0
     flags:
       - -v
+    ldflags:
+      - -s -w
+      - -X github.com/gyuho/infra/aws/go/cmd/version.GitCommit={{.Commit}}
+      - -X github.com/gyuho/infra/aws/go/cmd/version.BuildTime={{.Date}}
+      # - -X github.com/gyuho/infra/aws/go/cmd/version.ReleaseVersion={{.Version}}
     goos:
       - linux
     goarch:

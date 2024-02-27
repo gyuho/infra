@@ -1,6 +1,6 @@
 module github.com/gyuho/infra/go
 
-go 1.21.6
+go 1.22
 
 require (
 	github.com/prometheus/procfs v0.12.0

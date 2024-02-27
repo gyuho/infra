@@ -1,6 +1,6 @@
 module github.com/gyuho/infra/linux/go
 
-go 1.21.6
+go 1.22
 
 replace github.com/gyuho/infra/go => ../../go
 

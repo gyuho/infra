@@ -14,6 +14,7 @@ import (
 	"time"
 
 	aws "github.com/gyuho/infra/aws/go"
+	"github.com/gyuho/infra/aws/go/cmd/version"
 	"github.com/gyuho/infra/aws/go/ec2"
 	"github.com/gyuho/infra/aws/go/ec2/metadata"
 	"github.com/gyuho/infra/go/logutil"
@@ -67,6 +68,7 @@ const asgNameTagKey = "autoscaling:groupName"
 
 func init() {
 	cobra.EnablePrefixMatching = true
+	cmd.AddCommand(version.NewCommand())
 
 	cmd.PersistentFlags().StringVar(&region, "region", "us-east-1", "region to provision the volume in")
 	cmd.PersistentFlags().IntVar(&initialWaitRandomSeconds, "initial-wait-random-seconds", 60, "maximum number of seconds to wait (value chosen at random with the range, highly recommend setting value >=60 because EC2 tags take awhile to pupulate)")
