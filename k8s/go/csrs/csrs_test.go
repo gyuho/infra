@@ -9,13 +9,16 @@ import (
 	k8s "github.com/gyuho/infra/k8s/go"
 )
 
-// KUBECONFIG=~/.kube/config go test -v -run TestList
+// TEST_KUBERNETES_CONFIG=~/.kube/config go test -v -run TestList
 func TestList(t *testing.T) {
-	if os.Getenv("KUBECONFIG") == "" {
-		t.Skip("set KUBECONFIG to run this test")
+	if os.Getenv("TEST_KUBERNETES_CONFIG") == "" {
+		t.Skip("set TEST_KUBERNETES_CONFIG to run this test")
 	}
 
-	cli, err := k8s.New(os.Getenv("KUBECONFIG"))
+	os.Setenv("KUBECONFIG", os.Getenv("TEST_KUBERNETES_CONFIG"))
+	defer os.Unsetenv("KUBECONFIG")
+
+	cli, err := k8s.New(os.Getenv("TEST_KUBERNETES_CONFIG"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +27,7 @@ func TestList(t *testing.T) {
 	defer cancel()
 	csrs, err := List(
 		ctx,
-		cli,
+		WithClientset(cli),
 		WithSelectPendings(true),
 	)
 	if err != nil {
@@ -37,8 +40,8 @@ func TestList(t *testing.T) {
 
 	if err := Approve(
 		ctx,
-		cli,
 		[]string{csrs[0].Name},
+		WithClientset(cli),
 	); err != nil {
 		t.Fatal(err)
 	}

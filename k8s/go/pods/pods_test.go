@@ -55,7 +55,7 @@ func TestPatch(t *testing.T) {
 	os.Setenv("KUBECONFIG", os.Getenv("TEST_KUBERNETES_CONFIG"))
 	defer os.Unsetenv("KUBECONFIG")
 
-	cli, err := k8s.New(os.Getenv("KUBECONFIG"))
+	cli, err := k8s.New(os.Getenv("TEST_KUBERNETES_CONFIG"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestPatch(t *testing.T) {
 
 	defer func() {
 		cctx, ccancel := context.WithTimeout(context.Background(), 30*time.Second)
-		derr := Delete(cctx, cli, "default", podName)
+		derr := Delete(cctx, "default", podName, WithClientset(cli))
 		ccancel()
 		if derr != nil {
 			t.Fatal(derr)
@@ -98,7 +98,7 @@ func TestPatch(t *testing.T) {
 
 	for {
 		cctx, ccancel := context.WithTimeout(context.Background(), 30*time.Second)
-		pod, err := Get(cctx, cli, "default", podName)
+		pod, err := Get(cctx, "default", podName, WithClientset(cli))
 		ccancel()
 		if err != nil {
 			t.Fatal(err)
@@ -110,14 +110,14 @@ func TestPatch(t *testing.T) {
 	}
 
 	cctx, ccancel := context.WithTimeout(context.Background(), 30*time.Second)
-	err = RemoveFinalizers(cctx, cli, "default", podName)
+	err = RemoveFinalizers(cctx, "default", podName, WithClientset(cli))
 	ccancel()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	cctx, ccancel = context.WithTimeout(context.Background(), 30*time.Second)
-	pod, err := Get(cctx, cli, "default", podName)
+	pod, err := Get(cctx, "default", podName, WithClientset(cli))
 	ccancel()
 	if err != nil {
 		t.Fatal(err)

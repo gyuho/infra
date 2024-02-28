@@ -2,43 +2,77 @@ package pods
 
 import (
 	"context"
-	"time"
+	"errors"
 
 	"github.com/gyuho/infra/go/logutil"
 	core_v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	clientretry "k8s.io/client-go/util/retry"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// List nodes with some options.
-func List(ctx context.Context, clientset *kubernetes.Clientset, opts ...OpOption) ([]core_v1.Pod, error) {
-	ret := &Op{}
-	ret.applyOpts(opts)
+var ErrClientNotFound = errors.New("client not found")
 
-	logutil.S().Infow("listing", "namespace", ret.namespace, "labelSelector", ret.labelSelector)
-	resp, err := clientset.CoreV1().Pods(ret.namespace).List(ctx, meta_v1.ListOptions{
-		LabelSelector: ret.labelSelector,
-	})
-	if err != nil {
+// List nodes with some options.
+func List(ctx context.Context, opts ...OpOption) ([]core_v1.Pod, error) {
+	options := &Op{}
+	if err := options.applyOpts(opts); err != nil {
 		return nil, err
 	}
 
-	if ret.phase != "" {
+	logutil.S().Infow("listing", "namespace", options.namespace)
+
+	var pods []core_v1.Pod
+	switch {
+	case options.clientset != nil:
+		lsOpts := meta_v1.ListOptions{}
+		if options.fieldSelector != nil {
+			lsOpts.FieldSelector = options.fieldSelector.String()
+		}
+		if options.labelSelector != nil {
+			lsOpts.LabelSelector = options.labelSelector.String()
+		}
+		resp, err := options.clientset.CoreV1().Pods(options.namespace).List(ctx, lsOpts)
+		if err != nil {
+			return nil, err
+		}
+		pods = resp.Items
+
+	case options.runtimeClient != nil:
+		obj := &core_v1.PodList{}
+		err := options.runtimeClient.List(ctx, obj, &runtimeclient.ListOptions{
+			Namespace:     options.namespace,
+			FieldSelector: options.fieldSelector,
+			LabelSelector: options.labelSelector,
+		})
+		if err != nil {
+			return nil, err
+		}
+		pods = obj.Items
+
+	default:
+		return nil, ErrClientNotFound
+	}
+
+	if options.phase != "" {
+		// TODO: Do this instead:
+		// failedSelector := fields.OneTermEqualSelector("status.phase", "Failed")
+		// podListOptions := client.ListOptions{
+		// 	Namespace:     namespace,
+		// 	FieldSelector: failedSelector,
+		// }
 		keep := make([]core_v1.Pod, 0)
-		for _, pod := range resp.Items {
-			if !matchPodPhase(pod, ret.phase) {
+		for _, pod := range pods {
+			if !matchPodPhase(pod, options.phase) {
 				continue
 			}
 			keep = append(keep, pod)
 		}
-		resp.Items = keep
+		pods = keep
 	}
 
-	return resp.Items, nil
+	return pods, nil
 }
 
 func matchPodPhase(pod core_v1.Pod, desired core_v1.PodPhase) bool {
@@ -53,69 +87,107 @@ func matchPodPhase(pod core_v1.Pod, desired core_v1.PodPhase) bool {
 
 // Fetches the pod object by name.
 // Use "k8s.io/apimachinery/pkg/api/errors.IsNotFound" to decide whether the node exists or not.
-func Get(ctx context.Context, clientset *kubernetes.Clientset, namespace string, name string) (*core_v1.Pod, error) {
+func Get(ctx context.Context, namespace string, name string, opts ...OpOption) (*core_v1.Pod, error) {
+	options := &Op{}
+	if err := options.applyOpts(opts); err != nil {
+		return nil, err
+	}
+
 	logutil.S().Infow("fetching", "namespace", namespace, "name", name)
-	return clientset.CoreV1().Pods(namespace).Get(ctx, name, meta_v1.GetOptions{})
+
+	var pod *core_v1.Pod
+	switch {
+	case options.clientset != nil:
+		resp, err := options.clientset.CoreV1().Pods(namespace).Get(ctx, name, meta_v1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		pod = resp
+
+	case options.runtimeClient != nil:
+		obj := &core_v1.Pod{}
+		err := options.runtimeClient.Get(ctx, runtimeclient.ObjectKey{Namespace: namespace, Name: name}, obj)
+		if err != nil {
+			return nil, err
+		}
+		pod = obj
+
+	default:
+		return nil, ErrClientNotFound
+	}
+
+	return pod, nil
 }
 
 // Deletes the pod object by name and waits for its deletion.
 // Returns no error if the pod does not exist.
-func Delete(ctx context.Context, clientset *kubernetes.Clientset, namespace string, name string) error {
-	logutil.S().Infow("deleting", "namespace", namespace, "name", name)
-	err := clientset.CoreV1().Pods(namespace).Delete(ctx, name, meta_v1.DeleteOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logutil.S().Warnw("pod not found", "namespace", namespace, "name", name)
-			return nil
-		}
+func Delete(ctx context.Context, namespace string, name string, opts ...OpOption) error {
+	options := &Op{}
+	if err := options.applyOpts(opts); err != nil {
 		return err
 	}
-	return nil
-}
 
-func RemoveFinalizers(ctx context.Context, clientset *kubernetes.Clientset, namespace string, name string) error {
-	patch := []byte(`{"metadata":{"finalizers":null}}`)
-	logutil.S().Infow("removing finalizer", "namespace", namespace, "name", name)
-	return patchWithRetries(ctx, clientset, namespace, name, patch)
-}
+	logutil.S().Infow("deleting", "namespace", namespace, "name", name)
 
-// ref. https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/controller_utils.go
-var defaultBackoff = wait.Backoff{
-	Duration: 10 * time.Second,
-	Steps:    6,
-	Cap:      2 * time.Minute,
-}
+	var err error
+	switch {
+	case options.clientset != nil:
+		err = options.clientset.CoreV1().Pods(namespace).Delete(ctx, name, meta_v1.DeleteOptions{})
 
-func patchWithRetries(ctx context.Context, clientset *kubernetes.Clientset, namespace string, name string, patch []byte) error {
-	for {
-		_, err := Get(ctx, clientset, namespace, name)
-		if err == nil {
-			break
-		}
+	case options.runtimeClient != nil:
+		err = options.runtimeClient.Delete(ctx, &core_v1.Pod{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Namespace: namespace,
+				Name:      name,
+			},
+		})
 
-		if apierrors.IsNotFound(err) {
-			logutil.S().Warnw("pod not found yet -- retrying", "name", name, "error", err)
-		} else {
-			logutil.S().Warnw("failed to fetch pod -- retrying", "name", name, "error", err)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(10 * time.Second):
-		}
+	default:
+		return ErrClientNotFound
 	}
 
-	// ref. https://github.com/kubernetes/kubernetes/blob/master/pkg/controller/controller_utils.go
-	return clientretry.RetryOnConflict(
-		defaultBackoff,
-		func() error {
-			return patchOnce(ctx, clientset, namespace, name, patch)
-		},
-	)
+	if apierrors.IsNotFound(err) {
+		logutil.S().Warnw("pod not found", "namespace", namespace, "name", name)
+		return nil
+	}
+	return err
 }
 
-func patchOnce(ctx context.Context, clientset *kubernetes.Clientset, namespace string, name string, patch []byte) error {
-	logutil.S().Infow("applying patch", "namespace", namespace, "name", name, "patch", string(patch))
-	_, err := clientset.CoreV1().Pods(namespace).Patch(ctx, name, types.StrategicMergePatchType, patch, meta_v1.PatchOptions{})
+var removeFinalizersPatch = []byte(`{"metadata":{"finalizers":null}}`)
+
+func RemoveFinalizers(ctx context.Context, namespace string, name string, opts ...OpOption) error {
+	logutil.S().Infow("removing finalizer", "namespace", namespace, "name", name)
+	return strategicMergePatchOnce(ctx, namespace, name, removeFinalizersPatch, opts...)
+}
+
+func strategicMergePatchOnce(ctx context.Context, namespace string, name string, patch []byte, opts ...OpOption) error {
+	options := &Op{}
+	if err := options.applyOpts(opts); err != nil {
+		return err
+	}
+
+	logutil.S().Infow("applying strategic merge patch", "namespace", namespace, "name", name, "patch", string(patch))
+
+	var err error
+	switch {
+	case options.clientset != nil:
+		_, err = options.clientset.CoreV1().Pods(namespace).Patch(ctx, name, types.StrategicMergePatchType, patch, meta_v1.PatchOptions{})
+
+	case options.runtimeClient != nil:
+		err = options.runtimeClient.Patch(
+			ctx,
+			&core_v1.Pod{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Namespace: namespace,
+					Name:      name,
+				},
+			},
+			runtimeclient.RawPatch(types.StrategicMergePatchType, patch),
+		)
+
+	default:
+		return ErrClientNotFound
+	}
+
 	return err
 }

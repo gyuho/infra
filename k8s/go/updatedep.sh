@@ -14,5 +14,6 @@ go get -u k8s.io/apimachinery
 go get -u k8s.io/client-go
 go get -u k8s.io/kubectl
 go get -u k8s.io/kubernetes
+go get -u sigs.k8s.io/controller-runtime
 
 go mod tidy -v
