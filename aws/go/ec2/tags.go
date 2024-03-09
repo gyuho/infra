@@ -4,14 +4,16 @@ import (
 	"context"
 	"sort"
 
-	"github.com/gyuho/infra/go/logutil"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ec2_v2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/gyuho/infra/go/logutil"
 )
 
-func toTags(name string, m map[string]string) []aws_ec2_v2_types.Tag {
+func ConvertTags(name string, m map[string]string) []aws_ec2_v2_types.Tag {
+	if m == nil {
+		m = make(map[string]string)
+	}
 	nameKey := "Name"
 	if name != "" {
 		m[nameKey] = name
@@ -36,7 +38,7 @@ func toTags(name string, m map[string]string) []aws_ec2_v2_types.Tag {
 func CreateTags(ctx context.Context, cfg aws.Config, resourceIDs []string, tags map[string]string) error {
 	logutil.S().Infow("creating tags", "resourceIDs", resourceIDs, "tags", len(tags))
 
-	ts := toTags("", tags)
+	ts := ConvertTags("", tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	_, err := cli.CreateTags(ctx, &aws_ec2_v2.CreateTagsInput{
 		Resources: resourceIDs,

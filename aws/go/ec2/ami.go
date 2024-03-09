@@ -18,7 +18,7 @@ import (
 func CreateImage(ctx context.Context, cfg aws.Config, instanceID string, name string, tags map[string]string) (string, error) {
 	logutil.S().Infow("creating an AMI", "instanceID", instanceID, "name", name)
 
-	ts := toTags(name, tags)
+	ts := ConvertTags(name, tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.CreateImage(
 		ctx,

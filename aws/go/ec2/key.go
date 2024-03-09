@@ -21,7 +21,7 @@ func CreateRSAKeyPair(ctx context.Context, cfg aws.Config, keyName string, tags 
 
 	// delete 'Name', error with "api error InvalidParameterValue: Duplicate tag key 'Name' specified"
 	delete(tags, "Name")
-	ts := toTags("", tags)
+	ts := ConvertTags("", tags)
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.CreateKeyPair(ctx, &aws_ec2_v2.CreateKeyPairInput{
@@ -64,7 +64,7 @@ func ImportKeyPair(ctx context.Context, cfg aws.Config, pubKeyPath string, keyNa
 
 	// delete 'Name', error with "api error InvalidParameterValue: Duplicate tag key 'Name' specified"
 	delete(tags, "Name")
-	ts := toTags("", tags)
+	ts := ConvertTags("", tags)
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.ImportKeyPair(ctx, &aws_ec2_v2.ImportKeyPairInput{

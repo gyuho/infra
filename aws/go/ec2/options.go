@@ -22,6 +22,7 @@ type Op struct {
 	volumeState           aws_ec2_v2_types.VolumeState
 	volumeThroughput      int32
 	volumeType            string
+	retryErrFunc          func(error) bool
 }
 
 type OpOption func(*Op)
@@ -122,5 +123,11 @@ func WithVolumeState(v aws_ec2_v2_types.VolumeState) OpOption {
 func WithVolumeAttachmentState(v aws_ec2_v2_types.VolumeAttachmentState) OpOption {
 	return func(op *Op) {
 		op.volumeAttachmentState = v
+	}
+}
+
+func WithRetryErrFunc(f func(error) bool) OpOption {
+	return func(op *Op) {
+		op.retryErrFunc = f
 	}
 }

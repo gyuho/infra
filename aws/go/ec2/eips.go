@@ -69,7 +69,7 @@ func AllocateEIP(ctx context.Context, cfg aws.Config, name string, opts ...OpOpt
 
 	logutil.S().Infow("allocating an EIP", "name", name)
 
-	tags := toTags(name, ret.tags)
+	tags := ConvertTags(name, ret.tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.AllocateAddress(ctx, &aws_ec2_v2.AllocateAddressInput{
 		TagSpecifications: []aws_ec2_v2_types.TagSpecification{

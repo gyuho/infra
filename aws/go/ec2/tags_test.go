@@ -61,7 +61,7 @@ func Test_toTags(t *testing.T) {
 	}
 	for i, tc := range tt {
 		t.Run(tc.testName, func(t *testing.T) {
-			got := toTags(tc.name, tc.m)
+			got := ConvertTags(tc.name, tc.m)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("#%d: toTags(%v) = %v, want %v", i, tc.m, got, tc.want)
 			}

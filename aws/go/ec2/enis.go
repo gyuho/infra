@@ -11,11 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gyuho/infra/go/logutil"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	aws_ec2_v2 "github.com/aws/aws-sdk-go-v2/service/ec2"
 	aws_ec2_v2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/gyuho/infra/go/logutil"
 	"github.com/olekukonko/tablewriter"
 )
 
@@ -24,6 +23,7 @@ type ENI struct {
 	Name                       string            `json:"name,omitempty"`
 	Description                string            `json:"description,omitempty"`
 	Status                     string            `json:"status,omitempty"`
+	AttachedEC2InstanceID      string            `json:"attached_ec2_instance_id,omitempty"`
 	AttachmentID               string            `json:"attachment_id,omitempty"`
 	AttachmentStatus           string            `json:"attachment_status,omitempty"`
 	AttachmentDeviceIndex      int32             `json:"attachment_device_index,omitempty"`
@@ -42,8 +42,12 @@ func ConvertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
 	if raw.Description != nil {
 		desc = *raw.Description
 	}
+	attachedEC2InstanceID := ""
 	attachmentID := ""
 	if raw.Attachment != nil {
+		if raw.Attachment.InstanceId != nil {
+			attachedEC2InstanceID = *raw.Attachment.InstanceId
+		}
 		attachmentID = *raw.Attachment.AttachmentId
 	}
 	attachmentStatus := ""
@@ -71,6 +75,7 @@ func ConvertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
 		ID:                         *raw.NetworkInterfaceId,
 		Description:                desc,
 		Status:                     string(raw.Status),
+		AttachedEC2InstanceID:      attachedEC2InstanceID,
 		AttachmentID:               attachmentID,
 		AttachmentStatus:           attachmentStatus,
 		AttachmentDeviceIndex:      attachmentDeviceIndex,
@@ -101,6 +106,14 @@ func ConvertENI(raw aws_ec2_v2_types.NetworkInterface) ENI {
 }
 
 type ENIs []ENI
+
+func (enis ENIs) ToMap() map[string]ENI {
+	m := make(map[string]ENI, len(enis))
+	for _, eni := range enis {
+		m[eni.ID] = eni
+	}
+	return m
+}
 
 func (enis ENIs) Sort() {
 	sort.SliceStable(enis, func(i, j int) bool {
@@ -168,6 +181,7 @@ func ListENIs(ctx context.Context, cfg aws.Config, opts ...OpOption) (ENIs, erro
 	logutil.S().Infow("listing ENIs",
 		"eniIDs", len(ret.eniIDs),
 		"filters", ret.filters,
+		"tags", ret.tags,
 	)
 
 	// ref. https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/ec2#DescribeNetworkInterfacesInput
@@ -214,8 +228,35 @@ func ListENIs(ctx context.Context, cfg aws.Config, opts ...OpOption) (ENIs, erro
 		enis = append(enis, ConvertENI(v))
 	}
 
+	if len(ret.tags) > 0 {
+		logutil.S().Infow("non-zero tags specified -- filtering ENIs with subset rule", "total", len(enis), "tags", ret.tags)
+		filteredENIs := make(ENIs, 0, len(raw))
+		for _, eni := range enis {
+			if CheckENITags(eni, ret.tags) {
+				filteredENIs = append(filteredENIs, eni)
+			}
+		}
+		enis = filteredENIs
+	}
+
 	logutil.S().Infow("listed ENIs", "enis", len(enis))
 	return enis, nil
+}
+
+// CheckENITags checks if the ENI has the expected tags as a "subset".
+func CheckENITags(eni ENI, tags map[string]string) bool {
+	if len(tags) == 0 { // nothing to check
+		return true
+	}
+
+	for k, expected := range tags {
+		cur, exists := eni.Tags[k]
+		if exists && cur == expected {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // Fetches the primary network interface of the EC2 instance.
@@ -365,9 +406,9 @@ func CreateENI(ctx context.Context, cfg aws.Config, name string, subnetID string
 	ret := &Op{}
 	ret.applyOpts(opts)
 
-	logutil.S().Infow("creating an ENI", "name", name, "subnetID", subnetID, "securityGroupIDs", sgIDs)
+	tags := ConvertTags(name, ret.tags)
+	logutil.S().Infow("creating an ENI", "name", name, "subnetID", subnetID, "securityGroupIDs", sgIDs, "tags", tags)
 
-	ts := toTags(name, ret.tags)
 	cli := aws_ec2_v2.NewFromConfig(cfg)
 	out, err := cli.CreateNetworkInterface(ctx, &aws_ec2_v2.CreateNetworkInterfaceInput{
 		SubnetId:    aws.String(subnetID),
@@ -376,7 +417,7 @@ func CreateENI(ctx context.Context, cfg aws.Config, name string, subnetID string
 		TagSpecifications: []aws_ec2_v2_types.TagSpecification{
 			{
 				ResourceType: aws_ec2_v2_types.ResourceTypeNetworkInterface,
-				Tags:         ts,
+				Tags:         tags,
 			},
 		},
 	})
@@ -388,7 +429,10 @@ func CreateENI(ctx context.Context, cfg aws.Config, name string, subnetID string
 }
 
 // Returns true if it's deleted. Returns false if it's already deleted.
-func DeleteENI(ctx context.Context, cfg aws.Config, eniID string) (bool, error) {
+func DeleteENI(ctx context.Context, cfg aws.Config, eniID string, opts ...OpOption) (bool, error) {
+	ret := &Op{}
+	ret.applyOpts(opts)
+
 	logutil.S().Infow("deleting ENI", "eniID", eniID)
 
 	cli := aws_ec2_v2.NewFromConfig(cfg)
@@ -405,6 +449,12 @@ func DeleteENI(ctx context.Context, cfg aws.Config, eniID string) (bool, error) 
 	if err == nil {
 		deleted = true
 		logutil.S().Infow("successfully deleted ENI", "eniID", eniID)
+	} else {
+		if ret.retryErrFunc != nil && ret.retryErrFunc(err) {
+			logutil.S().Infow("retriable error", "eniID", eniID, "error", err)
+			time.Sleep(time.Second)
+			return DeleteENI(ctx, cfg, eniID, opts...)
+		}
 	}
 	return deleted, err
 }
