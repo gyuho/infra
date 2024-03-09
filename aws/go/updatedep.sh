@@ -14,6 +14,7 @@ go get -u github.com/aws/aws-sdk-go-v2/credentials
 go get -u github.com/aws/aws-sdk-go-v2/service/cloudformation
 go get -u github.com/aws/aws-sdk-go-v2/service/ec2
 go get -u github.com/aws/aws-sdk-go-v2/service/kms
+go get -u github.com/ethereum/go-ethereum
 go get -u github.com/aws/aws-sdk-go-v2/service/s3
 go get -u github.com/aws/aws-sdk-go-v2/service/secretsmanager
 go get -u github.com/aws/aws-sdk-go-v2/service/ssm
