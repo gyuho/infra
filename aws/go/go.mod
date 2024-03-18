@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/kms v1.29.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.4
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.28.2
-	github.com/aws/aws-sdk-go-v2/service/ssm v1.49.2
+	github.com/aws/aws-sdk-go-v2/service/ssm v1.49.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.4
 	github.com/dustin/go-humanize v1.0.1
 	github.com/ethereum/go-ethereum v1.13.14
