@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.47.1
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.150.0
 	github.com/aws/aws-sdk-go-v2/service/kms v1.29.2
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.51.4
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.52.1
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.28.2
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.49.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.4
