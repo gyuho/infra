@@ -261,17 +261,17 @@ func DeleteBucket(ctx context.Context, cfg aws.Config, bucketName string) error 
 // If empty, deletes all.
 func DeleteObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx string) error {
 	logutil.S().Infow("deleting objects in bucket", "bucket", bucketName, "prefix", pfx)
-	objects, err := ListObjects(ctx, cfg, bucketName, pfx)
+	objects, err := ListObjects(ctx, cfg, bucketName, WithPrefix(pfx))
 	if err != nil {
 		return err
 	}
-	if len(objects) == 0 {
+	if len(objects.Objects) == 0 {
 		logutil.S().Infow("no objects to delete", "bucket", bucketName, "prefix", pfx)
 		return nil
 	}
 
-	objIDs := make([]aws_s3_v2_types.ObjectIdentifier, 0, len(objects))
-	for _, obj := range objects {
+	objIDs := make([]aws_s3_v2_types.ObjectIdentifier, 0, len(objects.Objects))
+	for _, obj := range objects.Objects {
 		objIDs = append(objIDs, aws_s3_v2_types.ObjectIdentifier{
 			Key: obj.Key,
 		})
@@ -309,44 +309,63 @@ func DeleteObject(ctx context.Context, cfg aws.Config, bucketName string, s3Key 
 	return nil
 }
 
+type Objects struct {
+	Objects []aws_s3_v2_types.Object
+
+	// NextContinuationToken is sent when isTruncated is true, which means there are
+	// more keys in the bucket that can be listed. The next list requests to Amazon S3
+	// can be continued with this NextContinuationToken. NextContinuationToken is
+	// obfuscated and is not a real key.
+	// ref. https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
+	NextContinuationToken string
+}
+
 // ListObjects deletes objects in a bucket by the prefix.
 // If empty, deletes all.
-func ListObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx string) ([]aws_s3_v2_types.Object, error) {
-	logutil.S().Infow("listing objects in bucket", "bucket", bucketName, "prefix", pfx)
+func ListObjects(ctx context.Context, cfg aws.Config, bucketName string, opts ...OpOption) (Objects, error) {
+	options := &Op{}
+	options.applyOpts(opts)
+
+	logutil.S().Infow("listing objects in bucket", "bucket", bucketName, "maxKeys", options.limit, "prefix", options.prefix)
 	cli := aws_s3_v2.NewFromConfig(cfg)
 
 	objects := make([]aws_s3_v2_types.Object, 0)
 	token := ""
 	for {
-		input := &aws_s3_v2.ListObjectsInput{
+		input := &aws_s3_v2.ListObjectsV2Input{
 			Bucket: &bucketName,
 		}
-		if pfx != "" {
-			input.Prefix = &pfx
+		if options.prefix != "" {
+			input.Prefix = &options.prefix
 		}
 		if token != "" {
-			input.Marker = &token
+			input.ContinuationToken = &token
 		}
 
-		out, err := cli.ListObjects(ctx, input)
+		out, err := cli.ListObjectsV2(ctx, input)
 		if err != nil {
-			return nil, err
+			return Objects{}, err
 		}
-		logutil.S().Infow("listed objects", "maxKeys", out.MaxKeys, "contents", len(out.Contents))
+		logutil.S().Infow("listed objects", "maxKeys", out.MaxKeys, "truncated", out.IsTruncated, "contents", len(out.Contents))
 
-		if out.MaxKeys == nil || *out.MaxKeys == 0 {
-			break
+		if out.IsTruncated != nil && *out.IsTruncated && out.NextContinuationToken != nil && *out.NextContinuationToken != "" {
+			token = *out.NextContinuationToken
+			logutil.S().Infow("list has more objects, received non-empty continuation token")
+		} else {
+			token = ""
 		}
+
 		if len(out.Contents) == 0 {
 			break
 		}
 
 		objects = append(objects, out.Contents...)
-
-		if out.NextMarker != nil && *out.NextMarker != "" {
-			token = *out.NextMarker
-			logutil.S().Infow("next page", "nextMarker", token)
+		if options.limit > 0 && len(objects) >= options.limit {
+			logutil.S().Infow("received enough objects -- truncating", "limit", options.limit, "totalObjects", len(objects))
+			objects = objects[:options.limit]
+			break
 		}
+
 		if token == "" {
 			logutil.S().Infow("no next page")
 			break
@@ -360,7 +379,10 @@ func ListObjects(ctx context.Context, cfg aws.Config, bucketName string, pfx str
 	}
 
 	logutil.S().Infow("successfully listed bucket", "bucket", bucketName, "objects", len(objects))
-	return objects, nil
+	return Objects{
+		Objects:               objects,
+		NextContinuationToken: token,
+	}, nil
 }
 
 // Applies bucket expire policy to a bucket.
@@ -511,6 +533,12 @@ func GetObject(ctx context.Context, cfg aws.Config, bucketName string, s3Key str
 }
 
 type Op struct {
+	limit                 int
+	prefix                string
+	nextContinuationToken string
+
+	bucketRegion string
+
 	bucketACL       *aws_s3_v2_types.BucketCannedACL
 	objectACL       *aws_s3_v2_types.ObjectCannedACL
 	objectOwnership *aws_s3_v2_types.ObjectOwnership
@@ -540,6 +568,30 @@ type OpOption func(*Op)
 func (op *Op) applyOpts(opts []OpOption) {
 	for _, opt := range opts {
 		opt(op)
+	}
+}
+
+func WithLimit(v int) OpOption {
+	return func(op *Op) {
+		op.limit = v
+	}
+}
+
+func WithPrefix(v string) OpOption {
+	return func(op *Op) {
+		op.prefix = v
+	}
+}
+
+func WithNextContinuationToken(v string) OpOption {
+	return func(op *Op) {
+		op.nextContinuationToken = v
+	}
+}
+
+func WithBucketRegion(r string) OpOption {
+	return func(op *Op) {
+		op.bucketRegion = r
 	}
 }
 
