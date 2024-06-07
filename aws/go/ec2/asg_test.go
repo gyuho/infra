@@ -23,7 +23,7 @@ func TestListInstancesByASG(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	instances, err := ListInstancesByASG(ctx, cfg, randutil.AlphabetsLowerCase(10))
+	instances, err := ListInstancesByASG(ctx, cfg, randutil.StringAlphabetsLowerCase(10))
 	cancel()
 	if err != nil {
 		t.Fatal(err)

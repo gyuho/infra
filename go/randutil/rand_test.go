@@ -1,15 +1,20 @@
 package randutil
 
 import (
-	"fmt"
 	"testing"
+	"time"
 )
 
 func TestRand(t *testing.T) {
+	now := time.Now()
+	t.Logf("seeding with %v", now)
+
+	SetSeed(now.UnixNano())
+
 	prev := ""
 	for i := 0; i < 10; i++ {
-		v := AlphabetsLowerCase(5)
-		fmt.Println(v)
+		v := string(BytesAlphabetsLowerCase(5))
+		t.Log(v)
 
 		if prev == "" {
 			prev = v

@@ -68,7 +68,7 @@ func (c Cluster) WriteKubeconfig(p string) (string, error) {
 	}
 
 	if p == "" {
-		p = filepath.Join(os.TempDir(), fmt.Sprintf("kubeconfig-%s", randutil.AlphabetsLowerCase(32)))
+		p = filepath.Join(os.TempDir(), fmt.Sprintf("kubeconfig-%s", randutil.StringAlphabetsLowerCase(32)))
 	}
 	if err = os.WriteFile(p, b, 0644); err != nil {
 		return "", err

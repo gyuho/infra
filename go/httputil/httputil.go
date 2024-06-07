@@ -29,7 +29,7 @@ func DownloadFileToTmp(url string, opts ...OpOption) (string, error) {
 		return "", fmt.Errorf("failed to download file: %s", resp.Status)
 	}
 
-	file := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
+	file := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10))
 	f, err := os.Create(file)
 	if err != nil {
 		return "", err

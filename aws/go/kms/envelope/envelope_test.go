@@ -26,7 +26,7 @@ func TestEnvelope(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	keyName := randutil.AlphabetsLowerCase(10)
+	keyName := randutil.StringAlphabetsLowerCase(10)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	out, err := kms.Create(
 		ctx,
@@ -43,8 +43,8 @@ func TestEnvelope(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plaintext := randutil.BytesAlphaNumeric(3 * 1024 * 1024)
-	aadTag := randutil.BytesAlphaNumeric(32)
+	plaintext := randutil.BytesAlphabetsLowerCaseNumeric(3 * 1024 * 1024)
+	aadTag := randutil.BytesAlphabetsLowerCaseNumeric(32)
 
 	ctx, cancel = context.WithTimeout(context.Background(), 15*time.Second)
 	encrypted, err := SealAES256(ctx, cfg, *out.KeyId, plaintext, aadTag)

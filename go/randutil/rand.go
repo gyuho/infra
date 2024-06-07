@@ -2,41 +2,58 @@ package randutil
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 )
 
-func Intn(n int) int {
-	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return rd.Intn(n)
-}
-
 const (
-	alphabetsLowerCase                 = "abcdefghijklmnopqrstuvwxyz"
-	alphaLowerNumerics                 = "0123456789abcdefghijklmnopqrstuvwxyz"
-	alphaNumericsWithSpecialCharacters = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ?!@#$%^&*()-=_+[]{}';:,.<>"
+	alphabetsLowerCase                    = "abcdefghijklmnopqrstuvwxyz"
+	alphabetsLowerCaseNumeric             = "0123456789" + alphabetsLowerCase
+	alphabetsNumericWithSpecialCharacters = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ?!@#$%^&*()~-=_+[]{}';:,.<>|\\/"
 )
 
-func AlphabetsLowerCase(n int) string {
-	return string(randBytes(alphabetsLowerCase, n))
+func BytesAlphabetsLowerCase(n int) []byte {
+	return randBytes(alphabetsLowerCase, n)
 }
 
-func BytesAlphaNumeric(n int) []byte {
-	return randBytes(alphaLowerNumerics, n)
+func StringAlphabetsLowerCase(n int) string {
+	return string(BytesAlphabetsLowerCase(n))
 }
 
-func StringAlphaNumeric(n int) string {
-	return string(randBytes(alphaLowerNumerics, n))
+func BytesAlphabetsLowerCaseNumeric(n int) []byte {
+	return randBytes(alphabetsLowerCaseNumeric, n)
 }
 
-func StringAlphaNumericWithSpecialCharacters(n int) string {
-	return string(randBytes(alphaNumericsWithSpecialCharacters, n))
+func StringAlphabetsLowerCaseNumeric(n int) string {
+	return string(BytesAlphabetsLowerCaseNumeric(n))
+}
+
+func BytesAlphabetsNumericWithSpecialCharacters(n int) []byte {
+	return randBytes(alphabetsNumericWithSpecialCharacters, n)
+}
+
+func StringAlphabetsNumericWithSpecialCharacters(n int) string {
+	return string(BytesAlphabetsNumericWithSpecialCharacters(n))
+}
+
+var (
+	rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
+	mu  sync.Mutex
+)
+
+func SetSeed(seed int64) {
+	mu.Lock()
+	defer mu.Unlock()
+	rnd.Seed(seed)
 }
 
 func randBytes(pattern string, n int) []byte {
-	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	mu.Lock()
+	defer mu.Unlock()
+
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = pattern[rd.Intn(len(pattern))]
+		b[i] = pattern[rnd.Intn(len(pattern))]
 	}
 	return b
 }

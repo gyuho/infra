@@ -60,7 +60,7 @@ func TestPatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	podName := randutil.AlphabetsLowerCase(10)
+	podName := randutil.StringAlphabetsLowerCase(10)
 	finalizerName := "my.finalizer.name/hello"
 
 	podSpec := &core_v1.Pod{

@@ -25,7 +25,7 @@ func TestEBS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	volName := "volume" + randutil.AlphabetsLowerCase(10)
+	volName := "volume" + randutil.StringAlphabetsLowerCase(10)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	volID, err := CreateVolume(ctx, cfg, volName, WithTags(map[string]string{"a": "b"}))
 	cancel()

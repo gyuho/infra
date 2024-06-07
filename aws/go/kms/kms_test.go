@@ -25,7 +25,7 @@ func TestKMS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	keyName := randutil.AlphabetsLowerCase(10)
+	keyName := randutil.StringAlphabetsLowerCase(10)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	out, err := Create(
 		ctx,

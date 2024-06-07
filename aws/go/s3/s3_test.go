@@ -25,7 +25,7 @@ func TestS3Public(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	publicBucket := randutil.AlphabetsLowerCase(10)
+	publicBucket := randutil.StringAlphabetsLowerCase(10)
 
 	// Create twice to ensure the second create does not fail so we can safely retry on
 	// creation.
@@ -93,9 +93,9 @@ func TestS3Public(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
+	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10)), filepath.Join(randutil.StringAlphabetsLowerCase(10), randutil.StringAlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1)
-	err = os.WriteFile(localFile1, []byte(randutil.AlphabetsLowerCase(100)), 0644)
+	err = os.WriteFile(localFile1, []byte(randutil.StringAlphabetsLowerCase(100)), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,9 +114,9 @@ func TestS3Public(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
+	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10)), filepath.Join(randutil.StringAlphabetsLowerCase(10), randutil.StringAlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2)
-	err = os.WriteFile(localFile2, []byte(randutil.AlphabetsLowerCase(100)), 0644)
+	err = os.WriteFile(localFile2, []byte(randutil.StringAlphabetsLowerCase(100)), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestS3Public(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile1New := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
+	localFile1New := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1New)
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = GetObject(ctx, cfg, publicBucket, s3Key1, localFile1New)

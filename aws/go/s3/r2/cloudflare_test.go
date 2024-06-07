@@ -43,7 +43,7 @@ func TestCloudflarePrivate(t *testing.T) {
 		t.Logf("bucket %s (created %s)", bucket.Name, bucket.Created)
 	}
 
-	privateBucket := randutil.AlphabetsLowerCase(10)
+	privateBucket := randutil.StringAlphabetsLowerCase(10)
 
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = s3.CreateBucket(
@@ -100,9 +100,9 @@ func TestCloudflarePrivate(t *testing.T) {
 		}
 	}()
 
-	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
+	localFile1, s3Key1 := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10)), filepath.Join(randutil.StringAlphabetsLowerCase(10), randutil.StringAlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1)
-	localFile1b := []byte(randutil.AlphabetsLowerCase(100))
+	localFile1b := []byte(randutil.StringAlphabetsLowerCase(100))
 	err = os.WriteFile(localFile1, localFile1b, 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -114,9 +114,9 @@ func TestCloudflarePrivate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
+	localFile2, s3Key2 := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10)), filepath.Join(randutil.StringAlphabetsLowerCase(10), randutil.StringAlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2)
-	localFile2b := []byte(randutil.AlphabetsLowerCase(100))
+	localFile2b := []byte(randutil.StringAlphabetsLowerCase(100))
 	err = os.WriteFile(localFile2, localFile2b, 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestCloudflarePrivate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile1New := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
+	localFile1New := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile1New)
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = s3.GetObject(ctx, cfg, privateBucket, s3Key1, localFile1New)
@@ -137,7 +137,7 @@ func TestCloudflarePrivate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile2New := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10))
+	localFile2New := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile2New)
 	ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 	err = s3.GetObject(ctx, cfg, privateBucket, s3Key2, localFile2New)
@@ -183,7 +183,7 @@ func TestCloudflarePrivate(t *testing.T) {
 		t.Fatalf("tmpFileb != localFile2Newb: %s != %s", string(tmpFileb), string(localFile2Newb))
 	}
 
-	s3KeyForPut := filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
+	s3KeyForPut := filepath.Join(randutil.StringAlphabetsLowerCase(10), randutil.StringAlphabetsLowerCase(10))
 	preSignedURLForPut, err := s3.CreatePreSignedURLForPut(ctx, cfg, privateBucket, s3KeyForPut, 0)
 	if err != nil {
 		t.Fatal(err)

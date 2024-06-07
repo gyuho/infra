@@ -28,7 +28,7 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	privateBucket := randutil.AlphabetsLowerCase(10)
+	privateBucket := randutil.StringAlphabetsLowerCase(10)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	err = CreateBucket(
@@ -58,10 +58,10 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	localFile, s3Key := filepath.Join(os.TempDir(), randutil.AlphabetsLowerCase(10)), filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
+	localFile, s3Key := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10)), filepath.Join(randutil.StringAlphabetsLowerCase(10), randutil.StringAlphabetsLowerCase(10))
 	defer os.RemoveAll(localFile)
 
-	localFileb := []byte(randutil.AlphabetsLowerCase(100))
+	localFileb := []byte(randutil.StringAlphabetsLowerCase(100))
 	err = os.WriteFile(localFile, localFileb, 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -92,7 +92,7 @@ func TestS3PrivatePreSigned(t *testing.T) {
 		t.Fatalf("tmpFileb != localFileb: %s != %s", string(tmpFileb), string(localFileb))
 	}
 
-	s3KeyForPut := filepath.Join(randutil.AlphabetsLowerCase(10), randutil.AlphabetsLowerCase(10))
+	s3KeyForPut := filepath.Join(randutil.StringAlphabetsLowerCase(10), randutil.StringAlphabetsLowerCase(10))
 	preSignedURLForPut, err := CreatePreSignedURLForPut(ctx, cfg, privateBucket, s3KeyForPut, 0)
 	if err != nil {
 		t.Fatal(err)

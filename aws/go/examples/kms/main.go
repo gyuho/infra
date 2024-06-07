@@ -24,7 +24,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	keyName := randutil.AlphabetsLowerCase(10)
+	keyName := randutil.StringAlphabetsLowerCase(10)
 	out, err := kms.Create(
 		ctx,
 		cfg,
