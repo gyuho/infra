@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	setOnce sync.Once
-	logger  *zap.Logger
+	loggerMu sync.RWMutex
+	logger   *zap.Logger
 )
 
 func init() {
@@ -17,18 +17,29 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	// zap.ReplaceGlobals(lg)
 
-	setOnce.Do(func() {
-		logger = lg
-	})
+	SetZapLogger(lg)
+}
+
+func SetZapLogger(lg *zap.Logger) {
+	loggerMu.Lock()
+	defer loggerMu.Unlock()
+
+	logger = lg
+	zap.ReplaceGlobals(lg)
 }
 
 func L() *zap.Logger {
+	loggerMu.RLock()
+	defer loggerMu.RUnlock()
+
 	return logger
 }
 
 func S() *zap.SugaredLogger {
+	loggerMu.RLock()
+	defer loggerMu.RUnlock()
+
 	return logger.Sugar()
 }
 
