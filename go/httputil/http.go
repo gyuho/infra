@@ -5,10 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
-
-	"github.com/gyuho/infra/go/randutil"
 )
 
 func DownloadFileToTmp(url string, opts ...OpOption) (string, error) {
@@ -29,18 +26,16 @@ func DownloadFileToTmp(url string, opts ...OpOption) (string, error) {
 		return "", fmt.Errorf("failed to download file: %s", resp.Status)
 	}
 
-	file := filepath.Join(os.TempDir(), randutil.StringAlphabetsLowerCase(10))
-	f, err := os.Create(file)
+	f, err := os.CreateTemp(os.TempDir(), "download")
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
 
-	_, err = io.Copy(f, resp.Body)
-	if err != nil {
+	if _, err = io.Copy(f, resp.Body); err != nil {
 		return "", err
 	}
-	return file, nil
+	return f.Name(), nil
 }
 
 func ReadAll(url string) ([]byte, error) {
