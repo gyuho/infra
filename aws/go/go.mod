@@ -10,7 +10,7 @@ replace (
 )
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.27.1
+	github.com/aws/aws-sdk-go-v2 v1.30.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.17
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.51.2
