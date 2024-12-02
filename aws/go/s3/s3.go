@@ -395,8 +395,8 @@ func PutBucketObjectExpireConfiguration(ctx context.Context, cfg aws.Config, buc
 		rules = append(rules,
 			aws_s3_v2_types.LifecycleRule{
 				Status: aws_s3_v2_types.ExpirationStatusEnabled,
-				Filter: &aws_s3_v2_types.LifecycleRuleFilterMemberPrefix{
-					Value: pfx,
+				Filter: &aws_s3_v2_types.LifecycleRuleFilter{
+					Prefix: &pfx,
 				},
 				Expiration: &aws_s3_v2_types.LifecycleExpiration{
 					Days: &days,

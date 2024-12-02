@@ -27,6 +27,7 @@ func TestCloudflarePrivate(t *testing.T) {
 		os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
 		os.Getenv("CLOUDFLARE_ACCESS_KEY_ID"),
 		os.Getenv("CLOUDFLARE_ACCESS_KEY_SECRET"),
+		WithRegion("wnam"),
 	)
 	cancel()
 	if err != nil {

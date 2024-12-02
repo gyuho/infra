@@ -28,6 +28,7 @@ func NewAWSCompatibleConfig(ctx context.Context, accountID string, accessKeyID s
 
 	return config.LoadDefaultConfig(ctx,
 		config.WithEndpointResolverWithOptions(resolver),
+		config.WithRegion(ret.region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKeyID, accessKeySecret, "")),
 	)
 }
