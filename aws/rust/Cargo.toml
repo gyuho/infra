@@ -33,7 +33,7 @@ aws-types = "1.0.3"
 log = "0.4.20"
 
 # https://github.com/dtolnay/thiserror/releases
-thiserror = "1.0.57"
+thiserror = "2.0.7"
 
 # https://github.com/tokio-rs/tokio/releases
 tokio = { version = "1.36.0", features = ["full"] }
